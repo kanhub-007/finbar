@@ -4,8 +4,18 @@ Includes data fetchers, rate limiters, indicator calculators, and
 backtest engines.
 """
 
+from finbar.infrastructure.services.backtest_runner import BacktestRunner
+from finbar.infrastructure.services.backtest_strategies import (
+    RsiMeanReversionStrategy,
+    SmaCrossoverStrategy,
+)
 from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
 
-__all__ = ["PandasTaIndicatorCalculator"]
+__all__ = [
+    "BacktestRunner",
+    "PandasTaIndicatorCalculator",
+    "RsiMeanReversionStrategy",
+    "SmaCrossoverStrategy",
+]

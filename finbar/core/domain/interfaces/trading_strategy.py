@@ -31,6 +31,15 @@ class TradingStrategy(ABC):
         """
         ...
 
+    def on_reset(self) -> None:
+        """Reset internal strategy state for a new backtest run.
+
+        Called by the backtest engine before starting a new run.
+        Stateful strategies (e.g. SMA crossover) should clear their
+        internal tracking variables here. Stateless strategies can
+        leave this as a no-op.
+        """
+
     @abstractmethod
     def on_bar(self, bar: dict, position: dict) -> SignalResult:
         """Evaluate one bar and return a trading signal.
