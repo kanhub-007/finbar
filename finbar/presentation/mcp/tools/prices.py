@@ -205,7 +205,10 @@ async def _run_fetch_job(job: FetchJob) -> None:
     try:
         await asyncio.to_thread(_sync_run_fetch_job, job)
     except asyncio.CancelledError:
-        _get_job_manager().update(job, status="cancelled", error="Cancelled by user")
+        mgr = _get_job_manager()
+        current = mgr.get(job.job_id)
+        if current and current.status not in ("completed", "failed"):
+            mgr.update(job, status="cancelled", error="Cancelled by user")
         raise
 
 
