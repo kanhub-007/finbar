@@ -66,9 +66,7 @@ class TestRunBacktestUseCase:
         self.use_case = RunBacktestUseCase(self.engine, self.registry)
 
     def test_empty_bars_returns_error(self):
-        result = self.use_case.execute(
-            BacktestRequest(bars=[], strategy_name="stub")
-        )
+        result = self.use_case.execute(BacktestRequest(bars=[], strategy_name="stub"))
         assert isinstance(result, BacktestResultDTO)
         assert result.error is not None
 

@@ -1,6 +1,5 @@
 """Tests for backtest performance metrics — pure math, no I/O."""
 
-
 from finbar.core.domain.services.backtest_metrics import (
     calculate_annualised_return,
     calculate_calmar_ratio,

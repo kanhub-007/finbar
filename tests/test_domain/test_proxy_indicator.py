@@ -1,6 +1,5 @@
 """Tests for proxy indicator functions — pure math, no I/O."""
 
-
 import pandas as pd
 
 from finbar.core.domain.services.proxy_indicator import (

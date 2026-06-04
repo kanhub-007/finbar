@@ -1,6 +1,5 @@
 """Unit tests for application use cases with mocked interfaces."""
 
-
 import pandas as pd
 
 from finbar.core.application.dto.apply_indicators_request import (
@@ -48,9 +47,7 @@ class TestApplyIndicatorsUseCase:
                 "volume": 1000000,
             }
         ]
-        result = self.use_case.execute(
-            ApplyIndicatorsRequest(bars=bars, indicators=[])
-        )
+        result = self.use_case.execute(ApplyIndicatorsRequest(bars=bars, indicators=[]))
         assert result.error is None
         assert result.bar_count == 1
         assert result.indicators_applied == []

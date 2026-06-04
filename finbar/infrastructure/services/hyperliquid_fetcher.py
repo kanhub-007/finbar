@@ -43,11 +43,11 @@ INTERVAL_MAP: dict[str, str] = {
 
 # Max bars per request per interval
 MAX_BARS: dict[str, int] = {
-    "5min": 1000,
-    "30min": 1000,
-    "1h": 1000,
-    "1d": 1000,
-    "1w": 500,
+    "5min": 5000,
+    "30min": 5000,
+    "1h": 5000,
+    "1d": 5000,
+    "1w": 5000,
 }
 
 # API limit per interval in days (approximate)

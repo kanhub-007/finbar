@@ -8,6 +8,9 @@ Strategies are pure trading logic — no framework dependencies.
 from finbar.infrastructure.services.backtest_strategies.auction_drive import (
     AuctionDriveStrategy,
 )
+from finbar.infrastructure.services.backtest_strategies.momentum_breakout import (
+    MomentumBreakoutStrategy,
+)
 from finbar.infrastructure.services.backtest_strategies.rsi_mean_reversion import (
     RsiMeanReversionStrategy,
 )
@@ -17,6 +20,7 @@ from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
 
 __all__ = [
     "AuctionDriveStrategy",
+    "MomentumBreakoutStrategy",
     "RsiMeanReversionStrategy",
     "SmaCrossoverStrategy",
 ]
