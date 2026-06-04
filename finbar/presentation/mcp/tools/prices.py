@@ -33,7 +33,7 @@ def register_price_tools(mcp: FastMCP) -> None:
     def get_latest_quote(symbol: str, source: str = "yfinance") -> str:
         db = _get_db()
         try:
-            use_case = _make_get_latest_quote_use_case(db)
+            use_case = _make_get_latest_quote_use_case(db, source)
             bar = use_case.execute(symbol.upper())
             if bar is None:
                 return f"No data available for {symbol}"
@@ -156,7 +156,7 @@ async def _run_fetch_job(job: FetchJob) -> None:
     try:
         db = _get_db()
         try:
-            use_case = _make_fetch_prices_use_case(db)
+            use_case = _make_fetch_prices_use_case(db, job.source)
             request = FetchPricesRequest(
                 symbol=job.symbol,
                 source=job.source,

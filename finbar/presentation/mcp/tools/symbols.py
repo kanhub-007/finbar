@@ -6,6 +6,7 @@ from fastmcp import FastMCP
 
 from ._shared import (
     _get_db,
+    _get_hl_tickers,
     _make_get_symbol_info_use_case,
     _make_list_cached_use_case,
 )
@@ -26,7 +27,7 @@ def register_symbol_tools(mcp: FastMCP) -> None:
         """Look up symbol metadata."""
         db = _get_db()
         try:
-            use_case = _make_get_symbol_info_use_case(db)
+            use_case = _make_get_symbol_info_use_case(db, "yfinance")
             info = use_case.execute(symbol.upper())
             if info is None:
                 return f"Symbol not found: {symbol}"
@@ -58,6 +59,20 @@ def register_symbol_tools(mcp: FastMCP) -> None:
             return json.dumps(symbols, indent=2)
         finally:
             db.close()
+
+    @mcp.tool(
+        name="list_hyperliquid_tickers",
+        description=(
+            "List available Hyperliquid tickers by market type. "
+            "Types: 'spot' (spot markets), 'perp' (perpetual futures), "
+            "'hip3' (third-party DEX perpetuals), 'all' (everything). "
+            "Returns ticker symbols with metadata."
+        ),
+    )
+    def list_hyperliquid_tickers(market_type: str = "all") -> str:
+        """Return Hyperliquid tickers as JSON."""
+        tickers = _get_hl_tickers(market_type)
+        return json.dumps(tickers, indent=2)
 
     @mcp.tool(
         name="get_usage_guide",

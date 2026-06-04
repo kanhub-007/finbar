@@ -7,6 +7,7 @@ from finbar.presentation.api.dto.responses import (
 )
 from finbar.presentation.mcp.tools._shared import (
     _get_db,
+    _get_hl_tickers,
     _make_get_symbol_info_use_case,
     _make_list_cached_use_case,
 )
@@ -30,6 +31,15 @@ def list_cached(source: str | None = Query(None, description="Data source filter
 
 
 @router.get(
+    "/hyperliquid/tickers",
+    summary="List Hyperliquid tickers",
+)
+def list_hl_tickers(type: str = "all"):
+    """List available Hyperliquid tickers by market type."""
+    return _get_hl_tickers(type)
+
+
+@router.get(
     "/{symbol}",
     response_model=SymbolInfoResponse,
     summary="Get symbol metadata",
@@ -38,7 +48,7 @@ def get_symbol(symbol: str):
     """Retrieve company/asset metadata for a ticker symbol."""
     db = _get_db()
     try:
-        use_case = _make_get_symbol_info_use_case(db)
+        use_case = _make_get_symbol_info_use_case(db, "yfinance")
         info = use_case.execute(symbol.upper())
         if info is None:
             raise HTTPException(status_code=404, detail=f"Symbol not found: {symbol}")

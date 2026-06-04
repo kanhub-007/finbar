@@ -37,7 +37,7 @@ def get_latest(symbol: str, source: str = Query("yfinance")):
     """Get the most recent OHLCV bar for a symbol."""
     db = _get_db()
     try:
-        use_case = _make_get_latest_quote_use_case(db)
+        use_case = _make_get_latest_quote_use_case(db, source)
         bar = use_case.execute(symbol.upper())
         if bar is None:
             raise HTTPException(status_code=404, detail=f"No data for {symbol}")
@@ -155,7 +155,7 @@ async def _run_fetch_job(job: FetchJob) -> None:
     try:
         db = _get_db()
         try:
-            use_case = _make_fetch_prices_use_case(db)
+            use_case = _make_fetch_prices_use_case(db, job.source)
             request = FetchPricesRequest(
                 symbol=job.symbol,
                 source=job.source,
