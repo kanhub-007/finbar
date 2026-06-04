@@ -15,6 +15,21 @@ router = APIRouter(prefix="/api/symbols", tags=["Symbols"])
 
 
 @router.get(
+    "/cached",
+    response_model=list[str],
+    summary="List cached symbols",
+)
+def list_cached(source: str | None = Query(None, description="Data source filter")):
+    """List symbols that have data in the local cache."""
+    db = _get_db()
+    try:
+        use_case = _make_list_cached_use_case(db)
+        return use_case.execute(source=source)
+    finally:
+        db.close()
+
+
+@router.get(
     "/{symbol}",
     response_model=SymbolInfoResponse,
     summary="Get symbol metadata",
@@ -35,20 +50,5 @@ def get_symbol(symbol: str):
             exchange=info.exchange,
             market_cap=info.market_cap,
         )
-    finally:
-        db.close()
-
-
-@router.get(
-    "/cached",
-    response_model=list[str],
-    summary="List cached symbols",
-)
-def list_cached(source: str | None = Query(None, description="Data source filter")):
-    """List symbols that have data in the local cache."""
-    db = _get_db()
-    try:
-        use_case = _make_list_cached_use_case(db)
-        return use_case.execute(source=source)
     finally:
         db.close()
