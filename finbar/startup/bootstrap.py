@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 # Import table modules so Base.metadata knows about them before create_all()
 import finbar.infrastructure.tables.price_bar  # noqa: F401
+import finbar.infrastructure.tables.strategy_definition  # noqa: F401
 import finbar.infrastructure.tables.symbol_info  # noqa: F401
 from finbar.infrastructure.data.connection import init_db as _init_db
 from finbar.infrastructure.logging_config import setup_logging

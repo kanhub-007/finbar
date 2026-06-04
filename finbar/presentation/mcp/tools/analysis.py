@@ -11,10 +11,10 @@ from fastmcp import FastMCP
 from finbar.core.application.dto.apply_indicators_request import (
     ApplyIndicatorsRequest,
 )
-from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.presentation.mcp.tools._shared import (
     _make_apply_indicators_use_case,
     _make_run_backtest_use_case,
+    _resolve_strategy,
 )
 
 logger = logging.getLogger(__name__)
@@ -142,47 +142,62 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             return json.dumps({"error": f"Invalid bars_json: {e}"})
 
         try:
-            params = json.loads(params_json)
+            json.loads(params_json)  # validate only
         except json.JSONDecodeError as e:
             return json.dumps({"error": f"Invalid params_json: {e}"})
 
-        use_case = _make_run_backtest_use_case()
-        result = use_case.execute(
-            BacktestRequest(
-                bars=bars,
-                strategy_name=strategy_name,
-                symbol=symbol,
-                interval=interval,
-                params=params,
-                initial_cash=initial_cash,
-            )
-        )
+        strategy = _resolve_strategy(strategy_name)
+        if strategy is None:
+            return json.dumps({"error": f"Unknown strategy '{strategy_name}'"})
+
+        # Run backtest directly with the resolved strategy
+        df = _bars_to_df(bars)
+        if df.empty:
+            return json.dumps({"error": "No bars to process"})
+
+        from finbar.infrastructure.services.backtest_runner import BacktestRunner
+
+        runner = BacktestRunner()
+        raw = runner.run(df, strategy, initial_cash)
+        raw["symbol"] = symbol
+        raw["interval"] = interval
 
         return json.dumps(
             {
-                "strategy_name": result.strategy_name,
-                "symbol": result.symbol,
-                "interval": result.interval,
-                "start_date": result.start_date,
-                "end_date": result.end_date,
-                "bar_count": result.bar_count,
-                "initial_cash": result.initial_cash,
-                "final_value": result.final_value,
-                "total_return": result.total_return,
-                "annualized_return": result.annualized_return,
-                "total_trades": result.total_trades,
-                "winning_trades": result.winning_trades,
-                "losing_trades": result.losing_trades,
-                "win_rate": result.win_rate,
-                "max_drawdown": result.max_drawdown,
-                "sharpe_ratio": result.sharpe_ratio,
-                "sortino_ratio": result.sortino_ratio,
-                "profit_factor": result.profit_factor,
-                "calmar_ratio": result.calmar_ratio,
-                "trades": result.trades,
-                "equity_curve": result.equity_curve,
-                "error": result.error,
+                "strategy_name": raw.get("strategy_name", ""),
+                "symbol": raw.get("symbol", ""),
+                "interval": raw.get("interval", ""),
+                "start_date": raw.get("start_date", ""),
+                "end_date": raw.get("end_date", ""),
+                "bar_count": raw.get("bar_count", 0),
+                "initial_cash": raw.get("initial_cash", 0),
+                "final_value": raw.get("final_value", 0),
+                "total_return": raw.get("total_return", 0),
+                "annualized_return": raw.get("annualized_return"),
+                "total_trades": raw.get("total_trades", 0),
+                "winning_trades": raw.get("winning_trades", 0),
+                "losing_trades": raw.get("losing_trades", 0),
+                "win_rate": raw.get("win_rate", 0),
+                "max_drawdown": raw.get("max_drawdown", 0),
+                "sharpe_ratio": raw.get("sharpe_ratio", 0),
+                "sortino_ratio": raw.get("sortino_ratio", 0),
+                "profit_factor": raw.get("profit_factor"),
+                "calmar_ratio": raw.get("calmar_ratio", 0),
+                "trades": raw.get("trades", []),
+                "equity_curve": raw.get("equity_curve", []),
+                "error": raw.get("error"),
             },
             indent=2,
             default=str,
         )
+
+
+def _bars_to_df(bars: list[dict]):
+    """Convert a list of bar dicts to a pandas DataFrame with datetime index."""
+    import pandas as pd
+
+    df = pd.DataFrame(bars)
+    if "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df = df.set_index("timestamp").sort_index()
+    return df

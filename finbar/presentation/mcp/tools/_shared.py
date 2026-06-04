@@ -157,7 +157,11 @@ def _make_apply_indicators_use_case():
 
 
 def _make_run_backtest_use_case():
-    """Lazy-init the RunBacktestUseCase with engine and strategy registry."""
+    """Lazy-init the RunBacktestUseCase with engine and strategy registry.
+
+    Registry combines built-in Python strategies with user-defined
+    strategies from the SQLite database.
+    """
     global _bt_runner, _bt_registry, _run_backtest_uc
     if _run_backtest_uc is None:
         from finbar.core.application.use_cases.run_backtest import (
@@ -178,3 +182,33 @@ def _make_run_backtest_use_case():
         }
         _run_backtest_uc = RunBacktestUseCase(_bt_runner, _bt_registry)
     return _run_backtest_uc
+
+
+def _resolve_strategy(name: str) -> object | None:
+    """Resolve a strategy by name — checks built-in registry, then DB.
+
+    Returns a TradingStrategy instance or None if not found.
+    """
+    uc = _make_run_backtest_use_case()
+    builtin = uc._registry.get(name)
+    if builtin is not None:
+        return builtin
+
+    # Check DB for user-defined strategies
+    db = _get_db()
+    try:
+        from finbar.infrastructure.repositories import (
+            sql_strategy_definition_repository as sdr,
+        )
+        from finbar.infrastructure.services.rule_based_strategy import (
+            RuleBasedStrategy,
+        )
+
+        repo = sdr.SqlStrategyDefinitionRepository(db)
+        sdef = repo.find_by_name(name)
+        if sdef is not None:
+            return RuleBasedStrategy(sdef)
+    finally:
+        db.close()
+
+    return None
