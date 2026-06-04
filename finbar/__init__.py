@@ -1,0 +1,1 @@
+"""Finbar — financial bars microservice."""
