@@ -191,6 +191,87 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             default=str,
         )
 
+    @mcp.tool(
+        name="merge_and_backtest",
+        description=(
+            "Run a multi-interval backtest by merging primary (intraday) "
+            "and informative (daily) bars before running the strategy. "
+            "For strategies like auction_drive that need intraday entries "
+            "plus daily trend context. Merges columns with interval "
+            "suffix (e.g., sma_50 → sma_50_1d). Applies required "
+            "indicators automatically."
+        ),
+    )
+    def merge_and_backtest(
+        primary_bars_json: str,
+        informative_bars_json: str,
+        strategy_name: str,
+        informative_interval: str = "1d",
+        symbol: str = "",
+        interval: str = "",
+        initial_cash: float = 10000.0,
+    ) -> str:
+        try:
+            primary_bars = json.loads(primary_bars_json)
+            info_bars = json.loads(informative_bars_json)
+        except json.JSONDecodeError as e:
+            return json.dumps({"error": f"Invalid JSON: {e}"})
+
+        primary_df = _bars_to_df(primary_bars)
+        info_df = _bars_to_df(info_bars)
+
+        if primary_df.empty:
+            return json.dumps({"error": "Primary bars list is empty"})
+
+        from finbar.infrastructure.services.bar_merger import merge_timeframes
+
+        merged_df = merge_timeframes(primary_df, info_df, informative_interval)
+
+        strategy = _resolve_strategy(strategy_name)
+        if strategy is None:
+            return json.dumps({"error": f"Unknown strategy '{strategy_name}'"})
+
+        required = strategy.meta().required_indicators
+        if required:
+            uc = _make_apply_indicators_use_case()
+            merged_df = uc._calculator.calculate(merged_df, required)
+
+        from finbar.infrastructure.services.backtest_runner import BacktestRunner
+
+        runner = BacktestRunner()
+        raw = runner.run(merged_df, strategy, initial_cash)
+        raw["symbol"] = symbol
+        raw["interval"] = interval
+
+        return json.dumps(
+            {
+                "strategy_name": raw.get("strategy_name", ""),
+                "symbol": raw.get("symbol", ""),
+                "interval": raw.get("interval", ""),
+                "start_date": raw.get("start_date", ""),
+                "end_date": raw.get("end_date", ""),
+                "bar_count": raw.get("bar_count", 0),
+                "initial_cash": raw.get("initial_cash", 0),
+                "final_value": raw.get("final_value", 0),
+                "total_return": raw.get("total_return", 0),
+                "annualized_return": raw.get("annualized_return"),
+                "total_trades": raw.get("total_trades", 0),
+                "winning_trades": raw.get("winning_trades", 0),
+                "losing_trades": raw.get("losing_trades", 0),
+                "win_rate": raw.get("win_rate", 0),
+                "max_drawdown": raw.get("max_drawdown", 0),
+                "sharpe_ratio": raw.get("sharpe_ratio", 0),
+                "sortino_ratio": raw.get("sortino_ratio", 0),
+                "profit_factor": raw.get("profit_factor"),
+                "calmar_ratio": raw.get("calmar_ratio", 0),
+                "trades": raw.get("trades", []),
+                "equity_curve": raw.get("equity_curve", []),
+                "error": raw.get("error"),
+            },
+            indent=2,
+            default=str,
+        )
+
 
 def _bars_to_df(bars: list[dict]):
     """Convert a list of bar dicts to a pandas DataFrame with datetime index."""

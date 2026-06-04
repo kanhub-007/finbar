@@ -168,6 +168,9 @@ def _make_run_backtest_use_case():
             RunBacktestUseCase,
         )
         from finbar.infrastructure.services.backtest_runner import BacktestRunner
+        from finbar.infrastructure.services.backtest_strategies.auction_drive import (  # noqa: E501
+            AuctionDriveStrategy,
+        )
         from finbar.infrastructure.services.backtest_strategies.rsi_mean_reversion import (  # noqa: E501
             RsiMeanReversionStrategy,
         )
@@ -179,6 +182,7 @@ def _make_run_backtest_use_case():
         _bt_registry = {
             "sma_crossover": SmaCrossoverStrategy(),
             "rsi_mean_reversion": RsiMeanReversionStrategy(),
+            "auction_drive": AuctionDriveStrategy(),
         }
         _run_backtest_uc = RunBacktestUseCase(_bt_runner, _bt_registry)
     return _run_backtest_uc
