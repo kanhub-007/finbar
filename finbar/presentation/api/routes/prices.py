@@ -148,43 +148,46 @@ def delete_cached(
         db.close()
 
 
-async def _run_fetch_job(job: FetchJob) -> None:
-    """Background runner for API fetch jobs."""
+def _sync_run_fetch_job(job: FetchJob) -> None:
+    """Synchronous fetch runner — runs in thread pool."""
     manager = _get_job_manager()
     manager.update(job, status="running", progress_pct=10)
+    db = _get_db()
     try:
-        db = _get_db()
-        try:
-            use_case = _make_fetch_prices_use_case(db, job.source)
-            request = FetchPricesRequest(
-                symbol=job.symbol,
-                source=job.source,
-                interval=job.interval,
-                start_date=job.start_date,
-                end_date=job.end_date,
-            )
-            result = use_case.execute(request)
-            if result.error:
-                manager.update(
-                    job, status="failed", progress_pct=100, error=result.error
-                )
-                return
-            manager.update(
-                job,
-                status="completed",
-                progress_pct=100,
-                result=json.dumps(
-                    {
-                        "symbol": result.symbol,
-                        "bar_count": result.bar_count,
-                        "origin": result.origin,
-                    }
-                ),
-            )
-        finally:
-            db.close()
-    except asyncio.CancelledError:
-        manager.update(job, status="cancelled", error="Cancelled by user")
-        raise
+        use_case = _make_fetch_prices_use_case(db, job.source)
+        request = FetchPricesRequest(
+            symbol=job.symbol,
+            source=job.source,
+            interval=job.interval,
+            start_date=job.start_date,
+            end_date=job.end_date,
+        )
+        result = use_case.execute(request)
+        if result.error:
+            manager.update(job, status="failed", progress_pct=100, error=result.error)
+            return
+        manager.update(
+            job,
+            status="completed",
+            progress_pct=100,
+            result=json.dumps(
+                {
+                    "symbol": result.symbol,
+                    "bar_count": result.bar_count,
+                    "origin": result.origin,
+                }
+            ),
+        )
     except Exception as exc:
         manager.update(job, status="failed", progress_pct=100, error=str(exc))
+    finally:
+        db.close()
+
+
+async def _run_fetch_job(job: FetchJob) -> None:
+    """Async wrapper — runs blocking fetch in thread pool."""
+    try:
+        await asyncio.to_thread(_sync_run_fetch_job, job)
+    except asyncio.CancelledError:
+        _get_job_manager().update(job, status="cancelled", error="Cancelled by user")
+        raise
