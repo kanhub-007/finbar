@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
     )
 
+    from finbar.presentation.api.routes.analysis import router as analysis_router
     from finbar.presentation.api.routes.health import router as health_router
     from finbar.presentation.api.routes.jobs import router as jobs_router
     from finbar.presentation.api.routes.prices import router as prices_router
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
 
     app.include_router(symbols_router)
     app.include_router(prices_router)
+    app.include_router(analysis_router)
     app.include_router(jobs_router)
     app.include_router(health_router)
 

@@ -1,0 +1,188 @@
+"""Analysis MCP tools — indicators and backtesting.
+
+The AI client composes: get_cached_prices → apply_indicators → run_backtest.
+"""
+
+import json
+import logging
+
+from fastmcp import FastMCP
+
+from finbar.core.application.dto.apply_indicators_request import (
+    ApplyIndicatorsRequest,
+)
+from finbar.core.application.dto.backtest_request import BacktestRequest
+from finbar.presentation.mcp.tools._shared import (
+    _make_apply_indicators_use_case,
+    _make_run_backtest_use_case,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def register_analysis_tools(mcp: FastMCP) -> None:
+    """Register indicator and backtest MCP tools."""
+
+    @mcp.tool(
+        name="apply_indicators",
+        description=(
+            "Apply technical indicators to OHLCV bars. "
+            "Pass bars as JSON string (from get_cached_prices or "
+            "fetch_price_history results) and a list of indicator names. "
+            "Returns enriched bars with indicator columns. "
+            "Supported indicators: rsi_7, rsi_14, sma_10, sma_20, sma_30, "
+            "sma_50, sma_200, ema_12, ema_26, macd, macd_signal, macd_hist, "
+            "atr, adx, vwap, bb_upper, bb_middle, bb_lower, ibs, rvol, ker, "
+            "kama, "
+            "price_vs_sma20, trend_direction, trend_strength, trend_status, "
+            "swing_high_20, swing_low_20, breakout_level, breakout_signal, "
+            "is_power_zone, breakout_quality, vol_buffer_high, vol_buffer_low, "
+            "and proxy indicators (proxy_ibs, proxy_parkinson, "
+            "proxy_typical_price, etc.)."
+        ),
+    )
+    def apply_indicators(bars_json: str, indicators: list[str]) -> str:
+        """Apply indicators to bars and return enriched JSON.
+
+        Args:
+            bars_json: JSON string with OHLCV bars (from get_cached_prices).
+                       Must include keys: timestamp, open, high, low, close,
+                       volume.
+            indicators: List of indicator names to compute.
+
+        Returns:
+            JSON string with bars plus indicator columns.
+        """
+        try:
+            bars = json.loads(bars_json)
+            if not isinstance(bars, list):
+                return json.dumps(
+                    {"error": "bars_json must be a JSON array of bar objects"}
+                )
+        except json.JSONDecodeError as e:
+            return json.dumps({"error": f"Invalid JSON: {e}"})
+
+        use_case = _make_apply_indicators_use_case()
+        result = use_case.execute(
+            ApplyIndicatorsRequest(bars=bars, indicators=indicators)
+        )
+
+        return json.dumps(
+            {
+                "bar_count": result.bar_count,
+                "indicators_applied": result.indicators_applied,
+                "bars": result.bars,
+                "error": result.error,
+            },
+            indent=2,
+            default=str,
+        )
+
+    @mcp.tool(
+        name="list_backtest_strategies",
+        description=(
+            "List available built-in backtest strategies. "
+            "Returns strategy names, descriptions, required indicators, "
+            "and default parameters. Use these names in run_backtest()."
+        ),
+    )
+    def list_backtest_strategies() -> str:
+        """List all registered backtest strategies and their metadata."""
+        use_case = _make_run_backtest_use_case()
+        strategies = []
+        for name, strategy in sorted(use_case._registry.items()):
+            meta = strategy.meta()
+            strategies.append(
+                {
+                    "name": meta.name,
+                    "description": meta.description,
+                    "required_indicators": meta.required_indicators,
+                    "default_params": meta.params,
+                }
+            )
+        return json.dumps(strategies, indent=2)
+
+    @mcp.tool(
+        name="run_backtest",
+        description=(
+            "Run a backtest with a named strategy against historical bars. "
+            "Pass bars (optionally enriched with apply_indicators) as JSON, "
+            "a strategy name (use list_backtest_strategies to discover), "
+            "and optional strategy parameters. "
+            "Returns performance metrics: total_return, sharpe_ratio, "
+            "max_drawdown, win_rate, trades list, equity_curve. "
+            "Built-in strategies: sma_crossover, rsi_mean_reversion."
+        ),
+    )
+    def run_backtest(
+        bars_json: str,
+        strategy_name: str,
+        symbol: str = "",
+        interval: str = "",
+        params_json: str = "{}",
+        initial_cash: float = 10000.0,
+    ) -> str:
+        """Run a backtest and return structured results.
+
+        Args:
+            bars_json: JSON string with OHLCV bars (optionally enriched).
+            strategy_name: Strategy identifier (e.g. "sma_crossover").
+            symbol: Ticker symbol (for result metadata).
+            interval: Bar interval (e.g. "1d", "1h").
+            params_json: JSON string with strategy parameters.
+            initial_cash: Starting capital.
+
+        Returns:
+            JSON string with BacktestResultDTO fields.
+        """
+        # Parse inputs
+        try:
+            bars = json.loads(bars_json)
+        except json.JSONDecodeError as e:
+            return json.dumps({"error": f"Invalid bars_json: {e}"})
+
+        try:
+            params = json.loads(params_json)
+        except json.JSONDecodeError as e:
+            return json.dumps({"error": f"Invalid params_json: {e}"})
+
+        use_case = _make_run_backtest_use_case()
+        result = use_case.execute(
+            BacktestRequest(
+                bars=bars,
+                strategy_name=strategy_name,
+                symbol=symbol,
+                interval=interval,
+                params=params,
+                initial_cash=initial_cash,
+            )
+        )
+
+        return json.dumps(
+            {
+                "strategy_name": result.strategy_name,
+                "symbol": result.symbol,
+                "interval": result.interval,
+                "start_date": result.start_date,
+                "end_date": result.end_date,
+                "bar_count": result.bar_count,
+                "initial_cash": result.initial_cash,
+                "final_value": result.final_value,
+                "total_return": result.total_return,
+                "annualized_return": result.annualized_return,
+                "total_trades": result.total_trades,
+                "winning_trades": result.winning_trades,
+                "losing_trades": result.losing_trades,
+                "win_rate": result.win_rate,
+                "max_drawdown": result.max_drawdown,
+                "sharpe_ratio": result.sharpe_ratio,
+                "sortino_ratio": result.sortino_ratio,
+                "profit_factor": result.profit_factor,
+                "calmar_ratio": result.calmar_ratio,
+                "trades": result.trades,
+                "equity_curve": result.equity_curve,
+                "error": result.error,
+            },
+            indent=2,
+            default=str,
+        )

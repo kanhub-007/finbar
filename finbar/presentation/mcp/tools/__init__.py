@@ -8,6 +8,7 @@ Pattern copied from kapsula/presentation/mcp/tools/__init__.py.
 
 from fastmcp import FastMCP
 
+from .analysis import register_analysis_tools
 from .jobs import register_job_tools
 from .prices import register_price_tools
 from .symbols import register_symbol_tools
@@ -18,3 +19,4 @@ def register_tools(mcp: FastMCP) -> None:
     register_symbol_tools(mcp)
     register_price_tools(mcp)
     register_job_tools(mcp)
+    register_analysis_tools(mcp)

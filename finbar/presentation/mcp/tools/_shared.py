@@ -39,6 +39,11 @@ from finbar.infrastructure.services.yfinance_stock_fetcher import (
 _fetcher: YFinanceStockFetcher | None = None
 _hl_fetcher: object | None = None  # HyperliquidFetcher, lazy-imported
 _job_manager: object | None = None  # FetchJobManager, lazy-imported
+_indicator_calc: object | None = None  # PandasTaIndicatorCalculator, lazy-imported
+_bt_runner: object | None = None  # BacktestRunner, lazy-imported
+_bt_registry: dict | None = None  # Strategy registry, lazy-imported
+_apply_indicators_uc: object | None = None  # ApplyIndicatorsUseCase, lazy-imported
+_run_backtest_uc: object | None = None  # RunBacktestUseCase, lazy-imported
 
 
 def _get_db() -> Session:
@@ -131,3 +136,46 @@ def _get_hl_tickers(market_type: str = "all"):
         perp = fetcher.fetch_perp_tickers()
         hip3 = fetcher.fetch_hip3_tickers()
         return spot + perp + hip3
+
+
+# ── Analysis use case factories ──────────────────────────────────────────
+
+
+def _make_apply_indicators_use_case():
+    """Lazy-init the ApplyIndicatorsUseCase with PandasTaIndicatorCalculator."""
+    global _indicator_calc, _apply_indicators_uc
+    if _apply_indicators_uc is None:
+        from finbar.core.application.use_cases.apply_indicators import (
+            ApplyIndicatorsUseCase,
+        )
+        from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
+            PandasTaIndicatorCalculator,
+        )
+
+        _indicator_calc = PandasTaIndicatorCalculator()
+        _apply_indicators_uc = ApplyIndicatorsUseCase(_indicator_calc)
+    return _apply_indicators_uc
+
+
+def _make_run_backtest_use_case():
+    """Lazy-init the RunBacktestUseCase with engine and strategy registry."""
+    global _bt_runner, _bt_registry, _run_backtest_uc
+    if _run_backtest_uc is None:
+        from finbar.core.application.use_cases.run_backtest import (
+            RunBacktestUseCase,
+        )
+        from finbar.infrastructure.services.backtest_runner import BacktestRunner
+        from finbar.infrastructure.services.backtest_strategies.rsi_mean_reversion import (  # noqa: E501
+            RsiMeanReversionStrategy,
+        )
+        from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
+            SmaCrossoverStrategy,
+        )
+
+        _bt_runner = BacktestRunner()
+        _bt_registry = {
+            "sma_crossover": SmaCrossoverStrategy(),
+            "rsi_mean_reversion": RsiMeanReversionStrategy(),
+        }
+        _run_backtest_uc = RunBacktestUseCase(_bt_runner, _bt_registry)
+    return _run_backtest_uc

@@ -75,3 +75,46 @@ class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str = "ok"
+
+
+class ApplyIndicatorsResponse(BaseModel):
+    """Response from apply_indicators."""
+
+    bar_count: int
+    indicators_applied: list[str]
+    bars: list[dict]
+
+
+class BacktestStrategyResponse(BaseModel):
+    """Metadata for a single backtest strategy."""
+
+    name: str
+    description: str
+    required_indicators: list[str]
+    default_params: dict
+
+
+class BacktestResponse(BaseModel):
+    """Structured backtest results."""
+
+    strategy_name: str
+    symbol: str
+    interval: str
+    start_date: str
+    end_date: str
+    bar_count: int
+    initial_cash: float
+    final_value: float
+    total_return: float
+    annualized_return: float | None = None
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+    win_rate: float
+    max_drawdown: float
+    sharpe_ratio: float
+    sortino_ratio: float
+    profit_factor: float | None = None
+    calmar_ratio: float
+    trades: list[dict]
+    equity_curve: list[dict]
