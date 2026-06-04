@@ -46,7 +46,7 @@ def _get_db() -> Session:
     return SessionLocal()
 
 
-def _get_fetcher(source: str = "yfinance"):
+def _get_fetcher(source: str = "yfinance") -> YFinanceStockFetcher | object:
     """Lazy-init and return the appropriate fetcher for the source."""
     if source == DataSource.HYPERLIQUID:
         return _get_hl_fetcher()
@@ -62,7 +62,7 @@ def _get_yf_fetcher() -> YFinanceStockFetcher:
     return _fetcher
 
 
-def _get_hl_fetcher():
+def _get_hl_fetcher() -> object:  # HyperliquidFetcher
     """Lazy-init the Hyperliquid fetcher with rate limiter."""
     global _hl_fetcher
     if _hl_fetcher is None:

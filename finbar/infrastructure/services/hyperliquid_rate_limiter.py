@@ -75,8 +75,11 @@ class HyperliquidRateLimiter:
     def wait(self, weight: int = 20) -> None:
         """Wait until the token bucket has enough capacity for `weight`.
 
-        Blocks the calling thread. Safe to call from async tasks
-        (blocking is OK in a background thread/worker).
+        Blocks the calling thread with time.sleep(). NOTE: this blocks
+        the asyncio event loop when called from an async context. For
+        Hyperliquid's generous limits (20 weight/sec refill), blocking
+        is brief (~2 sec max per chunk). Use asyncio.to_thread() for
+        long-running fetches if needed.
 
         Args:
             weight: Request weight (from Hyperliquid rate limit docs).
