@@ -28,7 +28,7 @@ JOB_TTL_SECONDS = int(os.getenv("FINBAR_JOB_TTL_SECONDS", "3600"))
 
 FINBAR_TRANSPORT = os.getenv("FINBAR_TRANSPORT", "stdio").lower()
 FINBAR_HOST = os.getenv("FINBAR_HOST", "127.0.0.1")
-FINBAR_PORT = int(os.getenv("FINBAR_PORT", "8001"))
+FINBAR_PORT = int(os.getenv("FINBAR_PORT", "8003"))
 
 # ── API server ─────────────────────────────────────────────────────────────
 

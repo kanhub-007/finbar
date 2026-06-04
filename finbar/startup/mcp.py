@@ -10,6 +10,7 @@ import os
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 
+from finbar.config.settings import FINBAR_HOST, FINBAR_PORT
 from finbar.startup.bootstrap import bootstrap
 
 load_dotenv()
@@ -58,8 +59,8 @@ def get_transport_config() -> dict:
     """Read transport configuration from environment variables."""
     return {
         "transport": os.getenv("FINBAR_TRANSPORT", "stdio").lower(),
-        "host": os.getenv("FINBAR_HOST", "127.0.0.1"),
-        "port": int(os.getenv("FINBAR_PORT", "8001")),
+        "host": FINBAR_HOST,
+        "port": FINBAR_PORT,
     }
 
 
