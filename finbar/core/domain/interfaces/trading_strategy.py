@@ -20,9 +20,8 @@ class TradingStrategy(ABC):
     the strategy returns a SignalResult.
     """
 
-    @staticmethod
     @abstractmethod
-    def meta() -> StrategyMeta:
+    def meta(self) -> StrategyMeta:
         """Return strategy metadata.
 
         Returns:

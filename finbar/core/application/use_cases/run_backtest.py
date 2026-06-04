@@ -85,7 +85,11 @@ class RunBacktestUseCase:
                 error=f"Backtest error: {e}",
             )
 
-        # 4. Build DTO from engine output
+        # 4. Inject caller-provided metadata (engine doesn't know symbol/interval)
+        raw_result["symbol"] = request.symbol
+        raw_result["interval"] = request.interval
+
+        # 5. Build DTO from engine output
         return BacktestResultDTO(
             strategy_name=raw_result.get("strategy_name", ""),
             symbol=raw_result.get("symbol", ""),

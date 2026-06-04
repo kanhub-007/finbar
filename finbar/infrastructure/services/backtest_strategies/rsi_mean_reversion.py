@@ -33,8 +33,7 @@ class RsiMeanReversionStrategy(TradingStrategy):
         self._oversold = oversold
         self._overbought = overbought
 
-    @staticmethod
-    def meta() -> StrategyMeta:
+    def meta(self) -> StrategyMeta:
         return StrategyMeta(
             name="rsi_mean_reversion",
             variant=DataMode.REAL,
@@ -43,8 +42,12 @@ class RsiMeanReversionStrategy(TradingStrategy):
                 "sell when RSI crosses above overbought threshold. "
                 "Classic mean-reversion strategy."
             ),
-            required_indicators=["rsi_14"],
-            params={"rsi_period": 14, "oversold": 30, "overbought": 70},
+            required_indicators=[f"rsi_{self._period}"],
+            params={
+                "rsi_period": self._period,
+                "oversold": self._oversold,
+                "overbought": self._overbought,
+            },
         )
 
     def on_bar(self, bar: dict, position: dict) -> SignalResult:

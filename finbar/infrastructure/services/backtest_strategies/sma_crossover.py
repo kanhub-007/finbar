@@ -28,8 +28,7 @@ class SmaCrossoverStrategy(TradingStrategy):
         self._prev_fast: float | None = None
         self._prev_slow: float | None = None
 
-    @staticmethod
-    def meta() -> StrategyMeta:
+    def meta(self) -> StrategyMeta:
         return StrategyMeta(
             name="sma_crossover",
             variant=DataMode.REAL,
@@ -37,8 +36,8 @@ class SmaCrossoverStrategy(TradingStrategy):
                 "Buy when fast SMA crosses above slow SMA, "
                 "sell on opposite cross. Classic trend-following strategy."
             ),
-            required_indicators=["sma_20", "sma_50"],
-            params={"fast_period": 20, "slow_period": 50},
+            required_indicators=[f"sma_{self._fast}", f"sma_{self._slow}"],
+            params={"fast_period": self._fast, "slow_period": self._slow},
         )
 
     def on_bar(self, bar: dict, position: dict) -> SignalResult:

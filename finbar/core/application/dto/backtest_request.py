@@ -20,6 +20,12 @@ class BacktestRequest:
     strategy_name: str
     """Strategy identifier, e.g. "sma_crossover", "rsi_mean_reversion"."""
 
+    symbol: str = ""
+    """Ticker symbol being backtested."""
+
+    interval: str = ""
+    """Bar interval (e.g. "1d", "1h", "5min")."""
+
     params: dict = field(default_factory=dict)
     """Strategy parameters forwarded to the strategy."""
 
