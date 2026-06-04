@@ -1,7 +1,4 @@
-"""JobProgress DTO — background fetch job status.
-
-Adapted from kapsula/presentation/mcp/search_job.py:SearchJob status fields.
-"""
+"""JobProgress DTO — background fetch job status."""
 
 from dataclasses import dataclass
 

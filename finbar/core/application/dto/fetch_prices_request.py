@@ -1,7 +1,6 @@
 """FetchPricesRequest DTO — input for the fetch prices use case.
 
 Data crossing the application boundary uses this dedicated DTO.
-Designed from API params in h_stocks/api/routers/stocks_prices.py.
 """
 
 from dataclasses import dataclass

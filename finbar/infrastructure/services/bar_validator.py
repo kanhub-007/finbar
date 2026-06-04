@@ -1,6 +1,4 @@
 """OHLCV bar validation — sanity checks before caching.
-
-Copied from h_stocks/core/pipeline/infrastructure/yfinance_retriever_v2.py
 (_validate_bar method). Extracted as a standalone function.
 """
 

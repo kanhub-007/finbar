@@ -1,6 +1,4 @@
 """Token-bucket rate limiter for Hyperliquid API.
-
-Copied from h_stocks/core/fetchers/hyperliquid_fetcher.py:HyperliquidRateLimiter.
 Hyperliquid uses a weight-based system (1200 weight/min) with per-endpoint
 weight costs. This is a token bucket, fundamentally different from yfinance's
 sliding window.

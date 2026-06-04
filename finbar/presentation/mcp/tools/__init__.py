@@ -3,7 +3,6 @@
 Each tool group lives in its own module and is registered via
 a register_*_tools(mcp) function called by register_tools.
 
-Pattern copied from kapsula/presentation/mcp/tools/__init__.py.
 """
 
 from fastmcp import FastMCP

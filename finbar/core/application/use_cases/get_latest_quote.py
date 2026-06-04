@@ -1,7 +1,4 @@
-"""GetLatestQuoteUseCase — fetch the most recent OHLCV bar.
-
-Adapted from h_stocks/core/fetchers/yfinance_price_fetcher.py:fetch_latest_bar().
-"""
+"""GetLatestQuoteUseCase — fetch the most recent OHLCV bar."""
 
 import logging
 

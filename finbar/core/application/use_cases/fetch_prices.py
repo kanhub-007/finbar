@@ -1,7 +1,6 @@
 """FetchPricesUseCase — fetch raw OHLCV from source, validate, cache, return.
 
-Flow adapted from h_stocks/core/domain/orchestrator/stock.py:fetch_and_store()
-— simplified: fetch → validate → save → return (no enrichment).
+Fetch → validate → save → return (no enrichment).
 
 Depends on StockDataFetcher (Strategy) and PriceCacheRepository (Repository).
 """

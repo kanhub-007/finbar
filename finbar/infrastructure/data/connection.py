@@ -1,6 +1,4 @@
 """Database connection and session management for SQLite.
-
-Adapted from kapsula/infrastructure/data/connection.py.
 Uses WAL mode for concurrent reads during background writes.
 """
 

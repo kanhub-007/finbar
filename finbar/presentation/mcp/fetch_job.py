@@ -1,7 +1,4 @@
-"""FetchJob — background fetch job state tracker.
-
-Dataclass shape adapted from kapsula/presentation/mcp/search_job.py:SearchJob.
-"""
+"""FetchJob — background fetch job state tracker."""
 
 from __future__ import annotations
 

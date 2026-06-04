@@ -1,7 +1,4 @@
-"""Time interval for OHLCV price bars.
-
-Copied from h_stocks/core/domain/models.py:Interval enum.
-"""
+"""Time interval for OHLCV price bars."""
 
 from enum import StrEnum
 

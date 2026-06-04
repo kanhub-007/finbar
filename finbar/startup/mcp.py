@@ -1,6 +1,5 @@
 """MCP server startup — composition root for the MCP transport.
 
-Pattern copied from kapsula/startup/mcp.py.
 Creates the FastMCP server, wires dependencies, and provides the CLI runner.
 """
 

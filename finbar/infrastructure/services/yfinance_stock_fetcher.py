@@ -1,9 +1,7 @@
 """YFinance stock data fetcher — implements StockDataFetcher.
 
-Core logic adapted from:
-- h_stocks/core/fetchers/yfinance_price_fetcher.py (INTERVAL_MAP, PERIOD_MAP,
-  _parse_yahoo_df, YFinanceFetcher.fetch_candles)
-- h_stocks/core/pipeline/infrastructure/yfinance_retriever_v2.py (_validate_bar)
+Fetches historical OHLCV candles from Yahoo Finance via the yfinance library.
+Supports multiple intervals (5min through 1wk) with rate limiting.
 
 Implements the StockDataFetcher interface (Strategy pattern).
 """
@@ -21,7 +19,7 @@ from finbar.infrastructure.services.rate_limiter import YahooFinanceRateLimiter
 
 logger = logging.getLogger(__name__)
 
-# ── Interval / period mappings (from h-stocks) ────────────────────────────
+# ── Interval / period mappings ────────────────────────────
 
 INTERVAL_MAP: dict[str, str] = {
     "5min": "5m",
@@ -128,7 +126,7 @@ class YFinanceStockFetcher(StockDataFetcher):
             logger.exception("Error fetching info for %s", symbol)
             return None
 
-    # ── DataFrame parsing (from h-stocks _parse_yahoo_df) ─────────────────
+    # ── DataFrame parsing ─────────────────
 
     def _parse_dataframe(
         self,
@@ -139,13 +137,12 @@ class YFinanceStockFetcher(StockDataFetcher):
     ) -> list[PriceBar]:
         """Parse yfinance DataFrame into PriceBar domain entities.
 
-        Adapted from h_stocks/core/fetchers/yfinance_price_fetcher.py
         (_parse_yahoo_df function).
         """
         df = df.reset_index()
         df.columns = [c.lower() for c in df.columns]
 
-        # Guard against missing required columns (from h-stocks)
+        # Guard against missing required columns
         required_columns = ["open", "high", "low", "close"]
         if not all(col in df.columns for col in required_columns):
             logger.warning(
@@ -180,7 +177,7 @@ class YFinanceStockFetcher(StockDataFetcher):
             v = int(row["volume"]) if pd.notna(row.get("volume")) else None
             ts = str(row["timestamp_utc"])
 
-            # Validate bar (from h-stocks _validate_bar)
+            # Validate bar
             if not validate_bar(symbol, ts, o, h, lo, c, v):
                 continue
 

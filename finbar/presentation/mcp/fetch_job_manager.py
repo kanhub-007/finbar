@@ -1,6 +1,4 @@
 """In-memory background fetch job manager.
-
-Pattern copied from kapsula/presentation/mcp/search_job_manager.py.
 Thread-safe dict of FetchJob instances with TTL cleanup and cancel support.
 """
 

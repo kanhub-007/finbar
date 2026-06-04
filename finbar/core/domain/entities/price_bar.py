@@ -1,7 +1,6 @@
 """PriceBar domain entity — a single OHLCV bar.
 
 Shape inferred from the bar dict produced by
-h_stocks/core/fetchers/yfinance_price_fetcher.py:_parse_yahoo_df().
 """
 
 from dataclasses import dataclass

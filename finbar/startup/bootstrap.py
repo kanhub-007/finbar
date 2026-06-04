@@ -1,6 +1,5 @@
 """Composition root — wires all dependencies for API and MCP entry points.
 
-Pattern copied from kapsula/startup/bootstrap.py.
 The startup layer can import EVERYTHING — it's the composition root.
 """
 

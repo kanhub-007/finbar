@@ -1,8 +1,6 @@
 """Hyperliquid stock data fetcher — implements StockDataFetcher.
 
-Core logic adapted from h_stocks/core/fetchers/hyperliquid_fetcher.py
 (HyperliquidFetcher class) and the chunk config from
-h_stocks/core/pipeline/domain/chunk_config.py (HYPERLIQUID_CHUNK_CONFIG).
 
 Supports three market types:
 - SPOT: plain ticker, e.g. "PURR", "BTC"
@@ -43,7 +41,7 @@ INTERVAL_MAP: dict[str, str] = {
     "1w": "1w",
 }
 
-# Max bars per request per interval (from h-stocks chunk config)
+# Max bars per request per interval
 MAX_BARS: dict[str, int] = {
     "5min": 1000,
     "30min": 1000,
@@ -187,7 +185,6 @@ class HyperliquidFetcher(StockDataFetcher):
     def _fetch_max_history(self, symbol: str, interval: str) -> list[PriceBar]:
         """Fetch full history from now backwards until no more data.
 
-        Adapted from h-stocks fetch_max_history / fetch_history_efficient
         pattern: temporal chunks going backwards, stop on empty chunk.
         """
         max_bars = MAX_BARS.get(interval, 1000)
@@ -318,7 +315,7 @@ class HyperliquidFetcher(StockDataFetcher):
         )
         return result if isinstance(result, list) else []
 
-    # ── Candle processing (adapted from h-stocks) ─────────────────────────
+    # ── Candle processing ─────────────────────────
 
     def _process_candles(
         self,

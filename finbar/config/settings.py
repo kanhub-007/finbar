@@ -1,7 +1,6 @@
 """Application configuration — paths, rate limits, and transport settings.
 
 All values are sourced from environment variables with sensible defaults.
-Adapted from h_stocks/config/settings.py and h_stocks/config/constants.py.
 """
 
 import os
@@ -12,7 +11,7 @@ from pathlib import Path
 DATA_DIR = Path(os.getenv("FINBAR_DATA_DIR", "data"))
 DB_PATH = DATA_DIR / "finbar.db"
 
-# ── yfinance rate limits (from h-stocks YahooFinanceRateLimiter) ───────────
+# ── yfinance rate limits ────────────────────────────────────────────────────
 
 YF_REQUESTS_PER_SECOND = float(os.getenv("YF_REQUESTS_PER_SECOND", "2.0"))
 YF_REQUESTS_PER_MINUTE = int(os.getenv("YF_REQUESTS_PER_MINUTE", "60"))

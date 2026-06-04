@@ -3,7 +3,6 @@
 Repository pattern: all database access for OHLCV bars goes through this class.
 Implements the PriceCacheRepository ABC from core/domain/interfaces/.
 
-UPSERT pattern adapted from h_stocks postgres_price_repository save_bars()
 (replaced PostgreSQL INSERT ON CONFLICT with SQLite INSERT OR REPLACE).
 """
 

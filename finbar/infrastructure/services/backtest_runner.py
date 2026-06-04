@@ -4,8 +4,6 @@ Template Method pattern: the engine defines a fixed skeleton
 (init → loop bars → call strategy → execute signals → compute metrics).
 The strategy varies via the Strategy pattern.
 
-Port of h-stocks strategies/engine/runner.py — simplified for finbar's
-clean architecture. Returns plain dicts (domain-safe), converted to
 BacktestResultDTO by the use case.
 """
 

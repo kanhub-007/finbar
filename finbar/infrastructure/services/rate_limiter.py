@@ -1,8 +1,5 @@
 """Rate limiter for Yahoo Finance API requests.
 
-Copied from h_stocks/core/utils/rate_limiter.py. Adapted for finbar by
-changing the logger name and removing h-stocks-specific defaults.
-
 Implements:
 - Per-request minimum delay
 - Sliding window request count limit

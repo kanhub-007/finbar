@@ -5,7 +5,6 @@ Repository pattern: all database access goes through this interface.
 Use cases depend on this ABC, never on a concrete SQLite/Postgres
 implementation.
 
-Method shape adapted from h_stocks/core/domain/repositories.py:PriceRepository.
 """
 
 from abc import ABC, abstractmethod

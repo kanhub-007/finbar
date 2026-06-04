@@ -2,10 +2,6 @@
 
 Every data source (yfinance, Hyperliquid, etc.) implements this interface.
 The use case depends on this ABC, never on a concrete fetcher — Strategy pattern.
-
-Public method shape designed from h_stocks/core/fetchers/yfinance_price_fetcher.py
-(YFinanceFetcher class) and h_stocks/core/domain/orchestrator/stock.py
-(fetch_and_store flow).
 """
 
 from abc import ABC, abstractmethod

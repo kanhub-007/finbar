@@ -1,6 +1,4 @@
 """Application-wide logging configuration.
-
-Adapted from kapsula/infrastructure/logging_config.py.
 Configures console (INFO+) and file (DEBUG) handlers.
 """
 

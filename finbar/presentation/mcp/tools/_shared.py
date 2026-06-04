@@ -1,6 +1,5 @@
 """Shared helpers for MCP tools — lazy-initialized dependencies.
 
-Pattern copied from kapsula/presentation/mcp/tools/_shared.py.
 Module-level cached instances for expensive infrastructure (DB sessions,
 use cases) — acceptable in the presentation layer per AGENTS.md.
 """

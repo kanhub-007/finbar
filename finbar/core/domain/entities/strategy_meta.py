@@ -4,14 +4,8 @@ Pure dataclass — no behavior, no ORM, no framework dependencies.
 """
 
 from dataclasses import dataclass, field
-from enum import Enum
 
-
-class DataMode(Enum):
-    """Whether a strategy uses proxy (daily) or real (intraday) indicators."""
-
-    PROXY = "proxy"
-    REAL = "real"
+from finbar.core.domain.entities.data_mode import DataMode
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,5 @@
 """SymbolInfo domain entity — company/asset metadata.
 
-Fields inferred from h_stocks/core/models/stock_profile.py:StockProfile
 and yfinance's yf.Ticker(symbol).info dict.
 """
 
