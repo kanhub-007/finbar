@@ -121,8 +121,7 @@ class TestRuleBasedStrategy:
 
         runner = BacktestRunner()
         strategy = RuleBasedStrategy(sdef)
-        result = runner.run(df, strategy, 10000)
-        # ATR should be in required indicators
+        runner.run(df, strategy, 10000)
         assert "atr" in strategy.meta().required_indicators
 
     def test_any_entry_mode(self):

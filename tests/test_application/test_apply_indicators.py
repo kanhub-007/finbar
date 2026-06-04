@@ -1,6 +1,5 @@
 """Unit tests for application use cases with mocked interfaces."""
 
-from unittest.mock import MagicMock
 
 import pandas as pd
 

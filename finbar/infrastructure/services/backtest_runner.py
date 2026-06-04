@@ -34,6 +34,11 @@ class BacktestRunner(BacktestEngine):
 
     Supports long and short positions, conservative entry (next-bar open),
     stop-loss and take-profit execution, and full equity curve tracking.
+
+    Position sizing: if the strategy provides position_size in its signal,
+    that value is used. Otherwise, the engine computes risk-based sizing:
+    size = (initial_cash * risk_per_trade) / abs(entry - stop).
+    Falls back to 100 shares if no stop is set.
     """
 
     def run(
@@ -183,12 +188,12 @@ def _run_loop(
             and signal.action in ("buy", "sell")
             and signal.direction in ("long", "short")
         ):
-            # Conservative mode: defer entry to next bar
+            size = _resolve_position_size(signal, open_price, initial_cash)
             state.pending_signal = {
                 "direction": signal.direction,
                 "stop_price": signal.stop_price,
                 "target_price": signal.target_price,
-                "position_size": 100,
+                "position_size": size,
             }
 
         # --- Track equity ---
@@ -400,3 +405,28 @@ def _build_result_dict(
 def _error_result(message: str) -> dict:
     """Build an error result dict."""
     return {"strategy_name": "", "error": message}
+
+
+# ── Position sizing ──────────────────────────────────────────────────────
+
+_DEFAULT_POSITION_SIZE = 100
+_DEFAULT_RISK_PER_TRADE = 0.02
+
+
+def _resolve_position_size(signal, entry_price: float, portfolio_value: float) -> int:
+    """Compute position size from signal or risk-based fallback.
+
+    If the strategy provides position_size > 0, use it directly.
+    Otherwise, compute risk-based: (portfolio * risk_pct) / |entry - stop|.
+    Falls back to 100 shares if no stop is set.
+    """
+    if signal.position_size > 0:
+        return signal.position_size
+
+    if signal.stop_price > 0:
+        risk_amount = portfolio_value * _DEFAULT_RISK_PER_TRADE
+        risk_per_share = abs(entry_price - signal.stop_price)
+        if risk_per_share > 0.001:
+            return max(1, int(risk_amount / risk_per_share))
+
+    return _DEFAULT_POSITION_SIZE

@@ -30,5 +30,8 @@ class SignalResult:
     confidence: float = 0.0
     """Signal confidence 0-1, for signal ranking / position sizing."""
 
+    position_size: int = 0
+    """Suggested position size. 0 means engine computes default."""
+
     metadata: dict = field(default_factory=dict)
     """Strategy-specific metadata (e.g. indicator values at signal time)."""

@@ -183,7 +183,13 @@ class TestBarMerger:
             index=pd.to_datetime(["2024-01-01"]),
         )
         hourly = pd.DataFrame(
-            {"open": [101], "high": [104], "low": [100], "close": [103], "volume": [5000]},
+            {
+                "open": [101],
+                "high": [104],
+                "low": [100],
+                "close": [103],
+                "volume": [5000],
+            },
             index=pd.to_datetime(["2024-01-01 10:00"]),
         )
         merged = merge_timeframes(hourly, daily, "1d", columns=["sma_50"])

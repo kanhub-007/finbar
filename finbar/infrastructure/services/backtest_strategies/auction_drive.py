@@ -268,6 +268,7 @@ class AuctionDriveStrategy(TradingStrategy):
                     direction="long",
                     stop_price=round(stop, 2),
                     target_price=round(target, 2),
+                    position_size=0,  # engine computes risk-based
                     confidence=min(rvol / 3.0, 1.0),
                     metadata={
                         "reason": "auction_drive_long",
@@ -300,6 +301,7 @@ class AuctionDriveStrategy(TradingStrategy):
                     direction="short",
                     stop_price=round(stop, 2),
                     target_price=round(target, 2),
+                    position_size=0,  # engine computes risk-based
                     confidence=min(rvol / 3.0, 1.0),
                     metadata={
                         "reason": "auction_drive_short",
