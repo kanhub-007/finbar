@@ -35,9 +35,8 @@ from finbar.infrastructure.services.yfinance_stock_fetcher import (
 
 # ── Lazy-initialized singletons ───────────────────────────────────────────
 
-_db: Session | None = None
 _fetcher: YFinanceStockFetcher | None = None
-_job_manager = None
+_job_manager: object | None = None  # FetchJobManager, lazy-imported
 
 
 def _get_db() -> Session:

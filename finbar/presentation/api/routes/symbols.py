@@ -2,9 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query
 
-from finbar.core.domain.entities.data_source import DataSource
 from finbar.presentation.api.dto.responses import (
-    SourcesResponse,
     SymbolInfoResponse,
 )
 from finbar.presentation.mcp.tools._shared import (
@@ -54,13 +52,3 @@ def list_cached(source: str | None = Query(None, description="Data source filter
         return use_case.execute(source=source)
     finally:
         db.close()
-
-
-@router.get(
-    "",
-    response_model=SourcesResponse,
-    summary="List available data sources",
-)
-def list_sources():
-    """Return available data sources."""
-    return SourcesResponse(sources=[s.value for s in DataSource])

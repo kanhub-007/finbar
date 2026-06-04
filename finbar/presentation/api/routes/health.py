@@ -1,10 +1,11 @@
-"""Health check endpoint."""
+"""Health check and sources endpoints."""
 
 from fastapi import APIRouter
 
-from finbar.presentation.api.dto.responses import HealthResponse
+from finbar.core.domain.entities.data_source import DataSource
+from finbar.presentation.api.dto.responses import HealthResponse, SourcesResponse
 
-router = APIRouter(prefix="/api", tags=["Health"])
+router = APIRouter(prefix="/api", tags=["System"])
 
 
 @router.get(
@@ -15,3 +16,13 @@ router = APIRouter(prefix="/api", tags=["Health"])
 def health():
     """Return service health status."""
     return HealthResponse(status="ok")
+
+
+@router.get(
+    "/sources",
+    response_model=SourcesResponse,
+    summary="List available data sources",
+)
+def list_sources():
+    """Return available data sources."""
+    return SourcesResponse(sources=[s.value for s in DataSource])

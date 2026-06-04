@@ -6,6 +6,7 @@ import json
 from fastmcp import FastMCP
 
 from finbar.core.application.dto.fetch_prices_request import FetchPricesRequest
+from finbar.core.domain.entities.price_bar import PriceBar
 from finbar.presentation.mcp.fetch_job import FetchJob
 
 from ._shared import (
@@ -203,7 +204,7 @@ async def _run_fetch_job(job: FetchJob) -> None:
 # ── Formatting helpers ────────────────────────────────────────────────────
 
 
-def _format_bar(bar) -> str:
+def _format_bar(bar: PriceBar) -> str:
     """Format a single PriceBar for display."""
     return (
         f"Symbol: {bar.symbol}\n"
@@ -214,7 +215,7 @@ def _format_bar(bar) -> str:
     )
 
 
-def _bar_to_dict(bar) -> dict:
+def _bar_to_dict(bar: PriceBar) -> dict:
     """Convert a PriceBar to a JSON-safe dict."""
     return {
         "timestamp": bar.timestamp,
