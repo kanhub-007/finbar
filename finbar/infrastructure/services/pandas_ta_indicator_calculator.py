@@ -278,7 +278,9 @@ def _vwap(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
 @_register("bb_upper", requires={"close"})
 def _bb_upper(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
     if "bb" not in cache:
-        cache["bb"] = ta.bbands(df["close"], length=20, std=2) or pd.DataFrame()
+        cache["bb"] = ta.bbands(df["close"], length=20, std=2)
+        if cache["bb"] is None:
+            cache["bb"] = pd.DataFrame()
     bb = cache["bb"]
     if not bb.empty:
         bb_cols = [c for c in bb.columns if c.startswith("BBU_")]
@@ -290,7 +292,9 @@ def _bb_upper(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
 @_register("bb_middle", requires={"close"})
 def _bb_middle(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
     if "bb" not in cache:
-        cache["bb"] = ta.bbands(df["close"], length=20, std=2) or pd.DataFrame()
+        cache["bb"] = ta.bbands(df["close"], length=20, std=2)
+        if cache["bb"] is None:
+            cache["bb"] = pd.DataFrame()
     bb = cache["bb"]
     if not bb.empty:
         bb_cols = [c for c in bb.columns if c.startswith("BBM_")]
@@ -302,7 +306,9 @@ def _bb_middle(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
 @_register("bb_lower", requires={"close"})
 def _bb_lower(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
     if "bb" not in cache:
-        cache["bb"] = ta.bbands(df["close"], length=20, std=2) or pd.DataFrame()
+        cache["bb"] = ta.bbands(df["close"], length=20, std=2)
+        if cache["bb"] is None:
+            cache["bb"] = pd.DataFrame()
     bb = cache["bb"]
     if not bb.empty:
         bb_cols = [c for c in bb.columns if c.startswith("BBL_")]
