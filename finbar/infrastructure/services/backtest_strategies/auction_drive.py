@@ -7,9 +7,6 @@ Enter short on mirror conditions.
 Uses primary intraday bars (1h or 30min) for entries and daily bars
 for trend context. Falls back to proxy indicators when enrichment data
 is unavailable.
-
-Port of h-stocks AuctionDriveProxy, adapted for finbar's clean
-architecture (TradingStrategy ABC, no framework dependencies).
 """
 
 from __future__ import annotations
@@ -78,7 +75,6 @@ class AuctionDriveStrategy(TradingStrategy):
         self._close_history: list[float] = []
         self._atr_rma: float = 0.0
         self._atr_count: int = 0
-        self._prev_tr: float = 0.0
         self._volume_history: list[float] = []
 
     # ------------------------------------------------------------------
@@ -125,7 +121,7 @@ class AuctionDriveStrategy(TradingStrategy):
         if any(x is None for x in (o, h, l, c)):
             return SignalResult()
 
-        self._update_rolling_state(c, h, l, v, o)
+        self._update_rolling_state(c, h, l, v)
         ind = self._resolve_indicators(bar, o, h, l, c, v)
 
         pos_size = position.get("size", 0)
@@ -135,14 +131,13 @@ class AuctionDriveStrategy(TradingStrategy):
             return self._check_exit(c, h, l, ind["vwap"], pos_size, position)
 
         # --- Entry check ---
-        return self._check_entry(o, c, h, l, v, ind, position)
+        return self._check_entry(o, c, ind, position)
 
     def on_reset(self) -> None:
         """Clear rolling state for a new backtest run."""
         self._close_history.clear()
         self._atr_rma = 0.0
         self._atr_count = 0
-        self._prev_tr = 0.0
         self._volume_history.clear()
 
     # ------------------------------------------------------------------
@@ -238,9 +233,6 @@ class AuctionDriveStrategy(TradingStrategy):
         self,
         o: float,
         c: float,
-        h: float,
-        l: float,  # noqa: E741
-        v: float,
         ind: dict,
         position: dict,
     ) -> SignalResult:
@@ -381,7 +373,7 @@ class AuctionDriveStrategy(TradingStrategy):
     # ------------------------------------------------------------------
 
     def _update_rolling_state(
-        self, close: float, high: float, low: float, volume: float, open_price: float
+        self, close: float, high: float, low: float, volume: float
     ) -> None:
         """Update rolling history for self-computed fallback indicators."""
         max_lookback = max(self._p["sma_slow"], 20, 14) + 1

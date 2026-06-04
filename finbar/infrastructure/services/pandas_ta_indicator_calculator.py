@@ -484,6 +484,7 @@ def _vol_buffer_low(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
 # 5min: 12 bars = 1 hour. 15min: 4 bars. 30min: 2 bars. 1h: 1 bar.
 _IB_BARS_MAP = {"5min": 12, "15min": 4, "30min": 2, "1h": 1}
 _DEFAULT_IB_BARS = 2
+_IB_MINUTES_MAP = {"5min": 5, "15min": 15, "30min": 30, "1h": 60}
 
 
 @_register("ib_high")
@@ -520,8 +521,7 @@ def _get_ib_bars(df: pd.DataFrame) -> int:
     delta = df.index[1] - df.index[0]
     minutes = delta.total_seconds() / 60
     for key, bars in _IB_BARS_MAP.items():
-        key_minutes = {"5min": 5, "15min": 15, "30min": 30, "1h": 60}
-        if abs(minutes - key_minutes[key]) < 2:
+        if abs(minutes - _IB_MINUTES_MAP[key]) < 2:
             return bars
     return _DEFAULT_IB_BARS
 
