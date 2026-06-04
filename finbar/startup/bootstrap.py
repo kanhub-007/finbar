@@ -9,12 +9,14 @@ import logging
 from dotenv import load_dotenv
 
 from finbar.infrastructure.data.connection import init_db
+from finbar.infrastructure.logging_config import setup_logging
 
 load_dotenv()
-logger = logging.getLogger(__name__)
 
 
-def bootstrap() -> None:
-    """Initialize database. Call once at startup."""
+def bootstrap(log_level: str = "INFO") -> None:
+    """Initialize database and logging. Call once at startup."""
+    setup_logging(log_level=log_level)
+    logger = logging.getLogger(__name__)
     init_db()
     logger.info("Database tables initialized")
