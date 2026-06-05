@@ -21,7 +21,7 @@ from finbar.core.domain.interfaces.indicator_capability_provider import (
 
 _ROLLING_TYPES = {"rolling_max", "rolling_min", "rolling_mean", "rolling_std"}
 _SIMPLE_TYPES = {"body_pct", "range_pct", "typical_price", "ohlc4"}
-_SUPPORTED_TYPES = _ROLLING_TYPES | _SIMPLE_TYPES | {"shift"}
+_SUPPORTED_TYPES = _ROLLING_TYPES | _SIMPLE_TYPES | {"shift", "formula"}
 
 
 class StrategyFeatureResolver:
@@ -76,6 +76,16 @@ class StrategyFeatureResolver:
                 make_error(f"{path}.type", f"unsupported feature type '{feature_type}'")
             )
             return
+        if feature_type == "formula":
+            features.append(
+                FeatureSpec(
+                    name=name,
+                    type=feature_type,
+                    raw_expr=item.get("expr"),
+                )
+            )
+            used_names.add(name)
+            return
         source = self._resolve_source(
             item.get("source", "close"), aliases, f"{path}.source", errors
         )
@@ -100,6 +110,7 @@ class StrategyFeatureResolver:
                 window=window if isinstance(window, int) else None,
                 shift=shift,
                 raw_window=item.get("window"),
+                raw_expr=item.get("expr") if feature_type == "formula" else None,
             )
         )
         used_names.add(name)

@@ -108,6 +108,9 @@ from finbar.infrastructure.services.in_memory_optimization_job_manager import (
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
 )
+from finbar.infrastructure.services.pandas_formula_feature_calculator import (
+    PandasFormulaFeatureCalculator,
+)
 from finbar.infrastructure.services.pandas_strategy_feature_calculator import (
     PandasStrategyFeatureCalculator,
 )
@@ -448,7 +451,9 @@ def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:
     """Return the shared strategy feature calculator."""
     global _strategy_feature_calculator
     if _strategy_feature_calculator is None:
-        _strategy_feature_calculator = PandasStrategyFeatureCalculator()
+        _strategy_feature_calculator = PandasStrategyFeatureCalculator(
+            formula_calculator=PandasFormulaFeatureCalculator(),
+        )
     return _strategy_feature_calculator
 
 

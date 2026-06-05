@@ -5,6 +5,9 @@ from collections.abc import Callable
 import pandas as pd
 
 from finbar.core.domain.entities.feature_spec import FeatureSpec
+from finbar.core.domain.interfaces.formula_feature_calculator import (
+    FormulaFeatureCalculator,
+)
 from finbar.core.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
@@ -15,13 +18,32 @@ FeatureHandler = Callable[[pd.DataFrame, FeatureSpec], pd.Series]
 class PandasStrategyFeatureCalculator(StrategyFeatureCalculator):
     """Calculate derived feature columns on pandas DataFrames."""
 
+    def __init__(
+        self,
+        formula_calculator: FormulaFeatureCalculator | None = None,
+    ):
+        """Create the calculator with an optional formula sub-calculator."""
+        self._formula = formula_calculator
+
     def calculate(
         self, frame: pd.DataFrame, features: list[FeatureSpec]
     ) -> pd.DataFrame:
         """Return a copy of the frame with requested feature columns added."""
         result = frame.copy()
+        formula_features = []
         for feature in features:
-            result[feature.name] = _calculate_feature(result, feature)
+            if feature.type == "formula" and self._formula is not None:
+                formula_features.append(
+                    {
+                        "name": feature.name,
+                        "type": "formula",
+                        "expr": feature.raw_expr,
+                    }
+                )
+            else:
+                result[feature.name] = _calculate_feature(result, feature)
+        if formula_features:
+            result = self._formula.calculate(result, formula_features)
         return result
 
 

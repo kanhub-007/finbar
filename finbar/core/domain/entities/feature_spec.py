@@ -29,3 +29,6 @@ class FeatureSpec:
 
     raw_window: Any = None
     """Original window expression before parameter resolution."""
+
+    raw_expr: Any = None
+    """Original expression dict for formula-type features."""
