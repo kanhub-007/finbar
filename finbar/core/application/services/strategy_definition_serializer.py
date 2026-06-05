@@ -24,12 +24,23 @@ class StrategyDefinitionSerializer:
                 for name, p in definition.parameters.items()
             }
 
+        if definition.timeframes is not None:
+            result["timeframes"] = {
+                "primary": definition.timeframes.primary,
+                "informative": [
+                    {"alias": item.alias, "interval": item.interval}
+                    for item in definition.timeframes.informative
+                ],
+            }
+
         if definition.indicators:
             result["indicators"] = [
                 {
                     "name": i.name,
                     "type": i.type,
                     "concrete_name": i.concrete_name,
+                    "expected_column": i.column_name(),
+                    "timeframe": i.timeframe,
                     "period": i.period,
                     "source": i.source,
                 }

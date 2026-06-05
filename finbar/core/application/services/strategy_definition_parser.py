@@ -32,6 +32,9 @@ from finbar.core.application.services.strategy_parameter_resolver import (
 from finbar.core.application.services.strategy_risk_resolver import (
     StrategyRiskResolver,
 )
+from finbar.core.application.services.strategy_timeframe_resolver import (
+    StrategyTimeframeResolver,
+)
 from finbar.core.application.services.strategy_warning_rules import (
     DEFAULT_WARNING_RULES,
     StrategyWarningRule,
@@ -80,6 +83,7 @@ class StrategyDefinitionParser(ParserInterface):
         self._indicator_resolver = StrategyIndicatorResolver(self._catalog)
         self._feature_resolver = StrategyFeatureResolver(self._catalog)
         self._risk_resolver = StrategyRiskResolver(self._catalog)
+        self._timeframe_resolver = StrategyTimeframeResolver()
         self._condition_parser = StrategyConditionParser(self._catalog)
 
     def parse(
@@ -100,10 +104,12 @@ class StrategyDefinitionParser(ParserInterface):
             param_overrides or {},
             errors,
         )
+        timeframes = self._timeframe_resolver.parse(data.get("timeframes"), errors)
         indicators = self._indicator_resolver.parse(
             data.get("indicators", []),
             resolved_params,
             errors,
+            timeframes,
         )
         features = self._feature_resolver.parse(
             data.get("features", []),
@@ -129,6 +135,7 @@ class StrategyDefinitionParser(ParserInterface):
             resolved_params=resolved_params,
             indicators=indicators,
             features=features,
+            timeframes=timeframes,
             risk=risk,
             sides=sides,
             metadata=_metadata(data),
@@ -146,8 +153,13 @@ class StrategyDefinitionParser(ParserInterface):
             valid=True,
             definition=definition,
             normalized=self._serializer.serialize(definition),
-            required_indicators=[item.concrete_name for item in indicators],
+            required_indicators=[item.column_name() for item in indicators],
             required_columns=RequiredColumnCollector().collect(definition),
+            primary_required_indicators=_primary_required_indicators(indicators),
+            informative_required_indicators=_informative_required_indicators(
+                indicators
+            ),
+            timeframe_intervals=_timeframe_intervals(definition),
             warnings=warnings,
         )
 
@@ -193,6 +205,34 @@ class StrategyDefinitionParser(ParserInterface):
 def _metadata(data: dict) -> dict:
     raw = data.get("metadata", {})
     return raw if isinstance(raw, dict) else {}
+
+
+def _primary_required_indicators(indicators: list) -> list[str]:
+    required: list[str] = []
+    for item in indicators:
+        if item.timeframe == "primary" and item.concrete_name not in required:
+            required.append(item.concrete_name)
+    return required
+
+
+def _informative_required_indicators(indicators: list) -> dict[str, list[str]]:
+    required: dict[str, list[str]] = {}
+    for item in indicators:
+        if item.timeframe == "primary":
+            continue
+        values = required.setdefault(item.timeframe, [])
+        if item.concrete_name not in values:
+            values.append(item.concrete_name)
+    return required
+
+
+def _timeframe_intervals(definition: StrategyDefinition) -> dict[str, str]:
+    if definition.timeframes is None:
+        return {}
+    intervals = {"primary": definition.timeframes.primary}
+    for item in definition.timeframes.informative:
+        intervals[item.alias] = item.interval
+    return intervals
 
 
 def _err(

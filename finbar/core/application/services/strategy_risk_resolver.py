@@ -44,7 +44,7 @@ class StrategyRiskResolver:
         target = _risk_section(raw, "take_profit", errors)
         if stop is None or target is None:
             return None
-        aliases = {item.name: item.concrete_name for item in indicators}
+        aliases = {item.name: item.column_name() for item in indicators}
         spec = self._build_spec(stop, target, aliases, errors)
         _validate_required_values(spec, errors)
         return spec

@@ -30,6 +30,15 @@ class StrategyValidationResult:
     required_columns: list[str] = field(default_factory=list)
     """Concrete bar columns required to execute the strategy."""
 
+    primary_required_indicators: list[str] = field(default_factory=list)
+    """Concrete indicators that must be calculated on primary bars."""
+
+    informative_required_indicators: dict[str, list[str]] = field(default_factory=dict)
+    """Concrete indicators that must be calculated on each informative alias."""
+
+    timeframe_intervals: dict[str, str] = field(default_factory=dict)
+    """Timeframe alias to interval mapping used by the strategy."""
+
     missing_columns: list[str] = field(default_factory=list)
     """Required bar columns missing from a supplied enriched dataset."""
 

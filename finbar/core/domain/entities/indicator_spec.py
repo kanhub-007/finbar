@@ -19,7 +19,13 @@ class IndicatorSpec:
     """Indicator type, e.g. sma, ema, rsi, atr, or rvol."""
 
     concrete_name: str
-    """Concrete column expected to already exist on enriched bars."""
+    """Concrete indicator name produced by enrichment on its source timeframe."""
+
+    expected_column: str = ""
+    """Concrete column expected on the final backtest bar set."""
+
+    timeframe: str = "primary"
+    """Timeframe alias used to calculate this indicator."""
 
     period: int | None = None
     """Resolved period for period-based indicators."""
@@ -29,3 +35,7 @@ class IndicatorSpec:
 
     raw_period: Any = None
     """Original period expression from JSON before parameter resolution."""
+
+    def column_name(self) -> str:
+        """Return the expected column, falling back to the concrete name."""
+        return self.expected_column or self.concrete_name

@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+InformativeBars = list[dict] | dict[str, list[dict]]
+
 
 @dataclass(frozen=True)
 class BacktestStrategyDefinitionRequest:
@@ -12,7 +14,10 @@ class BacktestStrategyDefinitionRequest:
     """Strategy JSON string or parsed dictionary."""
 
     bars: list[dict]
-    """Already-enriched OHLCV bars supplied by the orchestrating agent."""
+    """Already-enriched primary OHLCV bars supplied by the agent."""
+
+    informative_bars: InformativeBars | None = None
+    """Already-enriched informative OHLCV bars, if the strategy declares one."""
 
     symbol: str = ""
     """Ticker symbol for result metadata."""

@@ -8,6 +8,7 @@ from finbar.core.domain.entities.indicator_spec import IndicatorSpec
 from finbar.core.domain.entities.risk_spec import RiskSpec
 from finbar.core.domain.entities.side_rules import SideRules
 from finbar.core.domain.entities.strategy_parameter import StrategyParameter
+from finbar.core.domain.entities.timeframe_declaration import TimeframeDeclaration
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,9 @@ class StrategyDefinition:
 
     features: list[FeatureSpec] = field(default_factory=list)
     """Resolved derived feature declarations."""
+
+    timeframes: TimeframeDeclaration | None = None
+    """Optional primary/informative timeframe declaration."""
 
     risk: RiskSpec | None = None
     """Optional structured risk settings."""

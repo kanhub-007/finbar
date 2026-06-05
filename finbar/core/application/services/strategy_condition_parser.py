@@ -50,7 +50,7 @@ class StrategyConditionParser:
                 make_error("$.sides", "sides must define at least one of long or short")
             )
             return {}
-        aliases = {item.name: item.concrete_name for item in indicators}
+        aliases = {item.name: item.column_name() for item in indicators}
         feature_aliases = {item.name: item.name for item in features}
         return self._parse_side_map(
             raw, aliases, feature_aliases, resolved_params, errors

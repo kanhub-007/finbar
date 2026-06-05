@@ -18,6 +18,7 @@ class StrategySchemaProvider:
                 "name": {"type": "string", "minLength": 1},
                 "description": {"type": "string"},
                 "parameters": {"type": "object"},
+                "timeframes": {"$ref": "#/$defs/timeframes"},
                 "indicators": {"type": "array"},
                 "features": {"type": "array"},
                 "risk": {"type": "object"},
@@ -25,6 +26,25 @@ class StrategySchemaProvider:
                 "metadata": {"type": "object"},
             },
             "$defs": {
+                "timeframes": {
+                    "type": "object",
+                    "required": ["primary"],
+                    "properties": {
+                        "primary": {"type": "string"},
+                        "informative": {
+                            "type": "array",
+                            "maxItems": 3,
+                            "items": {
+                                "type": "object",
+                                "required": ["alias", "interval"],
+                                "properties": {
+                                    "alias": {"type": "string", "minLength": 1},
+                                    "interval": {"type": "string", "minLength": 1},
+                                },
+                            },
+                        },
+                    },
+                },
                 "operators": {
                     "enum": [
                         "<",
@@ -42,6 +62,6 @@ class StrategySchemaProvider:
                         "exists",
                         "missing",
                     ]
-                }
+                },
             },
         }

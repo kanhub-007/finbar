@@ -58,6 +58,20 @@ class StrategyCapabilityService:
             "backtest_calculates_features": False,
             "fields": ["timestamp", "open", "high", "low", "close", "volume"],
             "features": {"supported_types": _FEATURE_TYPES},
+            "multi_timeframe": {
+                "supported": True,
+                "max_informative_timeframes": 3,
+                "primary_alias": "primary",
+                "column_naming": "{indicator}_{informative_interval}",
+                "example_column": "sma_50_1d",
+                "workflow": [
+                    "fetch primary bars",
+                    "fetch informative bars",
+                    "apply primary indicators to primary bars",
+                    "apply informative indicators to informative bars",
+                    "call backtest_strategy_json with informative_bars_json",
+                ],
+            },
             "risk": {
                 "stop_loss_types": ["none", "atr", "fixed_pct"],
                 "take_profit_types": ["none", "atr", "fixed_pct", "risk_reward"],

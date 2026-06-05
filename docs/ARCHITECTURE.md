@@ -1,7 +1,7 @@
 # Finbar Architecture
 
 Strict clean architecture per AGENTS.md — four layers plus a composition root.
-Dependencies flow inward. One class per file enforced mechanically (134 classes,
+Dependencies flow inward. One class per file enforced mechanically (139 classes,
 zero multi-class files).
 
 ## Layer Map
@@ -219,9 +219,14 @@ Agent
   → fetch_price_history / get_cached_prices
   → apply_indicators                 (enrich bars with SMA, RSI, ATR, etc.)
   → apply_strategy_features          (calculate rolling_max, body_pct, etc.)
-  → backtest_strategy_json           (run against enriched bars)
+  → backtest_strategy_json           (run against enriched primary bars)
   → save_strategy_json               (persist if happy)
 ```
+
+For multi-timeframe strategies, agents fetch and enrich each timeframe
+separately, then pass primary bars plus `informative_bars_json` to
+`backtest_strategy_json`. Informative indicator columns are merged into primary
+bars with interval suffixes such as `sma_50_1d`.
 
 ### Fresh fetch (async, rate-limited)
 

@@ -14,6 +14,7 @@ from finbar.core.domain.entities.indicator_spec import IndicatorSpec
 from finbar.core.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
+from finbar.core.domain.entities.timeframe_declaration import TimeframeDeclaration
 from finbar.core.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
@@ -31,6 +32,7 @@ class StrategyIndicatorResolver:
         raw: Any,
         resolved_params: dict[str, Any],
         errors: list[StrategyValidationError],
+        timeframes: TimeframeDeclaration | None = None,
     ) -> list[IndicatorSpec]:
         """Parse indicator declarations from a strategy JSON object."""
         if raw is None:
@@ -42,7 +44,13 @@ class StrategyIndicatorResolver:
         used_aliases: set[str] = set()
         for index, item in enumerate(raw):
             self._parse_one(
-                index, item, resolved_params, used_aliases, indicators, errors
+                index,
+                item,
+                resolved_params,
+                used_aliases,
+                indicators,
+                errors,
+                timeframes,
             )
         return indicators
 
@@ -54,6 +62,7 @@ class StrategyIndicatorResolver:
         used_aliases: set[str],
         indicators: list[IndicatorSpec],
         errors: list[StrategyValidationError],
+        timeframes: TimeframeDeclaration | None,
     ) -> None:
         path = f"$.indicators[{index}]"
         if not isinstance(item, dict):
@@ -84,6 +93,11 @@ class StrategyIndicatorResolver:
                 )
             )
             return
+        timeframe = _resolve_timeframe(
+            item.get("timeframe", "primary"), timeframes, f"{path}.timeframe", errors
+        )
+        if timeframe is None:
+            return
         indicators.append(
             IndicatorSpec(
                 name=alias,
@@ -92,6 +106,8 @@ class StrategyIndicatorResolver:
                 raw_period=item.get("period"),
                 source=str(item.get("source", "close")),
                 concrete_name=concrete,
+                expected_column=_expected_column(concrete, timeframe, timeframes),
+                timeframe=timeframe,
             )
         )
         used_aliases.add(alias)
@@ -137,3 +153,35 @@ class StrategyIndicatorResolver:
             )
             return True
         return False
+
+
+def _resolve_timeframe(
+    raw: Any,
+    timeframes: TimeframeDeclaration | None,
+    path: str,
+    errors: list[StrategyValidationError],
+) -> str | None:
+    timeframe = str(raw or "primary").strip()
+    if timeframe == "primary":
+        return timeframe
+    if timeframes is None or timeframes.interval_for(timeframe) is None:
+        errors.append(
+            make_error(
+                path,
+                f"unknown timeframe alias '{timeframe}'",
+                "unknown_timeframe",
+            )
+        )
+        return None
+    return timeframe
+
+
+def _expected_column(
+    concrete: str,
+    timeframe: str,
+    timeframes: TimeframeDeclaration | None,
+) -> str:
+    if timeframe == "primary" or timeframes is None:
+        return concrete
+    interval = timeframes.interval_for(timeframe)
+    return f"{concrete}_{interval}" if interval else concrete

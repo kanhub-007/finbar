@@ -24,5 +24,11 @@ class BacktestStrategyDefinitionResult:
     required_indicators: list[str] = field(default_factory=list)
     """Concrete indicator columns required by the strategy."""
 
+    primary_required_indicators: list[str] = field(default_factory=list)
+    """Concrete indicators that must be calculated on primary bars."""
+
+    informative_required_indicators: dict[str, list[str]] = field(default_factory=dict)
+    """Concrete indicators that must be calculated on each informative alias."""
+
     missing_columns: list[str] = field(default_factory=list)
     """Required columns absent from the supplied enriched bars."""

@@ -78,6 +78,9 @@ from finbar.infrastructure.services.pandas_strategy_feature_calculator import (
 from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
+from finbar.infrastructure.services.pandas_timeframe_bar_merger import (
+    PandasTimeframeBarMerger,
+)
 from finbar.infrastructure.services.rate_limiter import YahooFinanceRateLimiter
 from finbar.infrastructure.services.strategy_definition_factory import (
     StrategyDefinitionFactory,
@@ -98,6 +101,7 @@ _strategy_feature_calculator: PandasStrategyFeatureCalculator | None = None
 _parser: StrategyDefinitionParser | None = None
 _capability_service: StrategyCapabilityService | None = None
 _schema_provider: StrategySchemaProvider | None = None
+_timeframe_bar_merger: PandasTimeframeBarMerger | None = None
 
 
 def _get_db() -> Session:
@@ -266,6 +270,8 @@ def _make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionU
         _get_backtest_runner(),
         _get_bar_frame_converter(),
         _get_json_strategy_factory(),
+        parser=_get_parser(),
+        timeframe_merger=_get_timeframe_bar_merger(),
     )
 
 
@@ -292,6 +298,14 @@ def _get_json_strategy_factory() -> StrategyDefinitionFactory:
     if _json_strategy_factory is None:
         _json_strategy_factory = StrategyDefinitionFactory()
     return _json_strategy_factory
+
+
+def _get_timeframe_bar_merger() -> PandasTimeframeBarMerger:
+    """Return the shared timeframe bar merger."""
+    global _timeframe_bar_merger
+    if _timeframe_bar_merger is None:
+        _timeframe_bar_merger = PandasTimeframeBarMerger()
+    return _timeframe_bar_merger
 
 
 def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:

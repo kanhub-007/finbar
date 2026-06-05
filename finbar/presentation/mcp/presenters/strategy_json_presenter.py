@@ -16,6 +16,9 @@ class StrategyJsonPresenter:
             "name": result.definition.name if result.definition else "",
             "required_indicators": result.required_indicators,
             "required_columns": result.required_columns,
+            "primary_required_indicators": result.primary_required_indicators,
+            "informative_required_indicators": (result.informative_required_indicators),
+            "timeframe_intervals": result.timeframe_intervals,
             "missing_columns": result.missing_columns,
             "errors": [self.diagnostic(error) for error in result.errors],
             "warnings": [self.diagnostic(warning) for warning in result.warnings],
@@ -26,6 +29,8 @@ class StrategyJsonPresenter:
         payload = {
             "valid": result.valid,
             "required_indicators": result.required_indicators,
+            "primary_required_indicators": result.primary_required_indicators,
+            "informative_required_indicators": (result.informative_required_indicators),
             "missing_columns": result.missing_columns,
             "errors": [self.diagnostic(error) for error in result.errors],
             "result": None,

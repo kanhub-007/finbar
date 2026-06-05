@@ -662,6 +662,7 @@ def _make_use_case() -> BacktestStrategyDefinitionUseCase:
         engine=BacktestRunner(),
         converter=PandasBarFrameConverter(),
         strategy_factory=StrategyDefinitionFactory(),
+        parser=StrategyDefinitionParser(),
     )
 
 

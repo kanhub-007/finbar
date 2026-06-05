@@ -1,0 +1,64 @@
+{
+  "schema_version": "2.0",
+  "name": "auction_drive_mtf_approx",
+  "description": "Multi-timeframe auction drive approximation: intraday entries with daily trend context.",
+  "timeframes": {
+    "primary": "1h",
+    "informative": [
+      { "alias": "daily", "interval": "1d" }
+    ]
+  },
+  "parameters": {
+    "trend_fast": { "type": "int", "default": 50, "minimum": 10, "maximum": 200 },
+    "trend_slow": { "type": "int", "default": 200, "minimum": 20, "maximum": 500 },
+    "stop_atr_mult": { "type": "float", "default": 2.5, "minimum": 0.5, "maximum": 10 },
+    "target_atr_mult": { "type": "float", "default": 1.5, "minimum": 0.5, "maximum": 5 }
+  },
+  "indicators": [
+    { "name": "trend_sma_fast", "type": "sma", "period": "{{ trend_fast }}", "source": "close", "timeframe": "daily" },
+    { "name": "trend_sma_slow", "type": "sma", "period": "{{ trend_slow }}", "source": "close", "timeframe": "daily" },
+    { "name": "atr_primary", "type": "atr" },
+    { "name": "vwap_primary", "type": "vwap" },
+    { "name": "primary_ibs", "type": "ibs" },
+    { "name": "primary_rvol", "type": "rvol" }
+  ],
+  "features": [
+    { "name": "body_pct", "type": "body_pct" }
+  ],
+  "sides": {
+    "long": {
+      "entry": {
+        "condition": {
+          "all": [
+            { "left": "trend_sma_fast", "operator": ">", "right": "trend_sma_slow" },
+            { "left": "close", "operator": ">", "right": "vwap_primary" },
+            { "left": "body_pct", "operator": ">=", "right": 0.3 },
+            { "left": "primary_rvol", "operator": ">=", "right": 1.0 }
+          ]
+        }
+      },
+      "exit": {
+        "condition": {
+          "any": [
+            { "left": "close", "operator": "<", "right": "vwap_primary" }
+          ]
+        }
+      }
+    }
+  },
+  "risk": {
+    "stop_loss": {
+      "type": "atr",
+      "indicator": "atr_primary",
+      "multiplier": 2.5
+    },
+    "take_profit": {
+      "type": "atr",
+      "indicator": "atr_primary",
+      "multiplier": 1.5
+    }
+  },
+  "metadata": {
+    "tags": ["auction_drive", "multi_timeframe", "intraday"]
+  }
+}

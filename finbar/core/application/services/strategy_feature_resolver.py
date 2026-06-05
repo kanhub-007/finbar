@@ -45,7 +45,7 @@ class StrategyFeatureResolver:
             errors.append(make_error("$.features", "features must be an array"))
             return []
         features: list[FeatureSpec] = []
-        aliases = {item.name: item.concrete_name for item in indicators}
+        aliases = {item.name: item.column_name() for item in indicators}
         used_names: set[str] = set(aliases)
         for index, item in enumerate(raw):
             self._parse_one(
