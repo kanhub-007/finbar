@@ -161,6 +161,7 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
                 self._jobs.pop(job_id, None)
                 self._tasks.pop(job_id, None)
                 self._results.pop(job_id, None)
+                self._frames.pop(job_id, None)
                 self._delete_sql_artifact(job_id)
 
     def _delete_sql_artifact(self, job_id: str) -> None:

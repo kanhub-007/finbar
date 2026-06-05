@@ -77,19 +77,19 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
             self._converter,
             self._feature_calculator,
         )
-        if enriched is None:
+        enriched_bars, frame = enriched
+        if enriched_bars is None:
             return
-        enriched, frame = enriched
         self._manager.update(
             job,
             status="completed",
             progress_pct=100,
             stage="completed",
             message="Enrichment completed",
-            total_bar_count=len(enriched),
+            total_bar_count=len(enriched_bars),
         )
         self._manager.store_frame(job, frame)
-        self._manager.store_result(job, enriched)
+        self._manager.store_result(job, enriched_bars)
 
     def _resolve_indicators(self, job: EnrichmentJob) -> tuple[list[str] | None, Any]:
         if job.mode == "selected":
@@ -180,7 +180,7 @@ def _apply_features(
         result = converter.frame_to_bars(enriched)
     except Exception as exc:
         _fail(manager, job, f"Feature calculation error: {exc}")
-        return None
+        return None, None
     manager.update(
         job,
         features_applied=[feature.name for feature in validation.definition.features],
