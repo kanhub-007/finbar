@@ -1,0 +1,61 @@
+{
+  "schema_version": "2.0",
+  "name": "auction_drive_json",
+  "description": "Auction Market Theory — intraday entries with daily trend context. Multi-timeframe JSON approximation of the built-in auction_drive strategy.",
+  "timeframes": {
+    "primary": "1h",
+    "informative": [
+      { "alias": "daily", "interval": "1d" }
+    ]
+  },
+  "parameters": {
+    "trend_fast": { "type": "int", "default": 50, "minimum": 10, "maximum": 200 },
+    "trend_slow": { "type": "int", "default": 200, "minimum": 20, "maximum": 500 },
+    "min_body_pct": { "type": "float", "default": 0.3, "minimum": 0.1, "maximum": 2.0 },
+    "min_rvol": { "type": "float", "default": 1.0, "minimum": 0.5, "maximum": 5.0 },
+    "stop_atr_mult": { "type": "float", "default": 2.5, "minimum": 0.5, "maximum": 10.0 },
+    "target_atr_mult": { "type": "float", "default": 1.5, "minimum": 0.5, "maximum": 5.0 }
+  },
+  "indicators": [
+    { "name": "trend_sma_fast",  "type": "sma",  "period": "{{ trend_fast }}", "timeframe": "daily" },
+    { "name": "trend_sma_slow",  "type": "sma",  "period": "{{ trend_slow }}", "timeframe": "daily" },
+    { "name": "primary_atr",     "type": "atr" },
+    { "name": "primary_vwap",    "type": "vwap" },
+    { "name": "primary_ibs",     "type": "ibs" },
+    { "name": "primary_rvol",    "type": "rvol" }
+  ],
+  "features": [
+    { "name": "body_pct",   "type": "body_pct" },
+    { "name": "trend_up",   "type": "formula", "expr": { "op": ">", "left": "trend_sma_fast", "right": "trend_sma_slow" } },
+    { "name": "body_up",    "type": "formula", "expr": { "op": ">", "left": "close", "right": "open" } }
+  ],
+  "sides": {
+    "long": {
+      "entry": {
+        "condition": {
+          "all": [
+            { "left": "body_up",         "operator": "is_true" },
+            { "left": "close",           "operator": ">",       "right": "primary_vwap" },
+            { "left": "body_pct",        "operator": ">=",      "right": "{{ min_body_pct }}" },
+            { "left": "trend_up",        "operator": "is_true" },
+            { "left": "primary_rvol",    "operator": ">=",      "right": "{{ min_rvol }}" }
+          ]
+        }
+      },
+      "exit": {
+        "condition": {
+          "any": [
+            { "left": "close", "operator": "<", "right": "primary_vwap" }
+          ]
+        }
+      }
+    }
+  },
+  "risk": {
+    "stop_loss":   { "type": "atr", "indicator": "primary_atr", "multiplier": 2.5 },
+    "take_profit": { "type": "atr", "indicator": "primary_atr", "multiplier": 1.5 }
+  },
+  "metadata": {
+    "tags": ["auction_drive", "multi_timeframe", "intraday", "trend_following"]
+  }
+}
