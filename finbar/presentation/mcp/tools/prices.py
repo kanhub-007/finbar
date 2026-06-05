@@ -49,7 +49,12 @@ def register_price_tools(mcp: FastMCP) -> None:
         description=(
             "Query the local SQLite cache for OHLCV bars. "
             "Fast, no rate limits — only returns previously-fetched data. "
-            "Use fetch_price_history() first to populate the cache."
+            "Use fetch_price_history() first to populate the cache. "
+            "Returns at most 500 bars by default to avoid oversized "
+            "responses. Use start_date/end_date to narrow the range, "
+            "or set a higher max_bars if you need more data. When "
+            "truncated, the response includes total_bar_count so the "
+            "agent knows how much data exists."
         ),
     )
     def get_cached_prices(
@@ -58,6 +63,7 @@ def register_price_tools(mcp: FastMCP) -> None:
         start_date: str | None = None,
         end_date: str | None = None,
         source: str = "yfinance",
+        max_bars: int = 500,
     ) -> str:
         db = _get_db()
         try:
@@ -76,17 +82,23 @@ def register_price_tools(mcp: FastMCP) -> None:
                     f"No cached data for {symbol} ({source}, {interval}). "
                     f"Use fetch_price_history() to fetch and cache it first."
                 )
-            bars_json = [_bar_to_dict(b) for b in result.bars]
-            return json.dumps(
-                {
-                    "symbol": result.symbol,
-                    "source": result.source,
-                    "interval": result.interval,
-                    "bar_count": result.bar_count,
-                    "bars": bars_json,
-                },
-                indent=2,
-            )
+            bars = result.bars
+            total = len(bars)
+            truncated = total > max_bars
+            if truncated:
+                bars = bars[-max_bars:]
+            bars_json = [_bar_to_dict(b) for b in bars]
+            payload = {
+                "symbol": result.symbol,
+                "source": result.source,
+                "interval": result.interval,
+                "bar_count": len(bars_json),
+                "bars": bars_json,
+            }
+            if truncated:
+                payload["truncated"] = True
+                payload["total_bar_count"] = total
+            return json.dumps(payload, indent=2)
         finally:
             db.close()
 
