@@ -324,8 +324,23 @@ class TestStrategyJsonSdk:
         assert result.valid is False
         assert result.missing_columns == ["volume"]
 
-    def test_fixed_indicator_rejects_custom_period_until_enrichment_supports_it(self):
-        result = StrategyDefinitionParser().parse(_atr_period_strategy())
+    def test_fixed_indicator_rejects_custom_period(self):
+        """Fixed indicators like vwap still reject custom periods."""
+        strategy = {
+            "schema_version": "2.0",
+            "name": "bad",
+            "indicators": [{"name": "x", "type": "vwap", "period": 20}],
+            "sides": {
+                "long": {
+                    "entry": {
+                        "condition": {
+                            "all": [{"left": "close", "operator": ">", "right": "x"}]
+                        }
+                    }
+                }
+            },
+        }
+        result = StrategyDefinitionParser().parse(strategy)
 
         assert result.valid is False
         assert any(
@@ -415,7 +430,7 @@ class TestStrategyJsonSdk:
 
     def test_unknown_risk_indicator_is_rejected(self):
         strategy = _momentum_breakout_strategy()
-        strategy["risk"]["stop_loss"]["indicator"] = "atr_999"
+        strategy["risk"]["stop_loss"]["indicator"] = "nonexistent_indicator"
 
         result = StrategyDefinitionParser().parse(strategy)
 
@@ -515,17 +530,6 @@ def _volume_field_strategy() -> dict:
             }
         },
     }
-
-
-def _atr_period_strategy() -> dict:
-    strategy = _sma_strategy()
-    strategy["indicators"] = [
-        {"name": "atr_fast", "type": "atr", "period": 20},
-    ]
-    strategy["sides"]["long"]["entry"]["condition"] = {
-        "all": [{"left": "atr_fast", "operator": ">", "right": 1}]
-    }
-    return strategy
 
 
 def _short_sma_strategy() -> dict:

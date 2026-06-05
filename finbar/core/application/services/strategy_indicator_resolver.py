@@ -148,15 +148,17 @@ class StrategyIndicatorResolver:
                 return True
             return False
         if period_supplied and period is not None:
-            errors.append(
-                make_error(
-                    path,
-                    f"indicator type '{indicator_type}' does not support "
-                    "custom periods",
-                    "unsupported_indicator_parameter",
+            if not self._catalog.accepts_period(indicator_type):
+                errors.append(
+                    make_error(
+                        path,
+                        f"indicator type '{indicator_type}' does not support "
+                        "custom periods",
+                        "unsupported_indicator_parameter",
+                    )
                 )
-            )
-            return True
+                return True
+            return False
         return False
 
     def _parse_sources(

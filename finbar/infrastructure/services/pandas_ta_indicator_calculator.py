@@ -585,6 +585,8 @@ _DYNAMIC_HANDLERS: dict[str, tuple[Callable, str]] = {
     "sma": (ta.sma, "close"),
     "ema": (ta.ema, "close"),
     "rsi": (ta.rsi, "close"),
+    "atr": (ta.atr, "hlc"),
+    "adx": (ta.adx, "hlc"),
 }
 
 
@@ -602,6 +604,12 @@ def _compute_dynamic(df: pd.DataFrame, name: str) -> pd.DataFrame:
     for prefix, (func, source_col) in _DYNAMIC_HANDLERS.items():
         if name.startswith(f"{prefix}_"):
             period = int(name[len(prefix) + 1 :])
-            df[name] = _safe_ta(func, df[source_col], length=period)
+            if source_col == "hlc":
+                result_df = func(df["high"], df["low"], df["close"], length=period)
+                col = f"{prefix.upper()}_{period}"
+                if result_df is not None and col in result_df.columns:
+                    df[name] = result_df[col]
+            else:
+                df[name] = _safe_ta(func, df[source_col], length=period)
             return df
     return df
