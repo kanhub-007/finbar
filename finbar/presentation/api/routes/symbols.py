@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Query
 from finbar.presentation.api.dto.responses import (
     SymbolInfoResponse,
 )
-from finbar.presentation.mcp.tools._shared import (
+from finbar.startup.service_factory import (
     _get_db,
     _get_hl_tickers,
     _make_get_symbol_info_use_case,
@@ -25,7 +25,10 @@ def list_cached(source: str | None = Query(None, description="Data source filter
     db = _get_db()
     try:
         use_case = _make_list_cached_use_case(db)
-        return use_case.execute(source=source)
+        try:
+            return use_case.execute(source=source)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         db.close()
 

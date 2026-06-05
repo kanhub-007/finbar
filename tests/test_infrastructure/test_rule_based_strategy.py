@@ -3,7 +3,8 @@
 import numpy as np
 import pandas as pd
 
-from finbar.core.domain.entities.strategy_definition import Rule, StrategyDefinition
+from finbar.core.domain.entities.rule import Rule
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.infrastructure.services.backtest_runner import BacktestRunner
 from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
@@ -106,6 +107,27 @@ class TestRuleBasedStrategy:
         result = runner.run(df, strategy, 10000)
         # Crossover should trigger trades on trending data
         assert result["total_trades"] >= 0
+
+    def test_dynamic_threshold_crossover_uses_previous_threshold(self):
+        sdef = StrategyDefinition(
+            name="dynamic_cross",
+            direction="long",
+            entry_rules=[
+                Rule(
+                    indicator="close",
+                    operator="crosses_above",
+                    value="sma_20",
+                ),
+            ],
+            exit_rules=[],
+        )
+        strategy = RuleBasedStrategy(sdef)
+        first = {"close": 10.3, "sma_20": 10.5}
+        second = {"close": 10.6, "sma_20": 10.2}
+        assert strategy.on_bar(first, {"size": 0}).action == "hold"
+        signal = strategy.on_bar(second, {"size": 0})
+        assert signal.action == "buy"
+        assert signal.direction == "long"
 
     def test_stop_loss_atr(self):
         sdef = StrategyDefinition(

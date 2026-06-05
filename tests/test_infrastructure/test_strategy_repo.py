@@ -4,7 +4,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from finbar.core.domain.entities.strategy_definition import Rule, StrategyDefinition
+from finbar.core.domain.entities.rule import Rule
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.infrastructure.data.connection import Base
 from finbar.infrastructure.repositories.sql_strategy_definition_repository import (
     SqlStrategyDefinitionRepository,

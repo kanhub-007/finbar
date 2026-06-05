@@ -5,6 +5,7 @@ Thin wrapper over PriceCacheRepository.list_symbols().
 
 import logging
 
+from finbar.core.domain.entities.data_source import DataSource
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
 )
@@ -27,4 +28,6 @@ class ListCachedSymbolsUseCase:
         Returns:
             Sorted list of unique symbol strings.
         """
+        if source is not None:
+            DataSource(source)
         return self._cache.list_symbols(source=source)

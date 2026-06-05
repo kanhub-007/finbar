@@ -5,7 +5,11 @@ from finbar.core.application.dto.backtest_result import BacktestResultDTO
 from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
 from finbar.core.domain.entities.signal_result import SignalResult
 from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
+from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar.infrastructure.services.pandas_bar_frame_converter import (
+    PandasBarFrameConverter,
+)
 
 
 class StubStrategy(TradingStrategy):
@@ -21,6 +25,23 @@ class StubStrategy(TradingStrategy):
 
     def on_bar(self, bar: dict, position: dict) -> SignalResult:
         return SignalResult(action="hold")
+
+
+class StubStrategyProvider(StrategyProvider):
+    """Records params used to create strategies."""
+
+    def __init__(self):
+        self.params_seen = None
+
+    def create(self, name: str, params: dict | None = None) -> TradingStrategy | None:
+        self.params_seen = params
+        return StubStrategy() if name == "stub" else None
+
+    def list_metadata(self) -> list[StrategyMeta]:
+        return [StubStrategy().meta()]
+
+    def exists(self, name: str) -> bool:
+        return name == "stub"
 
 
 class StubEngine:
@@ -63,7 +84,12 @@ class TestRunBacktestUseCase:
         self.engine = StubEngine()
         self.strategy = StubStrategy()
         self.registry = {"stub": self.strategy}
-        self.use_case = RunBacktestUseCase(self.engine, self.registry)
+        self.converter = PandasBarFrameConverter()
+        self.use_case = RunBacktestUseCase(
+            self.engine,
+            self.registry,
+            self.converter,
+        )
 
     def test_empty_bars_returns_error(self):
         result = self.use_case.execute(BacktestRequest(bars=[], strategy_name="stub"))
@@ -112,6 +138,33 @@ class TestRunBacktestUseCase:
         assert result.symbol == "AAPL"
         assert result.interval == "1d"
         assert result.bar_count == 1
+
+    def test_strategy_params_forwarded_to_provider(self):
+        provider = StubStrategyProvider()
+        use_case = RunBacktestUseCase(
+            StubEngine(),
+            provider,
+            PandasBarFrameConverter(),
+        )
+        bars = [
+            {
+                "timestamp": "2024-01-01",
+                "open": 100,
+                "high": 105,
+                "low": 98,
+                "close": 102,
+                "volume": 1000000,
+            }
+        ]
+        result = use_case.execute(
+            BacktestRequest(
+                bars=bars,
+                strategy_name="stub",
+                params={"fast_period": 5, "slow_period": 10},
+            )
+        )
+        assert result.error is None
+        assert provider.params_seen == {"fast_period": 5, "slow_period": 10}
 
     def test_symbol_interval_passthrough(self):
         bars = [

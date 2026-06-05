@@ -22,7 +22,8 @@ from finbar.presentation.api.dto.responses import (
     BacktestResponse,
     BacktestStrategyResponse,
 )
-from finbar.presentation.mcp.tools._shared import (
+from finbar.startup.service_factory import (
+    _get_db,
     _make_apply_indicators_use_case,
     _make_run_backtest_use_case,
 )
@@ -68,20 +69,20 @@ def apply_indicators(request: ApiApplyRequest):
 )
 def list_strategies():
     """List available built-in backtest strategies."""
-    use_case = _make_run_backtest_use_case()
-    strategies = []
-    for name in sorted(use_case._registry):
-        strategy = use_case._registry[name]
-        meta = strategy.meta()
-        strategies.append(
+    db = _get_db()
+    try:
+        use_case = _make_run_backtest_use_case(db)
+        return [
             BacktestStrategyResponse(
                 name=meta.name,
                 description=meta.description,
                 required_indicators=meta.required_indicators,
                 default_params=meta.params,
             )
-        )
-    return strategies
+            for meta in use_case.list_strategies()
+        ]
+    finally:
+        db.close()
 
 
 @router.post(
@@ -97,17 +98,21 @@ def run_backtest(request: ApiBacktestRequest):
     Returns performance metrics including Sharpe ratio, drawdown,
     win rate, trade list, and equity curve.
     """
-    use_case = _make_run_backtest_use_case()
-    result = use_case.execute(
-        BacktestRequest(
-            bars=request.bars,
-            strategy_name=request.strategy_name,
-            symbol=request.symbol,
-            interval=request.interval,
-            params=request.params,
-            initial_cash=request.initial_cash,
+    db = _get_db()
+    try:
+        use_case = _make_run_backtest_use_case(db)
+        result = use_case.execute(
+            BacktestRequest(
+                bars=request.bars,
+                strategy_name=request.strategy_name,
+                symbol=request.symbol,
+                interval=request.interval,
+                params=request.params,
+                initial_cash=request.initial_cash,
+            )
         )
-    )
+    finally:
+        db.close()
 
     if result.error:
         raise HTTPException(status_code=400, detail=result.error)

@@ -25,6 +25,8 @@ from finbar.core.domain.services.backtest_metrics import (
     calculate_sortino,
     calculate_total_return,
 )
+from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
+from finbar.infrastructure.services.backtest_position import BacktestPosition
 
 logger = logging.getLogger(__name__)
 
@@ -71,75 +73,6 @@ class BacktestRunner(BacktestEngine):
 
 
 # ---------------------------------------------------------------------------
-# Internal state for the bar loop
-# ---------------------------------------------------------------------------
-
-
-class _Position:
-    """Tracks an open position during the bar loop."""
-
-    __slots__ = (
-        "size",
-        "direction",
-        "entry_price",
-        "entry_date",
-        "stop_price",
-        "target_price",
-        "bars_held",
-    )
-
-    def __init__(self):
-        self.size: int = 0
-        self.direction: str = ""
-        self.entry_price: float = 0.0
-        self.entry_date: str = ""
-        self.stop_price: float = 0.0
-        self.target_price: float = 0.0
-        self.bars_held: int = 0
-
-    def to_dict(self) -> dict:
-        return {
-            "size": self.size,
-            "direction": self.direction,
-            "entry_price": self.entry_price,
-            "entry_date": self.entry_date,
-            "stop_price": self.stop_price,
-            "target_price": self.target_price,
-            "bars_held": self.bars_held,
-        }
-
-    def reset(self):
-        self.size = 0
-        self.direction = ""
-        self.entry_price = 0.0
-        self.entry_date = ""
-        self.stop_price = 0.0
-        self.target_price = 0.0
-        self.bars_held = 0
-
-
-class _LoopState:
-    """Mutable state carried through the bar loop."""
-
-    __slots__ = (
-        "cash",
-        "position",
-        "trades",
-        "equity_curve",
-        "pending_signal",
-        "peak_value",
-    )
-
-    def __init__(self, initial_cash: float):
-        self.cash = initial_cash
-        self.position = _Position()
-        self.trades: list[dict] = []
-        self.equity_curve: list[dict] = []
-        self.pending_signal: dict | None = None
-        self.peak_value = initial_cash
-
-
-# ---------------------------------------------------------------------------
 # Bar loop
 # ---------------------------------------------------------------------------
 
@@ -148,9 +81,9 @@ def _run_loop(
     df: pd.DataFrame,
     strategy: TradingStrategy,
     initial_cash: float,
-) -> _LoopState:
+) -> BacktestLoopState:
     """Iterate bars, call strategy, execute signals, track positions."""
-    state = _LoopState(initial_cash)
+    state = BacktestLoopState(initial_cash)
 
     for i in range(len(df)):
         row = df.iloc[i]
@@ -176,8 +109,8 @@ def _run_loop(
 
         # --- Handle signal exit ---
         if (
-            signal.action == "sell"
-            and signal.direction == "exit"
+            signal.direction == "exit"
+            and signal.action in ("buy", "sell")
             and state.position.size != 0
         ):
             _exit_position(state, close, bar_date)
@@ -222,17 +155,22 @@ def _run_loop(
 # ---------------------------------------------------------------------------
 
 
-def _enter_position(state: _LoopState, sig: dict, price: float, date: str):
+def _enter_position(
+    state: BacktestLoopState,
+    sig: dict,
+    price: float,
+    date: str,
+) -> None:
     """Enter a new position from a pending signal."""
     size = sig["position_size"] or 100
     if sig["direction"] == "long":
         state.cash -= size * price
-        state.position = _Position()
+        state.position = BacktestPosition()
         state.position.size = size
         state.position.direction = "long"
     elif sig["direction"] == "short":
         state.cash += size * price
-        state.position = _Position()
+        state.position = BacktestPosition()
         state.position.size = -size
         state.position.direction = "short"
     state.position.entry_price = price
@@ -241,7 +179,11 @@ def _enter_position(state: _LoopState, sig: dict, price: float, date: str):
     state.position.target_price = sig["target_price"]
 
 
-def _exit_position(state: _LoopState, exit_price: float, bar_date: str):
+def _exit_position(
+    state: BacktestLoopState,
+    exit_price: float,
+    bar_date: str,
+) -> None:
     """Close the current position and record the trade."""
     abs_size = abs(state.position.size)
     if state.position.size > 0:
@@ -273,7 +215,7 @@ def _exit_position(state: _LoopState, exit_price: float, bar_date: str):
 
 
 def _check_exit_conditions(
-    state: _LoopState,
+    state: BacktestLoopState,
     close: float,
     high: float,
     low: float,
@@ -298,7 +240,7 @@ def _check_exit_conditions(
         _exit_position(state, exit_price, bar_date)
 
 
-def _portfolio_value(state: _LoopState, close: float) -> float:
+def _portfolio_value(state: BacktestLoopState, close: float) -> float:
     """Calculate current portfolio value."""
     if state.position.size > 0:
         return state.cash + state.position.size * close
@@ -340,7 +282,7 @@ def _bar_date(row: pd.Series) -> str:
 
 def _build_result_dict(
     strategy: TradingStrategy,
-    state: _LoopState,
+    state: BacktestLoopState,
     initial_cash: float,
 ) -> dict:
     """Compute metrics and build the result dict from loop state."""

@@ -86,38 +86,32 @@ class SqlPriceCacheRepository(PriceCacheRepository):
         if not bars:
             return 0
 
-        count = 0
+        values = []
         for bar in bars:
-            try:
-                orm_bar = _domain_to_orm(bar)
-                # INSERT OR REPLACE: on unique constraint violation,
-                # delete old row and insert new
-                stmt = (
-                    OrmPriceBar.__table__.insert()
-                    .prefix_with("OR REPLACE")
-                    .values(
-                        symbol=orm_bar.symbol,
-                        source=orm_bar.source,
-                        interval=orm_bar.interval,
-                        timestamp=orm_bar.timestamp,
-                        open=orm_bar.open,
-                        high=orm_bar.high,
-                        low=orm_bar.low,
-                        close=orm_bar.close,
-                        volume=orm_bar.volume,
-                    )
-                )
-                self._db.execute(stmt)
-                count += 1
-            except Exception:
-                logger.exception(
-                    "Failed to save bar for %s at %s",
-                    bar.symbol,
-                    bar.timestamp,
-                )
+            orm_bar = _domain_to_orm(bar)
+            values.append(
+                {
+                    "symbol": orm_bar.symbol,
+                    "source": orm_bar.source,
+                    "interval": orm_bar.interval,
+                    "timestamp": orm_bar.timestamp,
+                    "open": orm_bar.open,
+                    "high": orm_bar.high,
+                    "low": orm_bar.low,
+                    "close": orm_bar.close,
+                    "volume": orm_bar.volume,
+                }
+            )
 
-        self._db.commit()
-        return count
+        try:
+            stmt = OrmPriceBar.__table__.insert().prefix_with("OR REPLACE")
+            self._db.execute(stmt, values)
+            self._db.commit()
+            return len(values)
+        except Exception:
+            self._db.rollback()
+            logger.exception("Failed to save %d price bars", len(values))
+            return 0
 
     def query_bars(
         self,

@@ -56,7 +56,10 @@ def register_symbol_tools(mcp: FastMCP) -> None:
         db = _get_db()
         try:
             use_case = _make_list_cached_use_case(db)
-            symbols = use_case.execute(source=source)
+            try:
+                symbols = use_case.execute(source=source)
+            except ValueError as exc:
+                return json.dumps({"error": str(exc)})
             return json.dumps(symbols, indent=2)
         finally:
             db.close()

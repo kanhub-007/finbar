@@ -6,24 +6,7 @@ engine reads these definitions and executes them at runtime.
 
 from dataclasses import dataclass, field
 
-
-@dataclass(frozen=True)
-class Rule:
-    """A single condition in a strategy's entry or exit rule set.
-
-    Example: {"indicator": "rsi_14", "operator": "<", "value": 30}
-    """
-
-    indicator: str
-    """Indicator column name (e.g. "rsi_14", "close", "sma_50")."""
-
-    operator: str
-    """Comparison operator: "<", ">", "<=", ">=", "==", "!=", "crosses_above",
-    "crosses_below"."""
-
-    value: str | float | int
-    """Threshold value. Can be a literal number or an indicator name
-    for cross-indicator comparisons (e.g. "sma_50")."""
+from finbar.core.domain.entities.rule import Rule
 
 
 @dataclass(frozen=True)

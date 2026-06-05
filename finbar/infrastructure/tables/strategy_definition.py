@@ -57,9 +57,7 @@ class StrategyDefinition(Base):
     @staticmethod
     def orm_to_domain(orm: "StrategyDefinition") -> "StrategyDefinition":
         """Convert an ORM row to a domain StrategyDefinition entity."""
-        from finbar.core.domain.entities.strategy_definition import (
-            Rule,
-        )
+        from finbar.core.domain.entities.rule import Rule
         from finbar.core.domain.entities.strategy_definition import (
             StrategyDefinition as DomainDef,
         )

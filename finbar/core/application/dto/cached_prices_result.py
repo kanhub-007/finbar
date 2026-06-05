@@ -15,3 +15,4 @@ class CachedPricesResult:
     bars: list[PriceBar]
     bar_count: int
     cached_at: str = ""
+    error: str | None = None

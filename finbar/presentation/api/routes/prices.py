@@ -6,6 +6,7 @@ import json
 from fastapi import APIRouter, HTTPException, Query
 
 from finbar.core.application.dto.fetch_prices_request import FetchPricesRequest
+from finbar.infrastructure.services.fetch_job import FetchJob
 from finbar.presentation.api.dto.requests import (
     FetchPricesRequest as ApiFetchRequest,
 )
@@ -15,8 +16,7 @@ from finbar.presentation.api.dto.responses import (
     FetchJobResponse,
     PriceBarResponse,
 )
-from finbar.presentation.mcp.fetch_job import FetchJob
-from finbar.presentation.mcp.tools._shared import (
+from finbar.startup.service_factory import (
     _get_db,
     _get_job_manager,
     _make_delete_cached_use_case,
@@ -37,7 +37,10 @@ def get_latest(symbol: str, source: str = Query("yfinance")):
     """Get the most recent OHLCV bar for a symbol."""
     db = _get_db()
     try:
-        use_case = _make_get_latest_quote_use_case(db, source)
+        try:
+            use_case = _make_get_latest_quote_use_case(db, source)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         bar = use_case.execute(symbol.upper())
         if bar is None:
             raise HTTPException(status_code=404, detail=f"No data for {symbol}")
@@ -76,6 +79,8 @@ def get_cached(
             start_date=start_date,
             end_date=end_date,
         )
+        if result.error:
+            raise HTTPException(status_code=400, detail=result.error)
         return CachedPricesResponse(
             symbol=result.symbol,
             source=result.source,
@@ -137,12 +142,15 @@ def delete_cached(
     db = _get_db()
     try:
         use_case = _make_delete_cached_use_case(db)
-        deleted = use_case.execute(
-            symbol=symbol.upper(),
-            source=source,
-            interval=interval,
-            before_date=before,
-        )
+        try:
+            deleted = use_case.execute(
+                symbol=symbol.upper(),
+                source=source,
+                interval=interval,
+                before_date=before,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return DeleteResponse(symbol=symbol.upper(), deleted_count=deleted)
     finally:
         db.close()

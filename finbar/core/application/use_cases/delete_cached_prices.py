@@ -6,6 +6,8 @@ Symbol is required; other params narrow the deletion scope.
 
 import logging
 
+from finbar.core.domain.entities.data_source import DataSource
+from finbar.core.domain.entities.interval import Interval
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
 )
@@ -38,6 +40,7 @@ class DeleteCachedPricesUseCase:
         Returns:
             Number of bars deleted.
         """
+        _validate_delete_filters(source, interval)
         deleted = self._cache.delete_bars(
             symbol=symbol,
             source=source,
@@ -52,3 +55,11 @@ class DeleteCachedPricesUseCase:
             interval or "*",
         )
         return deleted
+
+
+def _validate_delete_filters(source: str | None, interval: str | None) -> None:
+    """Validate optional deletion filters."""
+    if source is not None:
+        DataSource(source)
+    if interval is not None:
+        Interval(interval)

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 
 from finbar.presentation.api.dto.responses import JobStatusResponse
-from finbar.presentation.mcp.tools._shared import _get_job_manager
+from finbar.startup.service_factory import _get_job_manager
 
 router = APIRouter(prefix="/api/jobs", tags=["Jobs"])
 

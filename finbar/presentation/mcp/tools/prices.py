@@ -7,7 +7,7 @@ from fastmcp import FastMCP
 
 from finbar.core.application.dto.fetch_prices_request import FetchPricesRequest
 from finbar.core.domain.entities.price_bar import PriceBar
-from finbar.presentation.mcp.fetch_job import FetchJob
+from finbar.infrastructure.services.fetch_job import FetchJob
 
 from ._shared import (
     _get_db,
@@ -33,7 +33,10 @@ def register_price_tools(mcp: FastMCP) -> None:
     def get_latest_quote(symbol: str, source: str = "yfinance") -> str:
         db = _get_db()
         try:
-            use_case = _make_get_latest_quote_use_case(db, source)
+            try:
+                use_case = _make_get_latest_quote_use_case(db, source)
+            except ValueError as exc:
+                return json.dumps({"error": str(exc)})
             bar = use_case.execute(symbol.upper())
             if bar is None:
                 return f"No data available for {symbol}"
@@ -66,6 +69,8 @@ def register_price_tools(mcp: FastMCP) -> None:
                 start_date=start_date,
                 end_date=end_date,
             )
+            if result.error:
+                return json.dumps({"error": result.error})
             if result.bar_count == 0:
                 return (
                     f"No cached data for {symbol} ({source}, {interval}). "
@@ -104,12 +109,15 @@ def register_price_tools(mcp: FastMCP) -> None:
         db = _get_db()
         try:
             use_case = _make_delete_cached_use_case(db)
-            deleted = use_case.execute(
-                symbol=symbol.upper(),
-                source=source,
-                interval=interval,
-                before_date=before_date,
-            )
+            try:
+                deleted = use_case.execute(
+                    symbol=symbol.upper(),
+                    source=source,
+                    interval=interval,
+                    before_date=before_date,
+                )
+            except ValueError as exc:
+                return json.dumps({"error": str(exc)})
             return f"Deleted {deleted} cached bars for {symbol}"
         finally:
             db.close()

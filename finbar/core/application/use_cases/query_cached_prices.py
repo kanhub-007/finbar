@@ -6,6 +6,8 @@ Thin wrapper over PriceCacheRepository.query_bars().
 import logging
 
 from finbar.core.application.dto.cached_prices_result import CachedPricesResult
+from finbar.core.domain.entities.data_source import DataSource
+from finbar.core.domain.entities.interval import Interval
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
 )
@@ -39,6 +41,17 @@ class QueryCachedPricesUseCase:
         Returns:
             CachedPricesResult with bars and count.
         """
+        validation_error = _validate_query(source, interval)
+        if validation_error:
+            return CachedPricesResult(
+                symbol=symbol,
+                source=source,
+                interval=interval,
+                bars=[],
+                bar_count=0,
+                error=validation_error,
+            )
+
         bars = self._cache.query_bars(
             symbol=symbol,
             source=source,
@@ -54,3 +67,20 @@ class QueryCachedPricesUseCase:
             bars=bars,
             bar_count=len(bars),
         )
+
+
+def _validate_query(source: str, interval: str) -> str | None:
+    """Validate cached query source and interval values."""
+    try:
+        DataSource(source)
+    except ValueError:
+        allowed = ", ".join(item.value for item in DataSource)
+        return f"Unknown source '{source}'. Allowed: {allowed}"
+
+    try:
+        Interval(interval)
+    except ValueError:
+        allowed = ", ".join(item.value for item in Interval)
+        return f"Unknown interval '{interval}'. Allowed: {allowed}"
+
+    return None

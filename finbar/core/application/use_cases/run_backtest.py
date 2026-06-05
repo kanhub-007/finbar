@@ -1,61 +1,74 @@
 """RunBacktestUseCase — run a named strategy against historical OHLCV bars.
 
-Depends on BacktestEngine (Template Method) and a strategy registry
-(dict of name → TradingStrategy). Uses Constructor DI + Registry pattern.
-
-The AI client composes: get_cached_prices → apply_indicators → run_backtest.
+Depends on BacktestEngine and StrategyProvider. The provider creates a fresh
+TradingStrategy per run so caller-provided strategy parameters are applied and
+state does not leak between concurrent backtests.
 """
 
 import logging
 
-from finbar.core.application.bar_utils import bars_to_dataframe
 from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
+from finbar.core.domain.entities.strategy_meta import StrategyMeta
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
+from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
 
 class RunBacktestUseCase:
-    """Run a backtest with a named trading strategy against historical bars.
-
-    Strategies are registered by name in a dict (Registry pattern).
-    The engine runs the bar-by-bar simulation; the use case converts
-    the raw engine output into a BacktestResultDTO.
-    """
+    """Run a backtest with a named trading strategy against historical bars."""
 
     def __init__(
         self,
         engine: BacktestEngine,
-        strategy_registry: dict[str, TradingStrategy],
+        strategy_provider: StrategyProvider | dict[str, TradingStrategy],
+        converter: BarFrameConverter,
     ):
-        """Constructor injection — receives engine and strategy registry.
+        """Constructor injection — receives engine and strategy provider.
 
         Args:
-            engine: BacktestEngine implementation (bar loop + metrics).
-            strategy_registry: Dict mapping strategy_name → TradingStrategy
-                instance. Built-in strategies are registered in the factory.
+            engine: BacktestEngine implementation.
+            strategy_provider: StrategyProvider that creates fresh strategies.
+                A dict registry is also accepted for backward-compatible tests.
+            converter: Converts bar DTOs to the engine's frame type.
         """
         self._engine = engine
-        self._registry = strategy_registry
+        self._strategy_provider = strategy_provider
+        self._converter = converter
+
+    def list_strategies(self) -> list[StrategyMeta]:
+        """Return metadata for available strategies."""
+        if isinstance(self._strategy_provider, dict):
+            return [
+                strategy.meta()
+                for _, strategy in sorted(self._strategy_provider.items())
+            ]
+        return self._strategy_provider.list_metadata()
+
+    def has_strategy(self, name: str) -> bool:
+        """Return True if the named strategy is available."""
+        if isinstance(self._strategy_provider, dict):
+            return name in self._strategy_provider
+        return self._strategy_provider.exists(name)
 
     def execute(self, request: BacktestRequest) -> BacktestResultDTO:
         """Execute a backtest and return structured results.
 
         Args:
-            request: BacktestRequest with bars, strategy name, params, cash.
+            request: BacktestRequest with bars, strategy name, params, and cash.
 
         Returns:
-            BacktestResultDTO with performance metrics, trades, equity curve.
+            BacktestResultDTO with performance metrics, trades, and equity curve.
         """
-        # 1. Validate input
         if not request.bars:
             return BacktestResultDTO(error="No bars provided")
 
-        strategy = self._registry.get(request.strategy_name)
+        strategy = self._create_strategy(request.strategy_name, request.params)
         if strategy is None:
-            available = ", ".join(sorted(self._registry.keys()))
+            available = ", ".join(meta.name for meta in self.list_strategies())
             return BacktestResultDTO(
                 error=(
                     f"Unknown strategy '{request.strategy_name}'. "
@@ -63,14 +76,12 @@ class RunBacktestUseCase:
                 ),
             )
 
-        # 2. Convert bars to DataFrame
         try:
-            df = bars_to_dataframe(request.bars)
+            df = self._converter.bars_to_frame(request.bars)
         except Exception as e:
             logger.warning("Failed to convert bars to DataFrame: %s", e)
             return BacktestResultDTO(error=f"Invalid bar data: {e}")
 
-        # 3. Run the engine
         try:
             raw_result = self._engine.run(
                 df=df,
@@ -85,31 +96,44 @@ class RunBacktestUseCase:
                 error=f"Backtest error: {e}",
             )
 
-        # 4. Inject caller-provided metadata (engine doesn't know symbol/interval)
         raw_result["symbol"] = request.symbol
         raw_result["interval"] = request.interval
+        return _result_dto_from_raw(raw_result)
 
-        # 5. Build DTO from engine output
-        return BacktestResultDTO(
-            strategy_name=raw_result.get("strategy_name", ""),
-            symbol=raw_result.get("symbol", ""),
-            interval=raw_result.get("interval", ""),
-            start_date=raw_result.get("start_date", ""),
-            end_date=raw_result.get("end_date", ""),
-            bar_count=raw_result.get("bar_count", 0),
-            initial_cash=raw_result.get("initial_cash", 0.0),
-            final_value=raw_result.get("final_value", 0.0),
-            total_return=raw_result.get("total_return", 0.0),
-            annualized_return=raw_result.get("annualized_return"),
-            total_trades=raw_result.get("total_trades", 0),
-            winning_trades=raw_result.get("winning_trades", 0),
-            losing_trades=raw_result.get("losing_trades", 0),
-            win_rate=raw_result.get("win_rate", 0.0),
-            max_drawdown=raw_result.get("max_drawdown", 0.0),
-            sharpe_ratio=raw_result.get("sharpe_ratio", 0.0),
-            sortino_ratio=raw_result.get("sortino_ratio", 0.0),
-            profit_factor=raw_result.get("profit_factor", 0.0),
-            calmar_ratio=raw_result.get("calmar_ratio", 0.0),
-            trades=raw_result.get("trades", []),
-            equity_curve=raw_result.get("equity_curve", []),
-        )
+    def _create_strategy(
+        self,
+        name: str,
+        params: dict | None,
+    ) -> TradingStrategy | None:
+        """Create a strategy through the provider or compatibility registry."""
+        if isinstance(self._strategy_provider, dict):
+            return self._strategy_provider.get(name)
+        return self._strategy_provider.create(name, params or {})
+
+
+def _result_dto_from_raw(raw_result: dict) -> BacktestResultDTO:
+    """Build a BacktestResultDTO from engine output."""
+    return BacktestResultDTO(
+        strategy_name=raw_result.get("strategy_name", ""),
+        symbol=raw_result.get("symbol", ""),
+        interval=raw_result.get("interval", ""),
+        start_date=raw_result.get("start_date", ""),
+        end_date=raw_result.get("end_date", ""),
+        bar_count=raw_result.get("bar_count", 0),
+        initial_cash=raw_result.get("initial_cash", 0.0),
+        final_value=raw_result.get("final_value", 0.0),
+        total_return=raw_result.get("total_return", 0.0),
+        annualized_return=raw_result.get("annualized_return"),
+        total_trades=raw_result.get("total_trades", 0),
+        winning_trades=raw_result.get("winning_trades", 0),
+        losing_trades=raw_result.get("losing_trades", 0),
+        win_rate=raw_result.get("win_rate", 0.0),
+        max_drawdown=raw_result.get("max_drawdown", 0.0),
+        sharpe_ratio=raw_result.get("sharpe_ratio", 0.0),
+        sortino_ratio=raw_result.get("sortino_ratio", 0.0),
+        profit_factor=raw_result.get("profit_factor", 0.0),
+        calmar_ratio=raw_result.get("calmar_ratio", 0.0),
+        trades=raw_result.get("trades", []),
+        equity_curve=raw_result.get("equity_curve", []),
+        error=raw_result.get("error"),
+    )

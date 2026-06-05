@@ -65,6 +65,36 @@ class _AlternatingSignalStrategy(TradingStrategy):
         self._bar_count = 0
 
 
+class _ShortThenCoverStrategy(TradingStrategy):
+    """Enter short, then emit a buy-to-cover exit signal."""
+
+    def __init__(self):
+        self._entered = False
+
+    def meta(self) -> StrategyMeta:
+        return StrategyMeta(
+            name="short_then_cover",
+            variant=DataMode.REAL,
+            description="Test",
+            required_indicators=[],
+        )
+
+    def on_bar(self, bar: dict, position: dict) -> SignalResult:
+        if position.get("direction") == "short":
+            return SignalResult(action="buy", direction="exit")
+        if not self._entered:
+            self._entered = True
+            return SignalResult(
+                action="sell",
+                direction="short",
+                position_size=10,
+            )
+        return SignalResult(action="hold")
+
+    def on_reset(self) -> None:
+        self._entered = False
+
+
 def _make_flat_df(periods: int = 20, price: float = 100.0) -> pd.DataFrame:
     dates = pd.date_range("2024-01-01", periods=periods, freq="D")
     return pd.DataFrame(
@@ -165,6 +195,13 @@ class TestShortTrading:
         result = runner.run(df, _StaticSignalStrategy(sig), 10000)
         assert result["total_trades"] > 0
 
+    def test_short_buy_exit_signal_closes_position(self):
+        df = _make_flat_df(5)
+        runner = BacktestRunner()
+        result = runner.run(df, _ShortThenCoverStrategy(), 10000)
+        assert result["total_trades"] == 1
+        assert result["trades"][0]["metadata"]["direction"] == "short"
+
 
 class TestStopLoss:
     def test_long_stop_loss_triggered(self):
@@ -239,8 +276,10 @@ class TestMultipleEntries:
     def test_no_double_entry(self):
         """Engine enters and exits with take-profit, not entering while open."""
         sig = SignalResult(
-            action="buy", direction="long",
-            target_price=125.0, position_size=100,
+            action="buy",
+            direction="long",
+            target_price=125.0,
+            position_size=100,
         )
         runner = BacktestRunner()
         dates = pd.date_range("2024-01-01", periods=10, freq="D")

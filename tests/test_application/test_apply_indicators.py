@@ -11,6 +11,9 @@ from finbar.core.application.dto.apply_indicators_result import (
 from finbar.core.application.use_cases.apply_indicators import (
     ApplyIndicatorsUseCase,
 )
+from finbar.infrastructure.services.pandas_bar_frame_converter import (
+    PandasBarFrameConverter,
+)
 
 
 class StubIndicatorCalculator:
@@ -26,7 +29,8 @@ class StubIndicatorCalculator:
 class TestApplyIndicatorsUseCase:
     def setup_method(self):
         self.calculator = StubIndicatorCalculator()
-        self.use_case = ApplyIndicatorsUseCase(self.calculator)
+        self.converter = PandasBarFrameConverter()
+        self.use_case = ApplyIndicatorsUseCase(self.calculator, self.converter)
 
     def test_empty_bars_returns_error(self):
         result = self.use_case.execute(

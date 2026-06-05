@@ -7,13 +7,13 @@ returns enriched bars as JSON-serializable dicts.
 
 import logging
 
-from finbar.core.application.bar_utils import bars_to_dataframe, dataframe_to_bars
 from finbar.core.application.dto.apply_indicators_request import (
     ApplyIndicatorsRequest,
 )
 from finbar.core.application.dto.apply_indicators_result import (
     ApplyIndicatorsResult,
 )
+from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.indicator_calculator import (
     IndicatorCalculator,
 )
@@ -31,13 +31,19 @@ class ApplyIndicatorsUseCase:
     get_cached_prices and run_backtest.
     """
 
-    def __init__(self, calculator: IndicatorCalculator):
-        """Constructor injection — receives indicator calculator.
+    def __init__(
+        self,
+        calculator: IndicatorCalculator,
+        converter: BarFrameConverter,
+    ):
+        """Constructor injection — receives calculator and frame converter.
 
         Args:
             calculator: IndicatorCalculator implementation (e.g. pandas_ta).
+            converter: Converts bar DTOs to the calculator's frame type.
         """
         self._calculator = calculator
+        self._converter = converter
 
     def execute(self, request: ApplyIndicatorsRequest) -> ApplyIndicatorsResult:
         """Apply indicators to bars and return enriched result.
@@ -62,7 +68,7 @@ class ApplyIndicatorsUseCase:
 
         # 2. Convert bars to DataFrame
         try:
-            df = bars_to_dataframe(request.bars)
+            df = self._converter.bars_to_frame(request.bars)
         except Exception as e:
             logger.warning("Failed to convert bars to DataFrame: %s", e)
             return ApplyIndicatorsResult(error=f"Invalid bar data: {e}")
@@ -83,7 +89,7 @@ class ApplyIndicatorsUseCase:
             )
 
         # 4. Convert back to list of dicts
-        enriched_bars = dataframe_to_bars(enriched_df)
+        enriched_bars = self._converter.frame_to_bars(enriched_df)
 
         return ApplyIndicatorsResult(
             bars=enriched_bars,

@@ -19,7 +19,7 @@ class StubFetcher:
         return [
             PriceBar(
                 symbol=symbol,
-                source="test",
+                source="yfinance",
                 interval=interval,
                 timestamp="2024-01-01",
                 open=100.0,
@@ -30,7 +30,7 @@ class StubFetcher:
             ),
             PriceBar(
                 symbol=symbol,
-                source="test",
+                source="yfinance",
                 interval=interval,
                 timestamp="2024-01-02",
                 open=102.0,
@@ -62,7 +62,7 @@ class TestFetchPricesUseCase:
         result = uc.execute(
             FetchPricesRequest(
                 symbol="AAPL",
-                source="test",
+                source="yfinance",
                 interval="1d",
             )
         )
@@ -77,12 +77,25 @@ class TestFetchPricesUseCase:
         result = uc.execute(
             FetchPricesRequest(
                 symbol="NODATA",
-                source="test",
+                source="yfinance",
                 interval="1d",
             )
         )
         assert result.bar_count == 0
         assert result.error is not None
+
+    def test_invalid_source_returns_error(self):
+        uc = FetchPricesUseCase(StubFetcher(), StubCache())
+        result = uc.execute(
+            FetchPricesRequest(
+                symbol="AAPL",
+                source="not-a-source",
+                interval="1d",
+            )
+        )
+        assert result.bar_count == 0
+        assert result.error is not None
+        assert "Unknown source" in result.error
 
     def test_bars_saved_to_cache(self):
         cache = StubCache()
@@ -90,7 +103,7 @@ class TestFetchPricesUseCase:
         uc.execute(
             FetchPricesRequest(
                 symbol="AAPL",
-                source="test",
+                source="yfinance",
                 interval="1d",
             )
         )

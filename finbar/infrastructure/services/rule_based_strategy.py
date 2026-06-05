@@ -11,19 +11,17 @@ from __future__ import annotations
 
 import logging
 
+from finbar.core.domain.entities.rule import Rule
 from finbar.core.domain.entities.signal_result import SignalResult
-from finbar.core.domain.entities.strategy_definition import (
-    Rule,
-    StrategyDefinition,
-)
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 
-# Crossover tracking: per strategy instance, track previous bar values
-# for indicators that use "crosses_above" / "crosses_below".
-_PREV_VALUES: dict[int, dict[str, float]] = {}
+# Crossover tracking: per strategy instance, track previous current/threshold
+# values for rules that use "crosses_above" / "crosses_below".
+_PREV_VALUES: dict[int, dict[str, tuple[float, float]]] = {}
 
 
 class RuleBasedStrategy(TradingStrategy):
@@ -170,7 +168,14 @@ def _evaluate_rule(rule: Rule, bar: dict, strategy_id: int) -> bool:
     if op in ("crosses_above", "crosses_below"):
         if threshold is None:
             return False
-        return _check_crossover(strategy_id, rule.indicator, current, op, threshold)
+        return _check_crossover(
+            strategy_id,
+            rule.indicator,
+            str(rule.value),
+            current,
+            op,
+            threshold,
+        )
 
     logger.warning("Unknown operator '%s' in rule", op)
     return False
@@ -214,23 +219,26 @@ def _compare(a: float, op: str, b: float) -> bool:
 def _check_crossover(
     strategy_id: int,
     indicator: str,
+    threshold_key: str,
     current: float,
     op: str,
     threshold: float,
 ) -> bool:
-    """Check if indicator crossed above/below threshold since last bar."""
-    key = f"{indicator}"
+    """Check if an indicator crossed a literal or dynamic threshold."""
+    key = f"{indicator}:{threshold_key}"
     prev_map = _PREV_VALUES.setdefault(strategy_id, {})
-    prev = prev_map.get(key)
+    previous = prev_map.get(key)
 
-    # Store current for next bar
-    prev_map[key] = current
+    # Store both current and threshold for next bar. Dynamic thresholds such as
+    # SMA columns must be compared against their own previous values.
+    prev_map[key] = (current, threshold)
 
-    if prev is None:
-        return False  # First bar, no crossover possible
+    if previous is None:
+        return False
 
+    prev_current, prev_threshold = previous
     if op == "crosses_above":
-        return prev <= threshold and current > threshold
+        return prev_current <= prev_threshold and current > threshold
     if op == "crosses_below":
-        return prev >= threshold and current < threshold
+        return prev_current >= prev_threshold and current < threshold
     return False

@@ -183,16 +183,24 @@ class TestMomentumBreakout:
         assert sig.action == "buy"
         assert sig.metadata.get("reason") == "momentum_breakout"
 
-    def test_entry_fallback_bar_high(self):
-        """When swing_high_N missing, falls back to bar's own high."""
+    def test_entry_fallback_uses_prior_rolling_high(self):
+        """When swing_high_N is missing, fallback uses prior rolling highs."""
         strat = MomentumBreakoutStrategy(breakout_period=20)
-        bar = {
-            "close": 110,
+        first_bar = {
+            "close": 106,
             "high": 108,
             "sma_200": 100,
             "sma_50": 105,
             "atr": 2.0,
         }
-        sig = strat.on_bar(bar, {"size": 0})
+        second_bar = {
+            "close": 110,
+            "high": 111,
+            "sma_200": 100,
+            "sma_50": 105,
+            "atr": 2.0,
+        }
+        strat.on_bar(first_bar, {"size": 0})
+        sig = strat.on_bar(second_bar, {"size": 0})
         assert sig.action == "buy"
-        assert sig.metadata.get("reason") == "momentum_breakout_bar"
+        assert sig.metadata.get("reason") == "momentum_breakout_rolling_high"

@@ -72,21 +72,20 @@ class YFinanceStockFetcher(StockDataFetcher):
 
             ticker = yf.Ticker(symbol)
 
-            if start_date and end_date and interval in ("1d", "1w"):
-                df = ticker.history(
-                    interval=yf_interval,
-                    start=start_date,
-                    end=end_date,
-                    auto_adjust=False,
-                    actions=False,
-                )
+            history_kwargs = {
+                "interval": yf_interval,
+                "auto_adjust": False,
+                "actions": False,
+            }
+            if start_date or end_date:
+                if start_date:
+                    history_kwargs["start"] = start_date
+                if end_date:
+                    history_kwargs["end"] = end_date
             else:
-                df = ticker.history(
-                    interval=yf_interval,
-                    period=period,
-                    auto_adjust=False,
-                    actions=False,
-                )
+                history_kwargs["period"] = period
+
+            df = ticker.history(**history_kwargs)
 
             if df.empty:
                 logger.debug("Empty response for %s (%s)", symbol, interval)

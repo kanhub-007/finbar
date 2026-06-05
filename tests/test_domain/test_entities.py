@@ -1,8 +1,9 @@
 """Tests for domain entities — pure dataclasses."""
 
 from finbar.core.domain.entities.data_mode import DataMode
+from finbar.core.domain.entities.rule import Rule
 from finbar.core.domain.entities.signal_result import SignalResult
-from finbar.core.domain.entities.strategy_definition import Rule, StrategyDefinition
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_meta import StrategyMeta
 
 

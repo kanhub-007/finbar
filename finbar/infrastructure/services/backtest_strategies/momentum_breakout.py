@@ -27,6 +27,7 @@ class MomentumBreakoutStrategy(TradingStrategy):
         self._trend_sma = trend_sma
         self._exit_sma = exit_sma
         self._stop_atr_mult = stop_atr_mult
+        self._high_history: list[float] = []
 
     def meta(self) -> StrategyMeta:
         return StrategyMeta(
@@ -65,45 +66,46 @@ class MomentumBreakoutStrategy(TradingStrategy):
         pos_size = position.get("size", 0)
         pos_dir = position.get("direction", "")
 
+        signal = SignalResult(action="hold")
+
         # Exit long: close below exit SMA
-        if pos_dir == "long":
-            if exit_sma_val is not None and close < exit_sma_val:
-                return SignalResult(
-                    action="sell",
-                    direction="exit",
-                    metadata={"reason": "sma_exit"},
-                )
+        if pos_dir == "long" and exit_sma_val is not None and close < exit_sma_val:
+            signal = SignalResult(
+                action="sell",
+                direction="exit",
+                metadata={"reason": "sma_exit"},
+            )
+        elif pos_size == 0 and trend_sma_val is not None and close > trend_sma_val:
+            signal = self._entry_signal(bar, close, atr)
 
-        # Entry: break above recent high, above trend SMA
-        if pos_size == 0:
-            if trend_sma_val is not None and close > trend_sma_val:
-                # Compute recent high from the bar itself since we get
-                # per-bar data. We need rolling_high_N as a pre-computed
-                # indicator.
-                breakout_level = bar.get(f"swing_high_{self._breakout_period}")
-                if breakout_level is not None and close > breakout_level:
-                    stop = close - atr * self._stop_atr_mult if atr else 0
-                    return SignalResult(
-                        action="buy",
-                        direction="long",
-                        stop_price=round(stop, 2) if stop else 0.0,
-                        position_size=0,
-                        confidence=0.7,
-                        metadata={"reason": "momentum_breakout"},
-                    )
-                # Fallback: break above recent bar's own high
-                elif close > high:
-                    stop = close - atr * self._stop_atr_mult if atr else 0
-                    return SignalResult(
-                        action="buy",
-                        direction="long",
-                        stop_price=round(stop, 2) if stop else 0.0,
-                        position_size=0,
-                        confidence=0.5,
-                        metadata={"reason": "momentum_breakout_bar"},
-                    )
-
-        return SignalResult(action="hold")
+        self._high_history.append(float(high))
+        return signal
 
     def on_reset(self) -> None:
-        pass
+        """Reset rolling high state for a new backtest run."""
+        self._high_history.clear()
+
+    def _entry_signal(self, bar: dict, close: float, atr: float) -> SignalResult:
+        """Build an entry signal when close breaks above a prior high."""
+        breakout_level = bar.get(f"swing_high_{self._breakout_period}")
+        confidence = 0.7
+        reason = "momentum_breakout"
+
+        if breakout_level is None and self._high_history:
+            lookback = self._high_history[-self._breakout_period :]
+            breakout_level = max(lookback)
+            confidence = 0.5
+            reason = "momentum_breakout_rolling_high"
+
+        if breakout_level is None or close <= breakout_level:
+            return SignalResult(action="hold")
+
+        stop = close - atr * self._stop_atr_mult if atr else 0
+        return SignalResult(
+            action="buy",
+            direction="long",
+            stop_price=round(stop, 2) if stop else 0.0,
+            position_size=0,
+            confidence=confidence,
+            metadata={"reason": reason},
+        )

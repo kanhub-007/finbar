@@ -22,7 +22,6 @@ from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 TRADING_DAYS_PER_YEAR = 252
 
@@ -298,7 +297,7 @@ def enrich_bar_with_proxies(bar: dict[str, Any]) -> dict[str, Any]:
     return enriched
 
 
-def enrich_dataframe_with_proxies(df: pd.DataFrame) -> pd.DataFrame:
+def enrich_dataframe_with_proxies(df: Any) -> Any:
     """Batch-compute proxy indicators for an entire DataFrame.
 
     Requires columns: open, high, low, close, volume.

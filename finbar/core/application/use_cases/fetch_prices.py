@@ -9,6 +9,8 @@ import logging
 
 from finbar.core.application.dto.fetch_prices_request import FetchPricesRequest
 from finbar.core.application.dto.fetch_prices_result import FetchPricesResult
+from finbar.core.domain.entities.data_source import DataSource
+from finbar.core.domain.entities.interval import Interval
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
 )
@@ -44,6 +46,18 @@ class FetchPricesUseCase:
         Returns:
             FetchPricesResult with bars, count, origin="fresh".
         """
+        validation_error = _validate_request(request)
+        if validation_error:
+            return FetchPricesResult(
+                symbol=request.symbol,
+                source=request.source,
+                interval=request.interval,
+                bars=[],
+                bar_count=0,
+                origin="fresh",
+                error=validation_error,
+            )
+
         # 1. Fetch from source
         bars = self._fetcher.fetch(
             symbol=request.symbol,
@@ -81,3 +95,20 @@ class FetchPricesUseCase:
             bar_count=len(bars),
             origin="fresh",
         )
+
+
+def _validate_request(request: FetchPricesRequest) -> str | None:
+    """Validate fetch source and interval values."""
+    try:
+        DataSource(request.source)
+    except ValueError:
+        allowed = ", ".join(item.value for item in DataSource)
+        return f"Unknown source '{request.source}'. Allowed: {allowed}"
+
+    try:
+        Interval(request.interval)
+    except ValueError:
+        allowed = ", ".join(item.value for item in Interval)
+        return f"Unknown interval '{request.interval}'. Allowed: {allowed}"
+
+    return None

@@ -10,11 +10,9 @@ import logging
 
 from fastmcp import FastMCP
 
-from finbar.core.domain.entities.strategy_definition import (
-    Rule,
-    StrategyDefinition,
-)
-from finbar.presentation.mcp.tools._shared import _get_db
+from finbar.core.domain.entities.rule import Rule
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
+from finbar.startup.service_factory import _get_db, _make_run_backtest_use_case
 
 logger = logging.getLogger(__name__)
 
@@ -99,15 +97,12 @@ def register_strategy_tools(mcp: FastMCP) -> None:
         Returns:
             JSON array of strategy metadata.
         """
-        from finbar.presentation.mcp.tools._shared import _make_run_backtest_use_case
-
         strategies = []
 
         # Built-in strategies
         if include_builtin:
             uc = _make_run_backtest_use_case()
-            for name, strategy in sorted(uc._registry.items()):
-                meta = strategy.meta()
+            for meta in uc.list_strategies():
                 strategies.append(
                     {
                         "name": meta.name,
@@ -164,12 +159,9 @@ def register_strategy_tools(mcp: FastMCP) -> None:
             JSON string with full strategy definition.
         """
         # Check built-in
-        from finbar.presentation.mcp.tools._shared import _make_run_backtest_use_case
-
         uc = _make_run_backtest_use_case()
-        builtin = uc._registry.get(name)
-        if builtin is not None:
-            meta = builtin.meta()
+        if uc.has_strategy(name):
+            meta = next(item for item in uc.list_strategies() if item.name == name)
             return json.dumps(
                 {
                     "name": meta.name,
@@ -243,10 +235,8 @@ def register_strategy_tools(mcp: FastMCP) -> None:
             Confirmation message.
         """
         # Prevent deleting built-ins
-        from finbar.presentation.mcp.tools._shared import _make_run_backtest_use_case
-
         uc = _make_run_backtest_use_case()
-        if name in uc._registry:
+        if uc.has_strategy(name):
             return f"Cannot delete built-in strategy '{name}'."
 
         db = _get_db()

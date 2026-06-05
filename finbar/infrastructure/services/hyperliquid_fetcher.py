@@ -201,6 +201,8 @@ class HyperliquidFetcher(StockDataFetcher):
             chunk_start_ms = chunk_end_ms - chunk_ms
 
             bars = self._fetch_chunk(symbol, interval, chunk_start_ms, chunk_end_ms)
+            if bars is None:
+                raise RuntimeError(f"Failed to fetch {symbol} chunk")
 
             if not bars:
                 logger.debug(
@@ -240,6 +242,8 @@ class HyperliquidFetcher(StockDataFetcher):
         while current_start < end_ms:
             current_end = min(current_start + chunk_ms, end_ms)
             bars = self._fetch_chunk(symbol, interval, current_start, current_end)
+            if bars is None:
+                raise RuntimeError(f"Failed to fetch {symbol} chunk")
             all_bars.extend(bars)
             current_start = current_end
             time.sleep(0.05)  # Small delay between chunks
@@ -252,7 +256,7 @@ class HyperliquidFetcher(StockDataFetcher):
 
     def _fetch_chunk(
         self, symbol: str, interval: str, start_ms: int, end_ms: int
-    ) -> list[PriceBar]:
+    ) -> list[PriceBar] | None:
         """Fetch a single temporal chunk with rate limiting.
 
         Detects market type from symbol format:
@@ -285,7 +289,7 @@ class HyperliquidFetcher(StockDataFetcher):
                 logger.warning("Rate limit on %s chunk", symbol)
             else:
                 logger.error("Error fetching %s chunk: %s", symbol, e)
-            return []
+            return None
 
     def _fetch_hip3_chunk(
         self, symbol: str, api_interval: str, start_ms: int, end_ms: int
@@ -390,7 +394,11 @@ class HyperliquidFetcher(StockDataFetcher):
     def _get_cached_tickers(self, include_hip3: bool = False) -> dict[str, list[dict]]:
         """Return cached ticker lists, refreshing if TTL expired."""
         current_time = time.time()
-        if (current_time - self._cache_time) < self._cache_ttl and self._ticker_cache:
+        cache_fresh = (
+            current_time - self._cache_time
+        ) < self._cache_ttl and self._ticker_cache
+        hip3_ready = not include_hip3 or bool(self._ticker_cache.get("hip3"))
+        if cache_fresh and hip3_ready:
             return self._ticker_cache
 
         spot, perp, hip3 = self._fetch_all_tickers(include_hip3=include_hip3)

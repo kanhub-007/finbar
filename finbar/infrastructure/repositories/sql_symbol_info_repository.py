@@ -83,6 +83,7 @@ class SqlSymbolInfoRepository(SymbolInfoRepository):
             self._db.execute(stmt)
             self._db.commit()
         except Exception:
+            self._db.rollback()
             logger.exception("Failed to save symbol info for %s", info.symbol)
 
     def find_by_symbol(self, symbol: str) -> DomainSymbolInfo | None:

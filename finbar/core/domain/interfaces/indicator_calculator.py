@@ -6,8 +6,7 @@ a concrete implementation.
 """
 
 from abc import ABC, abstractmethod
-
-import pandas as pd
+from typing import Any
 
 
 class IndicatorCalculator(ABC):
@@ -19,7 +18,7 @@ class IndicatorCalculator(ABC):
     """
 
     @abstractmethod
-    def calculate(self, df: pd.DataFrame, indicators: list[str]) -> pd.DataFrame:
+    def calculate(self, df: Any, indicators: list[str]) -> Any:
         """Apply requested indicators and return enriched DataFrame.
 
         Args:

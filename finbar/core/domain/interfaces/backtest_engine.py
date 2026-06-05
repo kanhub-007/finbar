@@ -8,8 +8,6 @@ initialise → loop bars → call strategy → execute signals → close positio
 from abc import ABC, abstractmethod
 from typing import Any
 
-import pandas as pd
-
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 
 
@@ -24,7 +22,7 @@ class BacktestEngine(ABC):
     @abstractmethod
     def run(
         self,
-        df: pd.DataFrame,
+        df: Any,
         strategy: TradingStrategy,
         initial_cash: float = 10000.0,
         **params: Any,
