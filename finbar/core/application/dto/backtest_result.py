@@ -77,7 +77,8 @@ class BacktestResultDTO:
     entry_price, exit_price, size, pnl, pnl_pct, duration_bars, metadata."""
 
     equity_curve: list[dict] = field(default_factory=list)
-    """List of equity snapshots over time for plotting/analysis."""
+    """List of equity snapshots over time. Each dict has: date, close,
+    value, drawdown, position."""
 
     error: str | None = None
     """Error message if the backtest failed."""

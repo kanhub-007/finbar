@@ -141,6 +141,7 @@ def _run_loop(
         state.equity_curve.append(
             {
                 "date": bar_date,
+                "close": close,
                 "value": portfolio_value,
                 "drawdown": drawdown,
                 "position": state.position.size,

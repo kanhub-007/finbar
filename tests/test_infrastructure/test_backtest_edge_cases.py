@@ -267,6 +267,7 @@ class TestEquityCurve:
         result = runner.run(df, _StaticSignalStrategy(sig), 10000)
         for point in result["equity_curve"]:
             assert "date" in point
+            assert "close" in point
             assert "value" in point
             assert "drawdown" in point
             assert "position" in point
