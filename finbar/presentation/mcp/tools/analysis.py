@@ -33,7 +33,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "Pass bars as JSON string (from get_cached_prices or "
             "fetch_price_history results) and a list of indicator names "
             '(or a JSON-encoded string like \'["sma_20","rsi_14"]\'). '
-            "Returns enriched bars with indicator columns. "
+            "Returns indicator bars with indicator columns. "
             "Supported indicators: rsi_7, rsi_14, sma_10, sma_20, sma_30, "
             "sma_50, sma_200, ema_12, ema_26, macd, macd_signal, macd_hist, "
             "atr, adx, vwap, bb_upper, bb_middle, bb_lower, ibs, rvol, ker, "

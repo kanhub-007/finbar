@@ -21,7 +21,7 @@ from finbar.core.domain.interfaces.indicator_capability_provider import (
 
 
 class StrategyIndicatorResolver:
-    """Resolve strategy-local indicator aliases to concrete enrichment columns."""
+    """Resolve strategy-local indicator aliases to concrete indicator columns."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create a resolver backed by an indicator capability catalog."""

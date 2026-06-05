@@ -40,7 +40,7 @@ class StrategyJsonPresenter:
         return payload
 
     def feature_result(self, result) -> dict:
-        """Format a strategy feature-enrichment result."""
+        """Format a strategy feature computation result."""
         return {
             "bar_count": result.bar_count,
             "features_applied": result.features_applied,

@@ -1,4 +1,4 @@
-"""SqlEnrichmentArtifactRepository — SQLite-backed enrichment artifact store."""
+"""SqlIndicatorArtifactRepository — SQLite-backed indicator artifact store."""
 
 import json
 from datetime import UTC, datetime
@@ -6,21 +6,21 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
-from finbar.infrastructure.tables.enrichment_artifact import (
-    EnrichmentArtifact as OrmArtifact,
+from finbar.core.domain.entities.indicator_job import IndicatorJob
+from finbar.infrastructure.tables.indicator_artifact import (
+    IndicatorArtifact as OrmArtifact,
 )
 
 
-class SqlEnrichmentArtifactRepository:
-    """Persist and retrieve enrichment artifacts from SQLite."""
+class SqlIndicatorArtifactRepository:
+    """Persist and retrieve indicator artifacts from SQLite."""
 
     def __init__(self, db: Session):
         """Create the repository with a database session."""
         self._db = db
 
-    def save(self, job: EnrichmentJob, bars: list[dict]) -> None:
-        """Upsert an enrichment artifact."""
+    def save(self, job: IndicatorJob, bars: list[dict]) -> None:
+        """Upsert an indicator artifact."""
         bars_json = json.dumps(bars)
         indicators_json = json.dumps(job.indicators_applied)
         features_json = json.dumps(job.features_applied)
@@ -64,14 +64,14 @@ class SqlEnrichmentArtifactRepository:
             return None
         return json.loads(orm.bars_json)
 
-    def get_metadata(self, job_id: str) -> EnrichmentJob | None:
+    def get_metadata(self, job_id: str) -> IndicatorJob | None:
         """Return minimal job metadata from SQLite, or None if missing."""
         orm = self._db.execute(
             select(OrmArtifact).where(OrmArtifact.job_id == job_id)
         ).scalar_one_or_none()
         if orm is None:
             return None
-        return EnrichmentJob(
+        return IndicatorJob(
             job_id=orm.job_id,
             status=orm.status,
             symbol=orm.symbol,

@@ -1,4 +1,4 @@
-"""IndicatorCapabilityProvider interface for strategy/enrichment metadata."""
+"""IndicatorCapabilityProvider interface for strategy/indicator metadata."""
 
 from abc import ABC, abstractmethod
 

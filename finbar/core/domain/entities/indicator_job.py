@@ -1,4 +1,4 @@
-"""EnrichmentJob entity for asynchronous enrichment work."""
+"""IndicatorJob entity for asynchronous indicator computation."""
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -6,8 +6,8 @@ from typing import Any
 
 
 @dataclass
-class EnrichmentJob:
-    """Background enrichment job state for indicator/feature calculation."""
+class IndicatorJob:
+    """Background indicator job state for indicator/feature calculation."""
 
     job_id: str
     """Unique job identifier."""
@@ -25,7 +25,7 @@ class EnrichmentJob:
     """Primary interval being enriched."""
 
     mode: str = "selected"
-    """Enrichment mode: selected or strategy_required."""
+    """Computation mode: selected or strategy_required."""
 
     timeframe_alias: str = "primary"
     """Strategy timeframe alias represented by this job."""

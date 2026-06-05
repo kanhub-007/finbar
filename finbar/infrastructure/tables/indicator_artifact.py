@@ -1,14 +1,14 @@
-"""SQLAlchemy ORM table for enrichment artifacts."""
+"""SQLAlchemy ORM table for indicator artifacts."""
 
 from sqlalchemy import Column, Integer, String, Text
 
 from finbar.infrastructure.data.connection import Base
 
 
-class EnrichmentArtifact(Base):
-    """Persisted enrichment job artifact — bars + metadata."""
+class IndicatorArtifact(Base):
+    """Persisted indicator job artifact — bars + metadata."""
 
-    __tablename__ = "enrichment_artifacts"
+    __tablename__ = "indicator_artifacts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     job_id = Column(String, unique=True, nullable=False, index=True)

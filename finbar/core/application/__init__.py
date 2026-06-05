@@ -1,4 +1,4 @@
-"""Application layer — use cases and DTOs for enrichment and backtesting.
+"""Application layer — use cases and DTOs for indicator computation and backtesting.
 
 Use cases orchestrate domain services and interfaces. They depend on
 domain interfaces ONLY — never on infrastructure or presentation.

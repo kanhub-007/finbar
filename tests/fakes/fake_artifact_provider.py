@@ -1,6 +1,6 @@
 """FakeArtifactProvider test double for enrichment artifact tests."""
 
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
+from finbar.core.domain.entities.indicator_job import IndicatorJob
 
 
 class FakeArtifactProvider:
@@ -14,7 +14,7 @@ class FakeArtifactProvider:
         """Create a fake provider with artifact bars and statuses."""
         self._artifacts = artifacts
         self._jobs = {
-            job_id: EnrichmentJob(
+            job_id: IndicatorJob(
                 job_id=job_id,
                 status=(statuses or {}).get(job_id, "completed"),
             )

@@ -1,11 +1,11 @@
-"""Result DTO for paginated enrichment job results."""
+"""Result DTO for paginated indicator job results."""
 
 from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
-class EnrichmentJobResultsResult:
-    """Paginated enriched bars from a completed enrichment job."""
+class IndicatorJobResultsResult:
+    """Paginated enriched bars from a completed indicator job."""
 
     found: bool
     """True when the job exists."""

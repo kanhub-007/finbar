@@ -1,31 +1,31 @@
-"""StartEnrichmentJobUseCase — submit asynchronous enrichment work."""
+"""StartIndicatorJobUseCase — submit asynchronous indicator computation."""
 
-from finbar.core.application.dto.start_enrichment_job_request import (
-    StartEnrichmentJobRequest,
+from finbar.core.application.dto.start_indicator_job_request import (
+    StartIndicatorJobRequest,
 )
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
-from finbar.core.domain.interfaces.enrichment_job_manager import EnrichmentJobManager
-from finbar.core.domain.interfaces.enrichment_job_runner import EnrichmentJobRunner
+from finbar.core.domain.entities.indicator_job import IndicatorJob
+from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
+from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
 
 
-class StartEnrichmentJobUseCase:
-    """Create and start an enrichment background job."""
+class StartIndicatorJobUseCase:
+    """Create and start an indicator computation job."""
 
     def __init__(
         self,
-        manager: EnrichmentJobManager,
-        runner: EnrichmentJobRunner,
+        manager: IndicatorJobManager,
+        runner: IndicatorJobRunner,
     ):
         """Create the use case with injected manager and runner."""
         self._manager = manager
         self._runner = runner
 
-    def execute(self, request: StartEnrichmentJobRequest) -> EnrichmentJob:
+    def execute(self, request: StartIndicatorJobRequest) -> IndicatorJob:
         """Submit the job and return its queued state."""
         return self._manager.start(_params(request), self._runner.run)
 
 
-def _params(request: StartEnrichmentJobRequest) -> dict:
+def _params(request: StartIndicatorJobRequest) -> dict:
     return {
         "symbol": request.symbol.upper(),
         "source": request.source,

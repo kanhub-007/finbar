@@ -2,43 +2,43 @@
 
 import pytest
 
-from finbar.core.application.dto.start_enrichment_job_request import (
-    StartEnrichmentJobRequest,
+from finbar.core.application.dto.start_indicator_job_request import (
+    StartIndicatorJobRequest,
 )
-from finbar.core.application.use_cases.cancel_enrichment_job import (
-    CancelEnrichmentJobUseCase,
+from finbar.core.application.use_cases.cancel_indicator_job import (
+    CancelIndicatorJobUseCase,
 )
-from finbar.core.application.use_cases.get_enrichment_job_progress import (
-    GetEnrichmentJobProgressUseCase,
+from finbar.core.application.use_cases.get_indicator_job_progress import (
+    GetIndicatorJobProgressUseCase,
 )
-from finbar.core.application.use_cases.get_enrichment_job_results import (
-    GetEnrichmentJobResultsUseCase,
+from finbar.core.application.use_cases.get_indicator_job_results import (
+    GetIndicatorJobResultsUseCase,
 )
-from finbar.core.application.use_cases.start_enrichment_job import (
-    StartEnrichmentJobUseCase,
+from finbar.core.application.use_cases.start_indicator_job import (
+    StartIndicatorJobUseCase,
 )
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
-from finbar.infrastructure.services.in_memory_enrichment_job_manager import (
-    InMemoryEnrichmentJobManager,
+from finbar.core.domain.entities.indicator_job import IndicatorJob
+from finbar.infrastructure.services.in_memory_indicator_job_manager import (
+    InMemoryIndicatorJobManager,
 )
 
 
-class NoopEnrichmentJobRunner:
+class NoopIndicatorJobRunner:
     """Test runner that leaves queued jobs untouched."""
 
-    async def run(self, job: EnrichmentJob) -> None:
+    async def run(self, job: IndicatorJob) -> None:
         """No-op async job runner for manager tests."""
 
 
-def _start_use_case(manager: InMemoryEnrichmentJobManager) -> StartEnrichmentJobUseCase:
-    return StartEnrichmentJobUseCase(manager, NoopEnrichmentJobRunner())
+def _start_use_case(manager: InMemoryIndicatorJobManager) -> StartIndicatorJobUseCase:
+    return StartIndicatorJobUseCase(manager, NoopIndicatorJobRunner())
 
 
 @pytest.mark.asyncio
-async def test_start_enrichment_job_records_request_metadata():
+async def test_start_indicator_job_records_request_metadata():
     """Starting a job stores normalized request metadata."""
-    manager = InMemoryEnrichmentJobManager()
-    request = StartEnrichmentJobRequest(
+    manager = InMemoryIndicatorJobManager()
+    request = StartIndicatorJobRequest(
         symbol="aapl",
         source="yfinance",
         interval="1d",
@@ -56,7 +56,7 @@ async def test_start_enrichment_job_records_request_metadata():
 
 def test_progress_returns_not_found_for_unknown_job():
     """Progress use case returns structured not-found result."""
-    result = GetEnrichmentJobProgressUseCase(InMemoryEnrichmentJobManager()).execute(
+    result = GetIndicatorJobProgressUseCase(InMemoryIndicatorJobManager()).execute(
         "missing"
     )
 
@@ -67,13 +67,13 @@ def test_progress_returns_not_found_for_unknown_job():
 @pytest.mark.asyncio
 async def test_results_are_paginated_for_completed_job():
     """Completed job artifacts are returned one page at a time."""
-    manager = InMemoryEnrichmentJobManager()
-    job = _start_use_case(manager).execute(StartEnrichmentJobRequest(symbol="AAPL"))
+    manager = InMemoryIndicatorJobManager()
+    job = _start_use_case(manager).execute(StartIndicatorJobRequest(symbol="AAPL"))
     bars = [{"timestamp": f"2024-01-{day:02d}", "close": day} for day in range(1, 6)]
     manager.store_result(job, bars)
     manager.update(job, status="completed")
 
-    result = GetEnrichmentJobResultsUseCase(manager).execute(
+    result = GetIndicatorJobResultsUseCase(manager).execute(
         job.job_id, page=1, page_size=2
     )
 
@@ -89,10 +89,10 @@ async def test_results_are_paginated_for_completed_job():
 @pytest.mark.asyncio
 async def test_results_require_completed_job():
     """Non-completed jobs do not expose partial artifacts."""
-    manager = InMemoryEnrichmentJobManager()
-    job = _start_use_case(manager).execute(StartEnrichmentJobRequest(symbol="AAPL"))
+    manager = InMemoryIndicatorJobManager()
+    job = _start_use_case(manager).execute(StartIndicatorJobRequest(symbol="AAPL"))
 
-    result = GetEnrichmentJobResultsUseCase(manager).execute(job.job_id)
+    result = GetIndicatorJobResultsUseCase(manager).execute(job.job_id)
 
     assert result.found is True
     assert result.status == "queued"
@@ -100,12 +100,12 @@ async def test_results_require_completed_job():
 
 
 @pytest.mark.asyncio
-async def test_cancel_enrichment_job_updates_status():
+async def test_cancel_indicator_job_updates_status():
     """Cancel use case cancels queued/running jobs through the manager."""
-    manager = InMemoryEnrichmentJobManager()
-    job = _start_use_case(manager).execute(StartEnrichmentJobRequest(symbol="AAPL"))
+    manager = InMemoryIndicatorJobManager()
+    job = _start_use_case(manager).execute(StartIndicatorJobRequest(symbol="AAPL"))
 
-    result = CancelEnrichmentJobUseCase(manager).execute(job.job_id)
+    result = CancelIndicatorJobUseCase(manager).execute(job.job_id)
 
     assert result.found is True
     assert result.status == "cancelled"

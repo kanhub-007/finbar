@@ -1,4 +1,4 @@
-"""InMemoryEnrichmentJobManager — async enrichment job storage."""
+"""InMemoryIndicatorJobManager — async indicator job storage."""
 
 from __future__ import annotations
 
@@ -12,18 +12,18 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
-from finbar.core.domain.interfaces.enrichment_artifact_provider import (
-    EnrichmentArtifactProvider,
+from finbar.core.domain.entities.indicator_job import IndicatorJob
+from finbar.core.domain.interfaces.indicator_artifact_provider import (
+    IndicatorArtifactProvider,
 )
-from finbar.core.domain.interfaces.enrichment_job_manager import EnrichmentJobManager
-from finbar.infrastructure.repositories.sql_enrichment_artifact_repository import (
-    SqlEnrichmentArtifactRepository,
+from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
+from finbar.infrastructure.repositories.sql_indicator_artifact_repository import (
+    SqlIndicatorArtifactRepository,
 )
 
 
-class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvider):
-    """Thread-safe in-memory enrichment job and artifact store.
+class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider):
+    """Thread-safe in-memory indicator job and artifact store.
 
     Artifacts are persisted to SQLite for restart survival.
     In-memory storage provides the fast path during a live session.
@@ -35,9 +35,9 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
         ttl_seconds: int = 3600,
         session_factory: Callable[[], Session] | None = None,
     ):
-        """Initialize the in-memory enrichment job store."""
+        """Initialize the in-memory indicator job store."""
         self._session_factory = session_factory
-        self._jobs: dict[str, EnrichmentJob] = {}
+        self._jobs: dict[str, IndicatorJob] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._results: dict[str, list[dict]] = {}
         self._frames: dict[str, bytes] = {}
@@ -48,11 +48,11 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
     def start(
         self,
         params: dict[str, Any],
-        runner: Callable[[EnrichmentJob], Awaitable[None]],
-    ) -> EnrichmentJob:
-        """Create and start a background enrichment job."""
+        runner: Callable[[IndicatorJob], Awaitable[None]],
+    ) -> IndicatorJob:
+        """Create and start a background indicator job."""
         self.cleanup_expired()
-        job = EnrichmentJob(
+        job = IndicatorJob(
             job_id=str(uuid.uuid4()),
             symbol=params.get("symbol", ""),
             source=params.get("source", "yfinance"),
@@ -70,38 +70,38 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
             self._enforce_max_jobs_locked()
         return job
 
-    def get(self, job_id: str) -> EnrichmentJob | None:
+    def get(self, job_id: str) -> IndicatorJob | None:
         """Return a job by ID."""
         with self._lock:
             return self._jobs.get(job_id)
 
-    def update(self, job: EnrichmentJob, **updates: Any) -> None:
+    def update(self, job: IndicatorJob, **updates: Any) -> None:
         """Update a job in-place."""
         with self._lock:
             for key, value in updates.items():
                 setattr(job, key, value)
 
-    def store_result(self, job: EnrichmentJob, bars: list[dict]) -> None:
+    def store_result(self, job: IndicatorJob, bars: list[dict]) -> None:
         """Store enriched bars in-memory and persist to SQLite."""
         with self._lock:
             self._results[job.job_id] = list(bars)
             job.total_bar_count = len(bars)
         self._persist_artifact(job, bars)
 
-    def store_frame(self, job: EnrichmentJob, frame: Any) -> None:
+    def store_frame(self, job: IndicatorJob, frame: Any) -> None:
         """Cache a pickled DataFrame for hot-path backtest access."""
         with self._lock:
             self._frames[job.job_id] = pickle.dumps(frame)
 
-    def get_artifact_job(self, job_id: str) -> EnrichmentJob | None:
-        """Return metadata for an enrichment artifact job."""
+    def get_artifact_job(self, job_id: str) -> IndicatorJob | None:
+        """Return metadata for an indicator artifact job."""
         job = self.get(job_id)
         if job is not None:
             return job
         return self._load_metadata_from_sql(job_id)
 
     def get_artifact_bars(self, job_id: str) -> list[dict] | None:
-        """Return all bars for an enrichment artifact."""
+        """Return all bars for an indicator artifact."""
         with self._lock:
             bars = self._results.get(job_id)
             if bars is not None:
@@ -135,7 +135,7 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
         end = min(start + page_size, total)
         return bars[start:end], page, page_size, total_pages
 
-    def cancel(self, job_id: str) -> EnrichmentJob | None:
+    def cancel(self, job_id: str) -> IndicatorJob | None:
         """Cancel a queued or running job."""
         job = self.get(job_id)
         if job is None:
@@ -169,7 +169,7 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
             return
         db = self._session_factory()
         try:
-            SqlEnrichmentArtifactRepository(db).delete(job_id)
+            SqlIndicatorArtifactRepository(db).delete(job_id)
         finally:
             db.close()
 
@@ -185,12 +185,12 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
                 self._tasks.pop(job.job_id, None)
                 self._results.pop(job.job_id, None)
 
-    def _persist_artifact(self, job: EnrichmentJob, bars: list[dict]) -> None:
+    def _persist_artifact(self, job: IndicatorJob, bars: list[dict]) -> None:
         if self._session_factory is None:
             return
         db = self._session_factory()
         try:
-            SqlEnrichmentArtifactRepository(db).save(job, bars)
+            SqlIndicatorArtifactRepository(db).save(job, bars)
         finally:
             db.close()
 
@@ -199,15 +199,15 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
             return None
         db = self._session_factory()
         try:
-            return SqlEnrichmentArtifactRepository(db).get_bars(job_id)
+            return SqlIndicatorArtifactRepository(db).get_bars(job_id)
         finally:
             db.close()
 
-    def _load_metadata_from_sql(self, job_id: str) -> EnrichmentJob | None:
+    def _load_metadata_from_sql(self, job_id: str) -> IndicatorJob | None:
         if self._session_factory is None:
             return None
         db = self._session_factory()
         try:
-            return SqlEnrichmentArtifactRepository(db).get_metadata(job_id)
+            return SqlIndicatorArtifactRepository(db).get_metadata(job_id)
         finally:
             db.close()

@@ -21,8 +21,8 @@ from finbar.core.application.use_cases.apply_strategy_features import (
 from finbar.core.application.use_cases.backtest_strategy_definition import (
     BacktestStrategyDefinitionUseCase,
 )
-from finbar.core.application.use_cases.cancel_enrichment_job import (
-    CancelEnrichmentJobUseCase,
+from finbar.core.application.use_cases.cancel_indicator_job import (
+    CancelIndicatorJobUseCase,
 )
 from finbar.core.application.use_cases.cancel_optimization_job import (
     CancelOptimizationJobUseCase,
@@ -37,11 +37,11 @@ from finbar.core.application.use_cases.explain_strategy_definition import (
     ExplainStrategyDefinitionUseCase,
 )
 from finbar.core.application.use_cases.fetch_prices import FetchPricesUseCase
-from finbar.core.application.use_cases.get_enrichment_job_progress import (
-    GetEnrichmentJobProgressUseCase,
+from finbar.core.application.use_cases.get_indicator_job_progress import (
+    GetIndicatorJobProgressUseCase,
 )
-from finbar.core.application.use_cases.get_enrichment_job_results import (
-    GetEnrichmentJobResultsUseCase,
+from finbar.core.application.use_cases.get_indicator_job_results import (
+    GetIndicatorJobResultsUseCase,
 )
 from finbar.core.application.use_cases.get_latest_quote import GetLatestQuoteUseCase
 from finbar.core.application.use_cases.get_optimization_job_progress import (
@@ -61,8 +61,8 @@ from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
 from finbar.core.application.use_cases.save_strategy_definition import (
     SaveStrategyDefinitionUseCase,
 )
-from finbar.core.application.use_cases.start_enrichment_job import (
-    StartEnrichmentJobUseCase,
+from finbar.core.application.use_cases.start_indicator_job import (
+    StartIndicatorJobUseCase,
 )
 from finbar.core.application.use_cases.start_optimization_job import (
     StartOptimizationJobUseCase,
@@ -86,8 +86,8 @@ from finbar.infrastructure.services.backtest_runner import BacktestRunner
 from finbar.infrastructure.services.builtin_strategy_provider import (
     BuiltinStrategyProvider,
 )
-from finbar.infrastructure.services.cached_price_enrichment_job_runner import (
-    CachedPriceEnrichmentJobRunner,
+from finbar.infrastructure.services.indicator_job_runner import (
+    CachedPriceIndicatorJobRunner,
 )
 from finbar.infrastructure.services.composite_strategy_provider import (
     CompositeStrategyProvider,
@@ -99,8 +99,8 @@ from finbar.infrastructure.services.fetch_job_manager import FetchJobManager
 from finbar.infrastructure.services.grid_search_optimizer import (
     GridSearchOptimizer,
 )
-from finbar.infrastructure.services.in_memory_enrichment_job_manager import (
-    InMemoryEnrichmentJobManager,
+from finbar.infrastructure.services.in_memory_indicator_job_manager import (
+    InMemoryIndicatorJobManager,
 )
 from finbar.infrastructure.services.in_memory_optimization_job_manager import (
     InMemoryOptimizationJobManager,
@@ -131,8 +131,8 @@ from finbar.infrastructure.services.yfinance_stock_fetcher import (
 _fetcher: YFinanceStockFetcher | None = None
 _hl_fetcher: object | None = None
 _job_manager: FetchJobManager | None = None
-_enrichment_job_manager: InMemoryEnrichmentJobManager | None = None
-_enrichment_job_runner: CachedPriceEnrichmentJobRunner | None = None
+_indicator_job_manager: InMemoryIndicatorJobManager | None = None
+_indicator_job_runner: CachedPriceIndicatorJobRunner | None = None
 _optimization_job_manager: InMemoryOptimizationJobManager | None = None
 _optimizer: GridSearchOptimizer | None = None
 _indicator_calc: PandasTaIndicatorCalculator | None = None
@@ -211,14 +211,14 @@ def _get_job_manager() -> FetchJobManager:
     return _job_manager
 
 
-def _get_enrichment_job_manager() -> InMemoryEnrichmentJobManager:
-    """Lazy-init the enrichment job manager."""
-    global _enrichment_job_manager
-    if _enrichment_job_manager is None:
-        _enrichment_job_manager = InMemoryEnrichmentJobManager(
+def _get_indicator_job_manager() -> InMemoryIndicatorJobManager:
+    """Lazy-init the indicator job manager."""
+    global _indicator_job_manager
+    if _indicator_job_manager is None:
+        _indicator_job_manager = InMemoryIndicatorJobManager(
             session_factory=SessionLocal,
         )
-    return _enrichment_job_manager
+    return _indicator_job_manager
 
 
 def _make_fetch_prices_use_case(
@@ -280,42 +280,42 @@ def _get_hl_tickers(market_type: str = "all") -> list[dict]:
     return spot + perp + hip3
 
 
-def _make_start_enrichment_job_use_case() -> StartEnrichmentJobUseCase:
-    """Create a use case for starting enrichment jobs."""
-    return StartEnrichmentJobUseCase(
-        _get_enrichment_job_manager(),
-        _get_enrichment_job_runner(),
+def _make_start_indicator_job_use_case() -> StartIndicatorJobUseCase:
+    """Create a use case for starting indicator jobs."""
+    return StartIndicatorJobUseCase(
+        _get_indicator_job_manager(),
+        _get_indicator_job_runner(),
     )
 
 
-def _get_enrichment_job_runner() -> CachedPriceEnrichmentJobRunner:
-    """Return the shared enrichment job runner."""
-    global _enrichment_job_runner
-    if _enrichment_job_runner is None:
-        _enrichment_job_runner = CachedPriceEnrichmentJobRunner(
+def _get_indicator_job_runner() -> CachedPriceIndicatorJobRunner:
+    """Return the shared indicator job runner."""
+    global _indicator_job_runner
+    if _indicator_job_runner is None:
+        _indicator_job_runner = CachedPriceIndicatorJobRunner(
             session_factory=SessionLocal,
-            manager=_get_enrichment_job_manager(),
+            manager=_get_indicator_job_manager(),
             indicator_calculator=_get_indicator_calculator(),
             converter=_get_bar_frame_converter(),
             feature_calculator=_get_strategy_feature_calculator(),
             parser=_get_parser(),
         )
-    return _enrichment_job_runner
+    return _indicator_job_runner
 
 
-def _make_get_enrichment_job_progress_use_case() -> GetEnrichmentJobProgressUseCase:
-    """Create a use case for enrichment job progress."""
-    return GetEnrichmentJobProgressUseCase(_get_enrichment_job_manager())
+def _make_get_indicator_job_progress_use_case() -> GetIndicatorJobProgressUseCase:
+    """Create a use case for indicator job progress."""
+    return GetIndicatorJobProgressUseCase(_get_indicator_job_manager())
 
 
-def _make_get_enrichment_job_results_use_case() -> GetEnrichmentJobResultsUseCase:
-    """Create a use case for paginated enrichment job results."""
-    return GetEnrichmentJobResultsUseCase(_get_enrichment_job_manager())
+def _make_get_indicator_job_results_use_case() -> GetIndicatorJobResultsUseCase:
+    """Create a use case for paginated indicator job results."""
+    return GetIndicatorJobResultsUseCase(_get_indicator_job_manager())
 
 
-def _make_cancel_enrichment_job_use_case() -> CancelEnrichmentJobUseCase:
-    """Create a use case for cancelling enrichment jobs."""
-    return CancelEnrichmentJobUseCase(_get_enrichment_job_manager())
+def _make_cancel_indicator_job_use_case() -> CancelIndicatorJobUseCase:
+    """Create a use case for cancelling indicator jobs."""
+    return CancelIndicatorJobUseCase(_get_indicator_job_manager())
 
 
 def _get_optimization_job_manager() -> InMemoryOptimizationJobManager:
@@ -336,7 +336,7 @@ def _get_optimizer() -> GridSearchOptimizer:
             converter=_get_bar_frame_converter(),
             strategy_factory=_get_json_strategy_factory(),
             manager=_get_optimization_job_manager(),
-            artifact_provider=_get_enrichment_job_manager(),
+            artifact_provider=_get_indicator_job_manager(),
             timeframe_merger=_get_timeframe_bar_merger(),
         )
     return _optimizer
@@ -410,7 +410,8 @@ def _make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionU
         _get_json_strategy_factory(),
         parser=_get_parser(),
         timeframe_merger=_get_timeframe_bar_merger(),
-        artifact_provider=_get_enrichment_job_manager(),
+        artifact_provider=_get_indicator_job_manager(),
+        feature_calculator=_get_strategy_feature_calculator(),
     )
 
 

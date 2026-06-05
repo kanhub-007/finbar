@@ -1,26 +1,26 @@
-"""Enrichment API endpoints — async server-side indicator/feature jobs."""
+"""Indicator API endpoints — async server-side indicator/feature jobs."""
 
 import logging
 
 from fastapi import APIRouter, HTTPException
 
-from finbar.core.application.dto.start_enrichment_job_request import (
-    StartEnrichmentJobRequest,
+from finbar.core.application.dto.start_indicator_job_request import (
+    StartIndicatorJobRequest,
 )
 from finbar.startup.service_factory import (
-    _make_cancel_enrichment_job_use_case,
-    _make_get_enrichment_job_progress_use_case,
-    _make_get_enrichment_job_results_use_case,
-    _make_start_enrichment_job_use_case,
+    _make_cancel_indicator_job_use_case,
+    _make_get_indicator_job_progress_use_case,
+    _make_get_indicator_job_results_use_case,
+    _make_start_indicator_job_use_case,
 )
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/enrichment", tags=["Enrichment"])
+router = APIRouter(prefix="/api/indicators", tags=["Indicators"])
 
 
-@router.post("/jobs", summary="Start an enrichment job")
-async def start_enrichment_job(
+@router.post("/jobs", summary="Start an indicator job")
+async def start_indicator_job(
     symbol: str,
     source: str = "yfinance",
     interval: str = "1d",
@@ -32,11 +32,11 @@ async def start_enrichment_job(
     start_date: str | None = None,
     end_date: str | None = None,
 ):
-    """Start a background enrichment job using cached bars."""
+    """Start a background indicator job using cached bars."""
     if mode not in ("selected", "strategy_required"):
         raise HTTPException(status_code=400, detail=f"Invalid mode: {mode}")
-    job = _make_start_enrichment_job_use_case().execute(
-        StartEnrichmentJobRequest(
+    job = _make_start_indicator_job_use_case().execute(
+        StartIndicatorJobRequest(
             symbol=symbol.upper(),
             source=source,
             interval=interval,
@@ -60,19 +60,19 @@ async def start_enrichment_job(
     }
 
 
-@router.get("/jobs/{job_id}", summary="Get enrichment job progress")
-def get_enrichment_job_progress(job_id: str):
-    """Return current enrichment job status and progress."""
-    result = _make_get_enrichment_job_progress_use_case().execute(job_id)
+@router.get("/jobs/{job_id}", summary="Get indicator job progress")
+def get_indicator_job_progress(job_id: str):
+    """Return current indicator job status and progress."""
+    result = _make_get_indicator_job_progress_use_case().execute(job_id)
     if not result.found:
         raise HTTPException(status_code=404, detail="Job not found")
     return result.__dict__
 
 
-@router.get("/jobs/{job_id}/results", summary="Get enrichment job results")
-def get_enrichment_job_results(job_id: str, page: int = 0, page_size: int = 500):
-    """Return paginated enriched bars from a completed enrichment job."""
-    result = _make_get_enrichment_job_results_use_case().execute(
+@router.get("/jobs/{job_id}/results", summary="Get indicator job results")
+def get_indicator_job_results(job_id: str, page: int = 0, page_size: int = 500):
+    """Return paginated enriched bars from a completed indicator job."""
+    result = _make_get_indicator_job_results_use_case().execute(
         job_id, page, page_size
     )
     if not result.found:
@@ -82,10 +82,10 @@ def get_enrichment_job_results(job_id: str, page: int = 0, page_size: int = 500)
     return result.__dict__
 
 
-@router.delete("/jobs/{job_id}", summary="Cancel enrichment job")
-def cancel_enrichment_job(job_id: str):
-    """Cancel a queued or running enrichment job."""
-    result = _make_cancel_enrichment_job_use_case().execute(job_id)
+@router.delete("/jobs/{job_id}", summary="Cancel indicator job")
+def cancel_indicator_job(job_id: str):
+    """Cancel a queued or running indicator job."""
+    result = _make_cancel_indicator_job_use_case().execute(job_id)
     if not result.found:
         raise HTTPException(status_code=404, detail="Job not found")
     return result.__dict__

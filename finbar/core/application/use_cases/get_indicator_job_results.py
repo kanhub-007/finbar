@@ -1,15 +1,15 @@
-"""GetEnrichmentJobResultsUseCase — page completed enrichment artifacts."""
+"""GetIndicatorJobResultsUseCase — page completed indicator artifacts."""
 
-from finbar.core.application.dto.enrichment_job_results_result import (
-    EnrichmentJobResultsResult,
+from finbar.core.application.dto.indicator_job_results_result import (
+    IndicatorJobResultsResult,
 )
-from finbar.core.domain.interfaces.enrichment_job_manager import EnrichmentJobManager
+from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
 
 
-class GetEnrichmentJobResultsUseCase:
-    """Return paginated results for completed enrichment jobs."""
+class GetIndicatorJobResultsUseCase:
+    """Return paginated results for completed indicator jobs."""
 
-    def __init__(self, manager: EnrichmentJobManager):
+    def __init__(self, manager: IndicatorJobManager):
         """Create the use case with an injected job manager."""
         self._manager = manager
 
@@ -18,13 +18,13 @@ class GetEnrichmentJobResultsUseCase:
         job_id: str,
         page: int = 0,
         page_size: int = 500,
-    ) -> EnrichmentJobResultsResult:
+    ) -> IndicatorJobResultsResult:
         """Return a page of enriched bars for a completed job."""
         job = self._manager.get(job_id)
         if job is None:
-            return EnrichmentJobResultsResult(found=False, job_id=job_id)
+            return IndicatorJobResultsResult(found=False, job_id=job_id)
         if job.status != "completed":
-            return EnrichmentJobResultsResult(
+            return IndicatorJobResultsResult(
                 found=True,
                 job_id=job_id,
                 status=job.status,
@@ -33,7 +33,7 @@ class GetEnrichmentJobResultsUseCase:
         bars, page, page_size, total_pages = self._manager.get_result_page(
             job_id, page, page_size
         )
-        return EnrichmentJobResultsResult(
+        return IndicatorJobResultsResult(
             found=True,
             job_id=job_id,
             status=job.status,

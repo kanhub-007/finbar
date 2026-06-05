@@ -9,7 +9,7 @@ class IndicatorSpec:
     """A strategy-local indicator alias and its concrete computed column.
 
     Agents can reference aliases such as ``fast_sma`` in rules. Validation
-    resolves those aliases to concrete enrichment columns such as ``sma_20``.
+    resolves those aliases to concrete indicator columns such as ``sma_20``.
     """
 
     name: str
@@ -19,7 +19,7 @@ class IndicatorSpec:
     """Indicator type, e.g. sma, ema, rsi, atr, or rvol."""
 
     concrete_name: str
-    """Concrete indicator name produced by enrichment on its source timeframe."""
+    """Concrete indicator name produced by computation on its source timeframe."""
 
     expected_column: str = ""
     """Concrete column expected on the final backtest bar set."""
@@ -34,7 +34,7 @@ class IndicatorSpec:
     """Resolved period for period-based indicators."""
 
     source: str = "close"
-    """Input source column used by the enrichment layer."""
+    """Input source column used by the indicator layer."""
 
     raw_period: Any = None
     """Original period expression from JSON before parameter resolution."""

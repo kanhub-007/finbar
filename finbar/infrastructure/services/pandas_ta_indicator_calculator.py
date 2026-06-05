@@ -592,20 +592,6 @@ def _proxy_atr(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
     return df
 
 
-@_register("proxy_sma_50")
-def _proxy_sma_50(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
-    """Rolling 50-period SMA from close."""
-    df["proxy_sma_50"] = df["close"].rolling(window=50, min_periods=1).mean()
-    return df
-
-
-@_register("proxy_sma_200")
-def _proxy_sma_200(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
-    """Rolling 200-period SMA from close."""
-    df["proxy_sma_200"] = df["close"].rolling(window=200, min_periods=1).mean()
-    return df
-
-
 @_register("proxy_vwap")
 def _proxy_vwap(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
     """Typical price as VWAP proxy."""

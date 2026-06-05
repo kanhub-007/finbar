@@ -1,61 +1,72 @@
 {
   "schema_version": "2.0",
   "name": "auction_drive_json",
-  "description": "Auction Market Theory — intraday entries with daily trend context. Multi-timeframe JSON approximation of the built-in auction_drive strategy.",
-  "timeframes": {
-    "primary": "1h",
-    "informative": [
-      { "alias": "daily", "interval": "1d" }
-    ]
-  },
+  "description": "Auction Market Theory — intraday entries with trend context. Long + short on 1h data.",
   "parameters": {
-    "trend_fast": { "type": "int", "default": 50, "minimum": 10, "maximum": 200 },
-    "trend_slow": { "type": "int", "default": 200, "minimum": 20, "maximum": 500 },
-    "min_body_pct": { "type": "float", "default": 0.3, "minimum": 0.1, "maximum": 2.0 },
-    "min_rvol": { "type": "float", "default": 1.0, "minimum": 0.5, "maximum": 5.0 },
+    "min_body_pct": { "type": "float", "default": 0.2, "minimum": 0.1, "maximum": 1.0 },
+    "min_rvol": { "type": "float", "default": 0.8, "minimum": 0.3, "maximum": 3.0 },
     "stop_atr_mult": { "type": "float", "default": 2.5, "minimum": 0.5, "maximum": 10.0 },
     "target_atr_mult": { "type": "float", "default": 1.5, "minimum": 0.5, "maximum": 5.0 }
   },
   "indicators": [
-    { "name": "trend_sma_fast",  "type": "fallback", "sources": ["sma_50_1d", "sma_50", "proxy_sma_50"] },
-    { "name": "trend_sma_slow",  "type": "fallback", "sources": ["sma_200_1d", "sma_200", "proxy_sma_200"] },
-    { "name": "primary_atr",     "type": "fallback", "sources": ["atr_1d", "atr", "proxy_atr"] },
-    { "name": "primary_vwap",    "type": "fallback", "sources": ["vwap", "proxy_vwap"] },
-    { "name": "primary_ibs",     "type": "ibs" },
-    { "name": "primary_rvol",    "type": "rvol" }
+    { "name": "vwap",      "type": "vwap" },
+    { "name": "rvol",      "type": "rvol" },
+    { "name": "atr",       "type": "atr" },
+    { "name": "sma_50",    "type": "sma", "period": 50 },
+    { "name": "sma_200",   "type": "sma", "period": 200 }
   ],
   "features": [
-    { "name": "body_pct",   "type": "body_pct" },
-    { "name": "trend_up",   "type": "formula", "expr": { "op": ">", "left": "trend_sma_fast", "right": "trend_sma_slow" } },
-    { "name": "body_up",    "type": "formula", "expr": { "op": ">", "left": "close", "right": "open" } }
+    { "name": "body_up",   "type": "formula", "expr": { "op": ">",  "left": "close", "right": "open" } },
+    { "name": "body_pct",  "type": "body_pct" },
+    { "name": "trend_up",  "type": "formula", "expr": { "op": ">",  "left": "sma_50", "right": "sma_200" } }
   ],
   "sides": {
     "long": {
       "entry": {
         "condition": {
           "all": [
-            { "left": "body_up",         "operator": "is_true" },
-            { "left": "close",           "operator": ">",       "right": "primary_vwap" },
-            { "left": "body_pct",        "operator": ">=",      "right": "{{ min_body_pct }}" },
-            { "left": "trend_up",        "operator": "is_true" },
-            { "left": "primary_rvol",    "operator": ">=",      "right": "{{ min_rvol }}" }
+            { "left": "body_up",    "operator": "is_true" },
+            { "left": "close",      "operator": ">",       "right": "vwap" },
+            { "left": "body_pct",   "operator": ">=",      "right": "{{ min_body_pct }}" },
+            { "left": "trend_up",   "operator": "is_true" },
+            { "left": "rvol",       "operator": ">=",      "right": "{{ min_rvol }}" }
           ]
         }
       },
       "exit": {
         "condition": {
           "any": [
-            { "left": "close", "operator": "<", "right": "primary_vwap" }
+            { "left": "close", "operator": "<", "right": "vwap" }
+          ]
+        }
+      }
+    },
+    "short": {
+      "entry": {
+        "condition": {
+          "all": [
+            { "left": "body_up",    "operator": "is_false" },
+            { "left": "close",      "operator": "<",        "right": "vwap" },
+            { "left": "body_pct",   "operator": ">=",       "right": "{{ min_body_pct }}" },
+            { "left": "trend_up",   "operator": "is_false" },
+            { "left": "rvol",       "operator": ">=",       "right": "{{ min_rvol }}" }
+          ]
+        }
+      },
+      "exit": {
+        "condition": {
+          "any": [
+            { "left": "close", "operator": ">", "right": "vwap" }
           ]
         }
       }
     }
   },
   "risk": {
-    "stop_loss":   { "type": "atr", "indicator": "primary_atr", "multiplier": "{{ stop_atr_mult }}" },
-    "take_profit": { "type": "atr", "indicator": "primary_atr", "multiplier": "{{ target_atr_mult }}" }
+    "stop_loss":   { "type": "atr", "indicator": "atr", "multiplier": "{{ stop_atr_mult }}" },
+    "take_profit": { "type": "atr", "indicator": "atr", "multiplier": "{{ target_atr_mult }}" }
   },
   "metadata": {
-    "tags": ["auction_drive", "multi_timeframe", "intraday", "trend_following"]
+    "tags": ["auction_drive", "intraday", "trend_following", "long_short"]
   }
 }

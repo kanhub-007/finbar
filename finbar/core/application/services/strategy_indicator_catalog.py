@@ -6,7 +6,7 @@ from finbar.core.domain.interfaces.indicator_capability_provider import (
 
 
 class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
-    """Catalog of enrichment columns currently supported by Finbar."""
+    """Catalog of indicator columns currently supported by Finbar."""
 
     _PERIOD_RANGES = {
         "sma": (2, 500),
@@ -34,15 +34,12 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "bb_upper": "bb_upper",
         "bb_middle": "bb_middle",
         "bb_lower": "bb_lower",
-        "fallback": "fallback",
         "proxy_atr": "proxy_atr",
-        "proxy_sma_50": "proxy_sma_50",
-        "proxy_sma_200": "proxy_sma_200",
         "proxy_vwap": "proxy_vwap",
     }
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
-        """Resolve an indicator type/period to a concrete enrichment column."""
+        """Resolve an indicator type/period to a concrete indicator column."""
         name = indicator_type.lower()
         if name in self._PERIOD_RANGES:
             min_p, max_p = self._PERIOD_RANGES[name]
@@ -68,7 +65,7 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         return name in self._PERIOD_RANGES or name in self._OPTIONAL_PERIOD_RANGES
 
     def supports_concrete(self, name: str) -> bool:
-        """Return True when a concrete enrichment column is known."""
+        """Return True when a concrete indicator column is known."""
         if name in self._FIXED or name in self._FIXED.values():
             return True
         for suffix in ("_1d", "_1h", "_30min", "_5min", "_1w"):

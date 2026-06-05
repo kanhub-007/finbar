@@ -39,7 +39,7 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             "of the specified parameter ranges and rank by a metric. "
             "Use search_method='grid' (default) with min/max/step, "
             "or search_method='random' with min/max/random_count. "
-            "Requires a completed enrichment job artifact ID. "
+            "Requires a completed indicator job artifact ID. "
             "Max 100 combinations. Poll with "
             "get_optimization_job_progress(job_id), retrieve ranked results "
             "with get_optimization_job_results(job_id)."

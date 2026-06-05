@@ -14,7 +14,7 @@ _SOURCE_FEATURE_TYPES = {
 
 
 class FeatureInputColumnCollector:
-    """Collect input bar columns required before feature enrichment."""
+    """Collect input bar columns required before feature calculation."""
 
     def collect(self, features: list[FeatureSpec]) -> list[str]:
         """Return source columns required to calculate the supplied features."""

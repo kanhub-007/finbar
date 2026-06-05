@@ -18,13 +18,13 @@ class BacktestStrategyDefinitionRequest:
     """Already-enriched primary OHLCV bars supplied by the agent."""
 
     bars_artifact_id: str = ""
-    """Completed enrichment job ID containing primary bars."""
+    """Completed indicator job ID containing primary bars."""
 
     informative_bars: InformativeBars | None = None
     """Already-enriched informative OHLCV bars, if the strategy declares one."""
 
     informative_bars_artifact_ids: InformativeArtifactIds = field(default_factory=dict)
-    """Completed enrichment job IDs keyed by informative timeframe alias."""
+    """Completed indicator job IDs keyed by informative timeframe alias."""
 
     symbol: str = ""
     """Ticker symbol for result metadata."""

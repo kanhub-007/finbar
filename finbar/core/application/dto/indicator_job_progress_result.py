@@ -1,12 +1,12 @@
-"""Result DTO for enrichment job progress."""
+"""Result DTO for indicator job progress."""
 
 from dataclasses import dataclass, field
 from typing import Any
 
 
 @dataclass(frozen=True)
-class EnrichmentJobProgressResult:
-    """Current progress state for an enrichment job."""
+class IndicatorJobProgressResult:
+    """Current progress state for an indicator job."""
 
     found: bool
     """True when the job exists."""

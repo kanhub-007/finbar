@@ -8,7 +8,7 @@ from typing import Any
 class FeatureSpec:
     """A strategy-local derived feature column.
 
-    Features are calculated by a separate enrichment use case before backtesting.
+    Features are calculated by a separate indicator computation before backtesting.
     Backtesting only verifies that the resulting feature column exists.
     """
 

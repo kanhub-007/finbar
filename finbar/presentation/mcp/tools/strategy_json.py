@@ -114,7 +114,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "arithmetic, logical and/or/not over indicators). Each feature "
             "can have a window and a lookback shift. Formula features use "
             "expression trees with ops like >, <, +, -, *, /, and, or, not. "
-            "Returns enriched bars with feature columns added. Call this "
+            "Returns indicator bars with feature columns added. Call this "
             "BEFORE backtest_strategy_json if the strategy declares features."
         ),
     )
@@ -147,11 +147,11 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         name="backtest_strategy_json",
         description=(
             "Run a backtest with a strategy JSON definition against "
-            "already-enriched primary bars (including any indicators and "
+            "with computed indicators primary bars (including any indicators and "
             "features the strategy needs), or pass bars_artifact_id from a "
-            "completed enrichment job to avoid large JSON round trips. For "
+            "completed indicator job to avoid large JSON round trips. For "
             "multi-timeframe strategies, also pass informative_bars_json or "
-            "informative_bars_artifact_ids_json after enriching those bars "
+            "informative_bars_artifact_ids_json after computing indicators on those bars "
             "separately. Does NOT fetch prices or calculate indicators — "
             "the agent must call apply_indicators and apply_strategy_features "
             "BEFORE this tool. Returns full "

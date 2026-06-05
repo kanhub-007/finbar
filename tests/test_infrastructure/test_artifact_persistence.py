@@ -4,22 +4,22 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
+from finbar.core.domain.entities.indicator_job import IndicatorJob
 from finbar.infrastructure.data.connection import Base
-from finbar.infrastructure.repositories.sql_enrichment_artifact_repository import (
-    SqlEnrichmentArtifactRepository,
+from finbar.infrastructure.repositories.sql_indicator_artifact_repository import (
+    SqlIndicatorArtifactRepository,
 )
-from finbar.infrastructure.services.in_memory_enrichment_job_manager import (
-    InMemoryEnrichmentJobManager,
+from finbar.infrastructure.services.in_memory_indicator_job_manager import (
+    InMemoryIndicatorJobManager,
 )
-from finbar.infrastructure.tables.enrichment_artifact import (
-    EnrichmentArtifact as OrmArtifact,
+from finbar.infrastructure.tables.indicator_artifact import (
+    IndicatorArtifact as OrmArtifact,
 )
 
 
 @pytest.fixture
 def mem_db():
-    """Create an in-memory SQLite database with enrichment_artifacts table."""
+    """Create an in-memory SQLite database with indicator_artifacts table."""
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine, tables=[OrmArtifact.__table__])
     session = Session(engine)
@@ -28,12 +28,12 @@ def mem_db():
     engine.dispose()
 
 
-class TestSqlEnrichmentArtifactRepository:
+class TestSqlIndicatorArtifactRepository:
     def test_save_and_retrieve_bars(self, mem_db):
         """Artifacts saved to SQLite are retrievable."""
 
-        repo = SqlEnrichmentArtifactRepository(mem_db)
-        job = EnrichmentJob(
+        repo = SqlIndicatorArtifactRepository(mem_db)
+        job = IndicatorJob(
             job_id="test-123", symbol="AAPL", source="yfinance", interval="1d"
         )
         bars = [{"timestamp": "2024-01-01", "close": 100}]
@@ -46,8 +46,8 @@ class TestSqlEnrichmentArtifactRepository:
     def test_get_metadata_reconstructs_job(self, mem_db):
         """Minimal job metadata is reconstructed from SQLite."""
 
-        repo = SqlEnrichmentArtifactRepository(mem_db)
-        job = EnrichmentJob(
+        repo = SqlIndicatorArtifactRepository(mem_db)
+        job = IndicatorJob(
             job_id="test-456",
             symbol="TSLA",
             source="hyperliquid",
@@ -68,7 +68,7 @@ class TestSqlEnrichmentArtifactRepository:
     def test_missing_returns_none(self, mem_db):
         """Missing artifacts return None for both bars and metadata."""
 
-        repo = SqlEnrichmentArtifactRepository(mem_db)
+        repo = SqlIndicatorArtifactRepository(mem_db)
 
         assert repo.get_bars("missing") is None
         assert repo.get_metadata("missing") is None
@@ -76,8 +76,8 @@ class TestSqlEnrichmentArtifactRepository:
     def test_delete_removes_artifact(self, mem_db):
         """Deleted artifacts are no longer retrievable."""
 
-        repo = SqlEnrichmentArtifactRepository(mem_db)
-        job = EnrichmentJob(job_id="del-1", symbol="AAPL")
+        repo = SqlIndicatorArtifactRepository(mem_db)
+        job = IndicatorJob(job_id="del-1", symbol="AAPL")
         repo.save(job, [{"close": 100}])
 
         repo.delete("del-1")
@@ -89,14 +89,14 @@ class TestManagerSqlFallback:
     def test_artifact_bars_fallback_to_sql_on_restart(self, mem_db):
         """After a simulated restart (empty in-memory), SQLite fallback works."""
 
-        manager = InMemoryEnrichmentJobManager(session_factory=lambda: mem_db)
-        job = EnrichmentJob(job_id="restart-1", symbol="AAPL")
+        manager = InMemoryIndicatorJobManager(session_factory=lambda: mem_db)
+        job = IndicatorJob(job_id="restart-1", symbol="AAPL")
         bars = [{"timestamp": "2024-01-01", "close": 100}]
         manager.update(job, status="completed")
         manager.store_result(job, bars)
 
         # Simulate restart: new manager instance with same SQLite
-        manager2 = InMemoryEnrichmentJobManager(session_factory=lambda: mem_db)
+        manager2 = InMemoryIndicatorJobManager(session_factory=lambda: mem_db)
 
         result = manager2.get_artifact_bars("restart-1")
 
@@ -105,8 +105,8 @@ class TestManagerSqlFallback:
     def test_artifact_job_fallback_to_sql_on_restart(self, mem_db):
         """Metadata is retrieved from SQLite after simulated restart."""
 
-        manager = InMemoryEnrichmentJobManager(session_factory=lambda: mem_db)
-        job = EnrichmentJob(
+        manager = InMemoryIndicatorJobManager(session_factory=lambda: mem_db)
+        job = IndicatorJob(
             job_id="meta-1",
             symbol="AAPL",
             mode="strategy_required",
@@ -114,7 +114,7 @@ class TestManagerSqlFallback:
         manager.update(job, status="completed")
         manager.store_result(job, [])
 
-        manager2 = InMemoryEnrichmentJobManager(session_factory=lambda: mem_db)
+        manager2 = InMemoryIndicatorJobManager(session_factory=lambda: mem_db)
 
         result = manager2.get_artifact_job("meta-1")
 

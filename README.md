@@ -30,7 +30,7 @@ tools — no Python code required. Full workflow:
 
 ```
 get_strategy_capabilities → validate → explain →
-fetch/query prices → start_enrichment_job (server-side) →
+fetch/query prices → compute_indicators / compute_trading_metrics →
 backtest_strategy_json (artifact-backed) → start_optimization_job →
 save_strategy_json
 ```
@@ -41,10 +41,10 @@ save_strategy_json
 |----------|----------|
 | **Multi-timeframe** | Primary (e.g., 1h) + informative (e.g., 1d) with column merging |
 | **Parameters** | Typed parameters with defaults, min/max validation, `{{ }}` references |
-| **Indicators** | sma, ema, rsi, atr, adx, vwap, rvol, ibs, bb_upper/middle/lower, macd — all with arbitrary periods |
-| **Indicator aliases** | `fast_sma` → `sma_20`, `trend_sma` → `sma_50_1d` (multi-timeframe) |
-| **Fallback indicators** | `["atr_1d", "atr", "proxy_atr"]` — try in order, first available wins |
-| **Proxy indicators** | `proxy_atr` (Wilder RMA), `proxy_sma_50/200`, `proxy_vwap` (typical price) |
+| **Indicators** | sma, ema, rsi, atr, adx, bb_upper/middle/lower, macd, ker, kama — all with arbitrary periods |
+| **Trading Metrics** | vwap, ibs, rvol, ib_*, price_vs_sma20, breakout_*, vol_buffer_* — market microstructure |
+| **Proxies** | Industry-standard mathematical substitutes for daily bars — see [Proxies](docs/QUANTITATIVE_PROXIES.md) |
+| **Multi-timeframe** | Primary (e.g., 1h) + informative (e.g., 1d), daily columns merged with `_1d` suffix |
 | **Side-specific rules** | Separate long/short entry and exit conditions |
 | **Nested conditions** | `all([close > sma, any([rsi < 30, rvol > 1.5])])` |
 | **Crossovers** | `crosses_above`, `crosses_below` |
@@ -58,7 +58,7 @@ save_strategy_json
 
 `sma_crossover`, `rsi_mean_reversion`, `momentum_breakout`, `auction_drive` —
 also available as a JSON fixture (`tests/fixtures/strategies/auction_drive_json.json`)
-using all SDK features: multi-timeframe, fallbacks, proxy indicators, formula features.
+using multi-timeframe with daily trend context and industry-standard trading proxies.
 
 ### MCP tools (28+ tools)
 
@@ -69,19 +69,20 @@ using all SDK features: multi-timeframe, fallbacks, proxy indicators, formula fe
 | `get_strategy_schema` | JSON Schema for strategy definitions |
 | `validate_strategy_json` | Validate + return required indicators split by timeframe |
 | `explain_strategy_json` | Human-readable explanation of a strategy |
-| `backtest_strategy_json` | Backtest via enriched bars or enrichment artifact ID |
+| `backtest_strategy_json` | Backtest via indicator bars or artifact ID |
 | `apply_strategy_features` | Calculate derived features (formula, rolling, body_pct) before backtesting |
 | `save_strategy_json` | Validate and persist a strategy |
 | `delete_strategy_json` | Delete a saved strategy |
 
-#### Enrichment tools
+#### Technical Analysis & Trading Metrics
 | Tool | Description |
 |------|-------------|
-| `apply_indicators` | Compute indicators on supplied bars (use for small datasets) |
-| `start_enrichment_job` | Server-side enrichment from cached bars — no payload limits |
-| `get_enrichment_job_progress` | Poll enrichment status, stage, indicators/features applied |
-| `get_enrichment_job_results` | Page enriched bars (page/page_size) from completed job |
-| `cancel_enrichment_job` | Cancel a running enrichment job |
+| `compute_indicators` | TA: sma, ema, rsi, macd, atr, adx, bb_*, ker, kama, swing_*, trend_* |
+| `compute_trading_metrics` | TM + proxies: vwap, ibs, rvol, ib_*, breakout_*, proxy_vwap, proxy_ibs, proxy_parkinson, … |
+| `apply_indicators` | Sync TA + TM on supplied bars (small datasets) |
+| `get_indicator_job_progress` | Poll computation status, stage, indicators applied |
+| `get_indicator_job_results` | Page computed bars (page/page_size) from completed job |
+| `cancel_indicator_job` | Cancel a running computation |
 
 #### Optimization tools
 | Tool | Description |

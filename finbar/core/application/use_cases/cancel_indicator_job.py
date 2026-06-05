@@ -1,29 +1,29 @@
-"""CancelEnrichmentJobUseCase — cancel asynchronous enrichment work."""
+"""CancelIndicatorJobUseCase — cancel asynchronous indicator computation."""
 
-from finbar.core.application.dto.enrichment_job_progress_result import (
-    EnrichmentJobProgressResult,
+from finbar.core.application.dto.indicator_job_progress_result import (
+    IndicatorJobProgressResult,
 )
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
-from finbar.core.domain.interfaces.enrichment_job_manager import EnrichmentJobManager
+from finbar.core.domain.entities.indicator_job import IndicatorJob
+from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
 
 
-class CancelEnrichmentJobUseCase:
-    """Cancel a queued or running enrichment job."""
+class CancelIndicatorJobUseCase:
+    """Cancel a queued or running indicator job."""
 
-    def __init__(self, manager: EnrichmentJobManager):
+    def __init__(self, manager: IndicatorJobManager):
         """Create the use case with an injected job manager."""
         self._manager = manager
 
-    def execute(self, job_id: str) -> EnrichmentJobProgressResult:
+    def execute(self, job_id: str) -> IndicatorJobProgressResult:
         """Cancel a job and return its updated state."""
         job = self._manager.cancel(job_id)
         if job is None:
-            return EnrichmentJobProgressResult(found=False, job_id=job_id)
+            return IndicatorJobProgressResult(found=False, job_id=job_id)
         return _result(job)
 
 
-def _result(job: EnrichmentJob) -> EnrichmentJobProgressResult:
-    return EnrichmentJobProgressResult(
+def _result(job: IndicatorJob) -> IndicatorJobProgressResult:
+    return IndicatorJobProgressResult(
         found=True,
         job_id=job.job_id,
         status=job.status,

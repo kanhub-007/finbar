@@ -1,6 +1,6 @@
 """FetchPricesUseCase — fetch raw OHLCV from source, validate, cache, return.
 
-Fetch → validate → save → return (no enrichment).
+Fetch → validate → save → return (no indicator computation).
 
 Depends on StockDataFetcher (Strategy) and PriceCacheRepository (Repository).
 """

@@ -1,4 +1,4 @@
-"""CachedPriceEnrichmentJobRunner — execute cached-bar enrichment jobs."""
+"""CachedPriceIndicatorJobRunner — execute cached-bar indicator jobs."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
+from finbar.core.domain.entities.indicator_job import IndicatorJob
 from finbar.core.domain.entities.price_bar import PriceBar
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.enrichment_job_manager import EnrichmentJobManager
-from finbar.core.domain.interfaces.enrichment_job_runner import EnrichmentJobRunner
+from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
+from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
 from finbar.core.domain.interfaces.indicator_calculator import IndicatorCalculator
 from finbar.core.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
@@ -25,13 +25,13 @@ from finbar.infrastructure.repositories.sql_price_cache_repository import (
 )
 
 
-class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
-    """Run enrichment jobs against cached bars using infrastructure services."""
+class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
+    """Run indicator jobs against cached bars using infrastructure services."""
 
     def __init__(
         self,
         session_factory: Callable[[], Session],
-        manager: EnrichmentJobManager,
+        manager: IndicatorJobManager,
         indicator_calculator: IndicatorCalculator,
         converter: BarFrameConverter,
         feature_calculator: StrategyFeatureCalculator,
@@ -45,15 +45,15 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
         self._feature_calculator = feature_calculator
         self._parser = parser
 
-    async def run(self, job: EnrichmentJob) -> None:
-        """Run enrichment in a thread so pandas work does not block asyncio."""
+    async def run(self, job: IndicatorJob) -> None:
+        """Run indicator computation in a thread so pandas work does not block asyncio."""
         try:
             await asyncio.to_thread(self._sync_run, job)
         except asyncio.CancelledError:
             self._manager.update(job, status="cancelled", error="Cancelled by user")
             raise
 
-    def _sync_run(self, job: EnrichmentJob) -> None:
+    def _sync_run(self, job: IndicatorJob) -> None:
         _mark(self._manager, job, 5, "query_cached_prices", "Loading cached bars")
         bars = _load_cached_bars(job, self._session_factory)
         if not bars:
@@ -66,12 +66,13 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
         indicators, validation = self._resolve_indicators(job)
         if indicators is None:
             return
-        enriched = self._apply_indicators(job, bars, indicators)
-        if enriched is None:
+        result = self._apply_indicators(job, bars, indicators)
+        if result is None:
             return
+        indicator_bars, _indicator_frame = result
         enriched = _apply_features(
             job,
-            enriched,
+            indicator_bars,
             validation,
             self._manager,
             self._converter,
@@ -85,22 +86,22 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
             status="completed",
             progress_pct=100,
             stage="completed",
-            message="Enrichment completed",
+            message="Indicator computation completed",
             total_bar_count=len(enriched_bars),
         )
         self._manager.store_frame(job, frame)
         self._manager.store_result(job, enriched_bars)
 
-    def _resolve_indicators(self, job: EnrichmentJob) -> tuple[list[str] | None, Any]:
+    def _resolve_indicators(self, job: IndicatorJob) -> tuple[list[str] | None, Any]:
         if job.mode == "selected":
             return list(job.metadata.get("indicators", [])), None
         if job.mode != "strategy_required":
-            _fail(self._manager, job, f"Unsupported enrichment mode '{job.mode}'")
+            _fail(self._manager, job, f"Unsupported indicator computation '{job.mode}'")
             return None, None
         return self._strategy_required_indicators(job)
 
     def _strategy_required_indicators(
-        self, job: EnrichmentJob
+        self, job: IndicatorJob
     ) -> tuple[list[str] | None, Any]:
         definition = job.metadata.get("definition")
         if not definition:
@@ -133,7 +134,7 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
 
     def _apply_indicators(
         self,
-        job: EnrichmentJob,
+        job: IndicatorJob,
         bars: list[dict],
         indicators: list[str],
     ) -> list[dict] | None:
@@ -159,10 +160,10 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
 
 
 def _apply_features(
-    job: EnrichmentJob,
+    job: IndicatorJob,
     bars: list[dict],
     validation,
-    manager: EnrichmentJobManager,
+    manager: IndicatorJobManager,
     converter: BarFrameConverter,
     feature_calculator: StrategyFeatureCalculator,
 ) -> tuple[list[dict] | None, Any]:
@@ -189,7 +190,7 @@ def _apply_features(
 
 
 def _load_cached_bars(
-    job: EnrichmentJob,
+    job: IndicatorJob,
     session_factory: Callable[[], Session],
 ) -> list[dict]:
     db = session_factory()
@@ -208,8 +209,8 @@ def _load_cached_bars(
 
 
 def _mark(
-    manager: EnrichmentJobManager,
-    job: EnrichmentJob,
+    manager: IndicatorJobManager,
+    job: IndicatorJob,
     progress: int,
     stage: str,
     message: str,
@@ -223,7 +224,7 @@ def _mark(
     )
 
 
-def _fail(manager: EnrichmentJobManager, job: EnrichmentJob, error: str) -> None:
+def _fail(manager: IndicatorJobManager, job: IndicatorJob, error: str) -> None:
     manager.update(
         job,
         status="failed",
@@ -248,7 +249,7 @@ def _indicator_message(indicators: list[str]) -> str:
     return f"Calculating {len(indicators)} indicators"
 
 
-def _should_apply_features(job: EnrichmentJob, validation) -> bool:
+def _should_apply_features(job: IndicatorJob, validation) -> bool:
     return (
         job.mode == "strategy_required"
         and job.timeframe_alias == "primary"

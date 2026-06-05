@@ -266,7 +266,7 @@ def atr_to_iv_proxy(atr: float, price: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Bar-level enrichment
+# Bar-level indicator computation
 # ---------------------------------------------------------------------------
 
 

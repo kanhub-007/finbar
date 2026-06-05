@@ -1,12 +1,12 @@
-"""Request DTO for starting an asynchronous enrichment job."""
+"""Request DTO for starting an asynchronous indicator job."""
 
 from dataclasses import dataclass, field
 from typing import Any
 
 
 @dataclass(frozen=True)
-class StartEnrichmentJobRequest:
-    """Input for server-side cached-price enrichment jobs."""
+class StartIndicatorJobRequest:
+    """Input for server-side cached-price indicator jobs."""
 
     symbol: str
     """Symbol to enrich from the local cache."""

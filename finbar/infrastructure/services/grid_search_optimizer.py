@@ -10,8 +10,8 @@ from finbar.core.domain.entities.optimization_result import OptimizationResult
 from finbar.core.domain.entities.param_range import ParamRange
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.enrichment_artifact_provider import (
-    EnrichmentArtifactProvider,
+from finbar.core.domain.interfaces.indicator_artifact_provider import (
+    IndicatorArtifactProvider,
 )
 from finbar.core.domain.interfaces.optimization_job_manager import (
     OptimizationJobManager,
@@ -52,7 +52,7 @@ class GridSearchOptimizer(OptimizationJobRunner):
         converter: BarFrameConverter,
         strategy_factory: StrategyDefinitionStrategyFactory,
         manager: OptimizationJobManager,
-        artifact_provider: EnrichmentArtifactProvider,
+        artifact_provider: IndicatorArtifactProvider,
         timeframe_merger: TimeframeBarMerger | None = None,
     ):
         """Create the optimizer with injected infrastructure collaborators."""
@@ -259,7 +259,7 @@ def _generate_random_combinations(
 
 def _resolve_artifact(
     artifact_id: str,
-    provider: EnrichmentArtifactProvider,
+    provider: IndicatorArtifactProvider,
 ) -> list[dict]:
     if not artifact_id:
         raise ValueError("bars_artifact_id is required")
@@ -273,7 +273,7 @@ def _merge_informative(
     primary_bars: list[dict],
     metadata: dict,
     validation,
-    artifact_provider: EnrichmentArtifactProvider,
+    artifact_provider: IndicatorArtifactProvider,
     converter: BarFrameConverter,
     merger: TimeframeBarMerger | None,
 ) -> list[dict]:

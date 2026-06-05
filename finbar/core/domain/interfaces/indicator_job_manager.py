@@ -1,36 +1,36 @@
-"""EnrichmentJobManager interface for asynchronous enrichment jobs."""
+"""IndicatorJobManager interface for asynchronous indicator jobs."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from finbar.core.domain.entities.enrichment_job import EnrichmentJob
+from finbar.core.domain.entities.indicator_job import IndicatorJob
 
 
-class EnrichmentJobManager(ABC):
-    """Manage asynchronous enrichment jobs and paginated result artifacts."""
+class IndicatorJobManager(ABC):
+    """Manage asynchronous indicator jobs and paginated result artifacts."""
 
     @abstractmethod
     def start(
         self,
         params: dict[str, Any],
-        runner: Callable[[EnrichmentJob], Awaitable[None]],
-    ) -> EnrichmentJob:
-        """Create and start a background enrichment job."""
+        runner: Callable[[IndicatorJob], Awaitable[None]],
+    ) -> IndicatorJob:
+        """Create and start a background indicator job."""
         ...
 
     @abstractmethod
-    def get(self, job_id: str) -> EnrichmentJob | None:
+    def get(self, job_id: str) -> IndicatorJob | None:
         """Return a job by ID."""
         ...
 
     @abstractmethod
-    def update(self, job: EnrichmentJob, **updates: Any) -> None:
+    def update(self, job: IndicatorJob, **updates: Any) -> None:
         """Update mutable job state."""
         ...
 
     @abstractmethod
-    def store_result(self, job: EnrichmentJob, bars: list[dict]) -> None:
+    def store_result(self, job: IndicatorJob, bars: list[dict]) -> None:
         """Store enriched bars for a completed job."""
         ...
 
@@ -45,6 +45,6 @@ class EnrichmentJobManager(ABC):
         ...
 
     @abstractmethod
-    def cancel(self, job_id: str) -> EnrichmentJob | None:
+    def cancel(self, job_id: str) -> IndicatorJob | None:
         """Cancel a queued or running job."""
         ...

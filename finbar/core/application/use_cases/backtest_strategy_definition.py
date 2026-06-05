@@ -18,14 +18,17 @@ from finbar.core.domain.entities.strategy_validation_error import (
 )
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.enrichment_artifact_provider import (
-    EnrichmentArtifactProvider,
+from finbar.core.domain.interfaces.indicator_artifact_provider import (
+    IndicatorArtifactProvider,
 )
 from finbar.core.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 from finbar.core.domain.interfaces.strategy_definition_strategy_factory import (
     StrategyDefinitionStrategyFactory,
+)
+from finbar.core.domain.interfaces.strategy_feature_calculator import (
+    StrategyFeatureCalculator,
 )
 from finbar.core.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
 
@@ -46,7 +49,8 @@ class BacktestStrategyDefinitionUseCase:
         strategy_factory: StrategyDefinitionStrategyFactory,
         parser: StrategyDefinitionParser,
         timeframe_merger: TimeframeBarMerger | None = None,
-        artifact_provider: EnrichmentArtifactProvider | None = None,
+        artifact_provider: IndicatorArtifactProvider | None = None,
+        feature_calculator: StrategyFeatureCalculator | None = None,
     ):
         """Create the use case with injected engine/converter/factory."""
         self._engine = engine
@@ -55,6 +59,7 @@ class BacktestStrategyDefinitionUseCase:
         self._parser = parser
         self._timeframe_merger = timeframe_merger
         self._artifact_provider = artifact_provider
+        self._feature_calculator = feature_calculator
 
     def execute(
         self,
@@ -111,6 +116,8 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         merged_bars = self._converter.frame_to_bars(frame)
+        frame = self._resolve_and_compute_signals(frame, validation.definition)
+        merged_bars = self._converter.frame_to_bars(frame)
         missing = _missing_columns(merged_bars, validation.required_columns)
         if missing:
             return BacktestStrategyDefinitionResult(
@@ -139,6 +146,12 @@ class BacktestStrategyDefinitionUseCase:
             self._engine,
         )
 
+    def _resolve_and_compute_signals(self, frame: Any, definition) -> Any:
+        """Compute signals (derived formula columns) on the frame."""
+        if self._feature_calculator is not None and definition.features:
+            frame = self._feature_calculator.calculate(frame, definition.features)
+        return frame
+
     def _prepare_frame(
         self,
         request: BacktestStrategyDefinitionRequest,
@@ -165,7 +178,7 @@ class BacktestStrategyDefinitionUseCase:
 
 def _resolve_artifact_bars(
     request: BacktestStrategyDefinitionRequest,
-    provider: EnrichmentArtifactProvider | None,
+    provider: IndicatorArtifactProvider | None,
 ) -> BacktestStrategyDefinitionRequest:
     bars = request.bars
     informative_bars = request.informative_bars
@@ -183,7 +196,7 @@ def _resolve_artifact_bars(
 
 def _artifact_bars(
     job_id: str,
-    provider: EnrichmentArtifactProvider | None,
+    provider: IndicatorArtifactProvider | None,
 ) -> list[dict]:
     if provider is None:
         raise ValueError("Artifact-backed backtesting is not wired")
