@@ -128,6 +128,14 @@ def _usage_guide_text() -> str:
         "  get_job_progress(job_id) → poll fetch progress\n"
         "  get_job_results(job_id) → completed fetch results\n"
         "  cancel_job(job_id) → cancel running fetch\n\n"
+        "INDICATORS\n"
+        "  apply_indicators(bars_json, indicators) → enriched bars with columns\n"
+        "  indicators accepts a list (['sma_20','rsi_14']) or JSON string "
+        '(\'[\\"sma_20\\",\\"rsi_14\\"]\'). '
+        "Supported: sma_10/20/30/50/200, ema_12/26, rsi_7/14, macd/signal/"
+        "hist, atr, adx, vwap, bb_upper/middle/lower, ibs, rvol, ker, kama, "
+        "trend_direction/strength/status, swing_high_20/low_20, breakout_* "
+        "and proxy_* indicators.\n\n"
         # ── Strategy SDK ──
         "STRATEGY JSON SDK\n"
         "  AI agents can define, validate, explain, and backtest trading "
