@@ -9,18 +9,33 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from finbar.core.domain.entities.enrichment_job import EnrichmentJob
 from finbar.core.domain.interfaces.enrichment_artifact_provider import (
     EnrichmentArtifactProvider,
 )
 from finbar.core.domain.interfaces.enrichment_job_manager import EnrichmentJobManager
+from finbar.infrastructure.repositories.sql_enrichment_artifact_repository import (
+    SqlEnrichmentArtifactRepository,
+)
 
 
 class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvider):
-    """Thread-safe in-memory enrichment job and artifact store."""
+    """Thread-safe in-memory enrichment job and artifact store.
 
-    def __init__(self, max_jobs: int = 50, ttl_seconds: int = 3600):
+    Artifacts are persisted to SQLite for restart survival.
+    In-memory storage provides the fast path during a live session.
+    """
+
+    def __init__(
+        self,
+        max_jobs: int = 50,
+        ttl_seconds: int = 3600,
+        session_factory: Callable[[], Session] | None = None,
+    ):
         """Initialize the in-memory enrichment job store."""
+        self._session_factory = session_factory
         self._jobs: dict[str, EnrichmentJob] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._results: dict[str, list[dict]] = {}
@@ -65,20 +80,26 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
                 setattr(job, key, value)
 
     def store_result(self, job: EnrichmentJob, bars: list[dict]) -> None:
-        """Store enriched bars for a completed job."""
+        """Store enriched bars in-memory and persist to SQLite."""
         with self._lock:
             self._results[job.job_id] = list(bars)
             job.total_bar_count = len(bars)
+        self._persist_artifact(job, bars)
 
     def get_artifact_job(self, job_id: str) -> EnrichmentJob | None:
         """Return metadata for an enrichment artifact job."""
-        return self.get(job_id)
+        job = self.get(job_id)
+        if job is not None:
+            return job
+        return self._load_metadata_from_sql(job_id)
 
     def get_artifact_bars(self, job_id: str) -> list[dict] | None:
-        """Return all bars for an enrichment artifact, or None if missing."""
+        """Return all bars for an enrichment artifact."""
         with self._lock:
             bars = self._results.get(job_id)
-            return list(bars) if bars is not None else None
+            if bars is not None:
+                return list(bars)
+        return self._load_bars_from_sql(job_id)
 
     def get_result_page(
         self,
@@ -89,6 +110,10 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
         """Return bars plus page metadata: bars, page, page_size, total_pages."""
         with self._lock:
             bars = list(self._results.get(job_id, []))
+        if not bars:
+            sql_bars = self._load_bars_from_sql(job_id)
+            if sql_bars:
+                bars = sql_bars
         total = len(bars)
         page_size = max(1, min(page_size, 1000))
         total_pages = (total + page_size - 1) // page_size if total else 0
@@ -123,6 +148,16 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
                 self._jobs.pop(job_id, None)
                 self._tasks.pop(job_id, None)
                 self._results.pop(job_id, None)
+                self._delete_sql_artifact(job_id)
+
+    def _delete_sql_artifact(self, job_id: str) -> None:
+        if self._session_factory is None:
+            return
+        db = self._session_factory()
+        try:
+            SqlEnrichmentArtifactRepository(db).delete(job_id)
+        finally:
+            db.close()
 
     def _enforce_max_jobs_locked(self) -> None:
         if len(self._jobs) <= self._max_jobs:
@@ -135,3 +170,30 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
                 self._jobs.pop(job.job_id, None)
                 self._tasks.pop(job.job_id, None)
                 self._results.pop(job.job_id, None)
+
+    def _persist_artifact(self, job: EnrichmentJob, bars: list[dict]) -> None:
+        if self._session_factory is None:
+            return
+        db = self._session_factory()
+        try:
+            SqlEnrichmentArtifactRepository(db).save(job, bars)
+        finally:
+            db.close()
+
+    def _load_bars_from_sql(self, job_id: str) -> list[dict] | None:
+        if self._session_factory is None:
+            return None
+        db = self._session_factory()
+        try:
+            return SqlEnrichmentArtifactRepository(db).get_bars(job_id)
+        finally:
+            db.close()
+
+    def _load_metadata_from_sql(self, job_id: str) -> EnrichmentJob | None:
+        if self._session_factory is None:
+            return None
+        db = self._session_factory()
+        try:
+            return SqlEnrichmentArtifactRepository(db).get_metadata(job_id)
+        finally:
+            db.close()

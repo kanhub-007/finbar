@@ -212,7 +212,9 @@ def _get_enrichment_job_manager() -> InMemoryEnrichmentJobManager:
     """Lazy-init the enrichment job manager."""
     global _enrichment_job_manager
     if _enrichment_job_manager is None:
-        _enrichment_job_manager = InMemoryEnrichmentJobManager()
+        _enrichment_job_manager = InMemoryEnrichmentJobManager(
+            session_factory=SessionLocal,
+        )
     return _enrichment_job_manager
 
 

@@ -79,7 +79,6 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
         )
         if enriched is None:
             return
-        self._manager.store_result(job, enriched)
         self._manager.update(
             job,
             status="completed",
@@ -88,6 +87,7 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
             message="Enrichment completed",
             total_bar_count=len(enriched),
         )
+        self._manager.store_result(job, enriched)
 
     def _resolve_indicators(self, job: EnrichmentJob) -> tuple[list[str] | None, Any]:
         if job.mode == "selected":

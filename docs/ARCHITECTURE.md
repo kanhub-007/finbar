@@ -1,7 +1,7 @@
 # Finbar Architecture
 
 Strict clean architecture per AGENTS.md — four layers plus a composition root.
-Dependencies flow inward. One class per file enforced mechanically (165 classes,
+Dependencies flow inward. One class per file enforced mechanically (168 classes,
 zero multi-class files in `finbar/`).
 
 ## Layer Map
