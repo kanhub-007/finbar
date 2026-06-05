@@ -46,9 +46,6 @@ from finbar.infrastructure.data.connection import SessionLocal
 from finbar.infrastructure.repositories.sql_price_cache_repository import (
     SqlPriceCacheRepository,
 )
-from finbar.infrastructure.repositories.sql_strategy_definition_repository import (
-    SqlStrategyDefinitionRepository,
-)
 from finbar.infrastructure.repositories.sql_strategy_document_repository import (
     SqlStrategyDocumentRepository,
 )
@@ -61,9 +58,6 @@ from finbar.infrastructure.services.builtin_strategy_provider import (
 )
 from finbar.infrastructure.services.composite_strategy_provider import (
     CompositeStrategyProvider,
-)
-from finbar.infrastructure.services.database_strategy_provider import (
-    DatabaseStrategyProvider,
 )
 from finbar.infrastructure.services.database_v2_strategy_provider import (
     DatabaseV2StrategyProvider,
@@ -316,8 +310,6 @@ def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvi
 
     providers = [_builtin_strategy_provider]
     if db is not None:
-        repo = SqlStrategyDefinitionRepository(db)
-        providers.append(DatabaseStrategyProvider(repo))
         v2_repo = SqlStrategyDocumentRepository(db)
         providers.append(DatabaseV2StrategyProvider(v2_repo, _get_v2_parser()))
     return CompositeStrategyProvider(providers)

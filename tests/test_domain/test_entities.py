@@ -1,9 +1,7 @@
 """Tests for domain entities — pure dataclasses."""
 
 from finbar.core.domain.entities.data_mode import DataMode
-from finbar.core.domain.entities.rule import Rule
 from finbar.core.domain.entities.signal_result import SignalResult
-from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_meta import StrategyMeta
 
 
@@ -69,44 +67,3 @@ class TestDataMode:
     def test_values(self):
         assert DataMode.PROXY.value == "proxy"
         assert DataMode.REAL.value == "real"
-
-
-class TestRule:
-    def test_creation(self):
-        rule = Rule(indicator="rsi_14", operator="<", value=30)
-        assert rule.indicator == "rsi_14"
-        assert rule.operator == "<"
-        assert rule.value == 30
-
-    def test_string_value(self):
-        rule = Rule(indicator="close", operator=">", value="sma_50")
-        assert rule.value == "sma_50"
-
-
-class TestStrategyDefinition:
-    def test_creation(self):
-        sdef = StrategyDefinition(
-            name="test_strategy",
-            direction="long",
-            description="Test",
-            entry_rules=[
-                Rule(indicator="rsi_14", operator="<", value=30),
-            ],
-            exit_rules=[
-                Rule(indicator="rsi_14", operator=">", value=70),
-            ],
-            stop_loss_atr_mult=2.0,
-            take_profit_atr_mult=3.0,
-        )
-        assert sdef.name == "test_strategy"
-        assert len(sdef.entry_rules) == 1
-        assert len(sdef.exit_rules) == 1
-        assert sdef.stop_loss_atr_mult == 2.0
-        assert sdef.require_all_entry_rules is True
-
-    def test_defaults(self):
-        sdef = StrategyDefinition(name="minimal", direction="both")
-        assert sdef.description == ""
-        assert sdef.entry_rules == []
-        assert sdef.stop_loss_atr_mult == 0.0
-        assert sdef.created_at == ""
