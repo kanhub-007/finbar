@@ -130,6 +130,15 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
                     logger.warning(
                         "Failed to compute indicator '%s'", name, exc_info=True
                     )
+            elif _is_dynamic(name):
+                try:
+                    result = _compute_dynamic(result, name)
+                except Exception:
+                    logger.warning(
+                        "Failed to compute dynamic indicator '%s'",
+                        name,
+                        exc_info=True,
+                    )
             else:
                 logger.warning("Unknown indicator: '%s'", name)
 
@@ -566,3 +575,33 @@ def _compute_true_ib(df: pd.DataFrame, ib_bars: int) -> None:
     df["ib_low"] = date_series.map(ib_lows)
     df["ib_range"] = date_series.map(ib_ranges)
     df["ib_midpoint"] = date_series.map(ib_mids)
+
+
+# ---------------------------------------------------------------------------
+# Dynamic period indicators — handles any period within supported ranges
+# ---------------------------------------------------------------------------
+
+_DYNAMIC_HANDLERS: dict[str, tuple[Callable, str]] = {
+    "sma": (ta.sma, "close"),
+    "ema": (ta.ema, "close"),
+    "rsi": (ta.rsi, "close"),
+}
+
+
+def _is_dynamic(name: str) -> bool:
+    """Return True when a name matches a dynamic indicator like sma_37."""
+    for prefix in _DYNAMIC_HANDLERS:
+        if name.startswith(f"{prefix}_"):
+            rest = name[len(prefix) + 1 :]
+            return rest.isdigit() and int(rest) >= 2
+    return False
+
+
+def _compute_dynamic(df: pd.DataFrame, name: str) -> pd.DataFrame:
+    """Compute a dynamic period indicator and add its column to the frame."""
+    for prefix, (func, source_col) in _DYNAMIC_HANDLERS.items():
+        if name.startswith(f"{prefix}_"):
+            period = int(name[len(prefix) + 1 :])
+            df[name] = _safe_ta(func, df[source_col], length=period)
+            return df
+    return df

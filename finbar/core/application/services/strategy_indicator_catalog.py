@@ -12,10 +12,10 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
     source these capabilities directly from the indicator calculator registry.
     """
 
-    _PERIODS = {
-        "sma": {10, 20, 30, 50, 200},
-        "ema": {12, 26},
-        "rsi": {7, 14},
+    _PERIOD_RANGES = {
+        "sma": (2, 500),
+        "ema": (2, 500),
+        "rsi": (2, 100),
     }
     _FIXED = {
         "atr": "atr",
@@ -36,40 +36,51 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
         """Resolve an indicator type/period to a concrete enrichment column."""
         name = indicator_type.lower()
-        if name in self._PERIODS:
-            if period in self._PERIODS[name]:
+        if name in self._PERIOD_RANGES:
+            min_p, max_p = self._PERIOD_RANGES[name]
+            if isinstance(period, int) and min_p <= period <= max_p:
                 return f"{name}_{period}"
             return None
         return self._FIXED.get(name)
 
     def requires_period(self, indicator_type: str) -> bool:
         """Return True when the indicator type requires a period."""
-        return indicator_type.lower() in self._PERIODS
+        return indicator_type.lower() in self._PERIOD_RANGES
 
     def accepts_period(self, indicator_type: str) -> bool:
         """Return True when the indicator type accepts a period argument."""
-        return indicator_type.lower() in self._PERIODS
+        return indicator_type.lower() in self._PERIOD_RANGES
 
     def supports_concrete(self, name: str) -> bool:
         """Return True when a concrete enrichment column is known."""
-        return name in self.supported_concrete_names()
+        if name in self._FIXED or name in self._FIXED.values():
+            return True
+        for prefix in self._PERIOD_RANGES:
+            if name.startswith(f"{prefix}_"):
+                rest = name[len(prefix) + 1 :]
+                if rest.isdigit():
+                    return True
+        return False
 
     def supported_concrete_names(self) -> list[str]:
         """Return all concrete indicator columns currently supported."""
         names = list(self._FIXED.values())
-        for indicator_type, periods in self._PERIODS.items():
-            names.extend(f"{indicator_type}_{period}" for period in sorted(periods))
+        for indicator_type, (min_p, max_p) in self._PERIOD_RANGES.items():
+            names.extend(
+                f"{indicator_type}_{period}"
+                for period in range(min_p, min(min_p + 5, max_p + 1))
+            )
         return sorted(names)
 
     def as_dict(self) -> dict:
         """Return a JSON-serializable capabilities payload."""
         return {
             "schema_version": "2.0",
-            "parameterized_indicators_enabled": False,
-            "period_indicators": {
-                key: {"supported_periods": sorted(values)}
-                for key, values in self._PERIODS.items()
+            "parameterized_indicators_enabled": True,
+            "period_ranges": {
+                key: {"min": min_p, "max": max_p}
+                for key, (min_p, max_p) in self._PERIOD_RANGES.items()
             },
             "fixed_indicators": sorted(self._FIXED),
-            "supported_concrete_names": self.supported_concrete_names(),
+            "supported_concrete_names": "any period within ranges for sma/ema/rsi",
         }

@@ -211,11 +211,27 @@ class TestStrategyJsonSdk:
         assert result.definition.indicators[0].name == "fast_sma"
         assert result.definition.indicators[0].concrete_name == "sma_20"
 
-    def test_parser_rejects_unsupported_period_until_enrichment_supports_it(self):
-        result = StrategyDefinitionParser().parse(
-            _sma_strategy(),
-            {"fast_period": 37},
-        )
+    def test_parser_rejects_out_of_range_indicator_period(self):
+        strategy = {
+            "schema_version": "2.0",
+            "name": "out_of_range",
+            "indicators": [
+                {"name": "fast", "type": "sma", "period": 1000},
+            ],
+            "sides": {
+                "long": {
+                    "entry": {
+                        "condition": {
+                            "all": [
+                                {"left": "fast", "operator": ">", "right": "close"}
+                            ]
+                        }
+                    }
+                }
+            },
+        }
+
+        result = StrategyDefinitionParser().parse(strategy)
 
         assert result.valid is False
         assert any(error.code == "unsupported_indicator" for error in result.errors)
