@@ -4,6 +4,7 @@ from typing import Any
 
 from finbar.core.application.services.strategy_definition_parse_helpers import (
     make_error,
+    resolve_expression,
 )
 from finbar.core.application.services.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
@@ -32,6 +33,7 @@ class StrategyRiskResolver:
         self,
         raw: Any,
         indicators: list[IndicatorSpec],
+        resolved_params: dict[str, Any],
         errors: list[StrategyValidationError],
     ) -> RiskSpec | None:
         """Parse the optional risk block."""
@@ -45,7 +47,7 @@ class StrategyRiskResolver:
         if stop is None or target is None:
             return None
         aliases = {item.name: item.column_name() for item in indicators}
-        spec = self._build_spec(stop, target, aliases, errors)
+        spec = self._build_spec(stop, target, aliases, resolved_params, errors)
         _validate_required_values(spec, errors)
         return spec
 
@@ -54,6 +56,7 @@ class StrategyRiskResolver:
         stop: dict,
         target: dict,
         aliases: dict[str, str],
+        resolved_params: dict[str, Any],
         errors: list[StrategyValidationError],
     ) -> RiskSpec:
         stop_type = str(stop.get("type", "none")).lower()
@@ -69,10 +72,24 @@ class StrategyRiskResolver:
                 errors,
             ),
             stop_multiplier=_positive_float(
-                stop.get("multiplier", 0), "$.risk.stop_loss.multiplier", errors
+                resolve_expression(
+                    stop.get("multiplier", 0),
+                    resolved_params,
+                    "$.risk.stop_loss.multiplier",
+                    errors,
+                ),
+                "$.risk.stop_loss.multiplier",
+                errors,
             ),
             stop_pct=_positive_float(
-                stop.get("pct", 0), "$.risk.stop_loss.pct", errors
+                resolve_expression(
+                    stop.get("pct", 0),
+                    resolved_params,
+                    "$.risk.stop_loss.pct",
+                    errors,
+                ),
+                "$.risk.stop_loss.pct",
+                errors,
             ),
             take_profit_type=target_type,
             take_profit_indicator=self._resolve_atr_indicator(
@@ -83,15 +100,34 @@ class StrategyRiskResolver:
                 errors,
             ),
             take_profit_multiplier=_positive_float(
-                target.get("multiplier", 0),
+                resolve_expression(
+                    target.get("multiplier", 0),
+                    resolved_params,
+                    "$.risk.take_profit.multiplier",
+                    errors,
+                ),
                 "$.risk.take_profit.multiplier",
                 errors,
             ),
             take_profit_pct=_positive_float(
-                target.get("pct", 0), "$.risk.take_profit.pct", errors
+                resolve_expression(
+                    target.get("pct", 0),
+                    resolved_params,
+                    "$.risk.take_profit.pct",
+                    errors,
+                ),
+                "$.risk.take_profit.pct",
+                errors,
             ),
             risk_reward_ratio=_positive_float(
-                target.get("ratio", 0), "$.risk.take_profit.ratio", errors
+                resolve_expression(
+                    target.get("ratio", 0),
+                    resolved_params,
+                    "$.risk.take_profit.ratio",
+                    errors,
+                ),
+                "$.risk.take_profit.ratio",
+                errors,
             ),
         )
 

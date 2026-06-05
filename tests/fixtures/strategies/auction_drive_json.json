@@ -52,8 +52,8 @@
     }
   },
   "risk": {
-    "stop_loss":   { "type": "atr", "indicator": "primary_atr", "multiplier": 2.5 },
-    "take_profit": { "type": "atr", "indicator": "primary_atr", "multiplier": 1.5 }
+    "stop_loss":   { "type": "atr", "indicator": "primary_atr", "multiplier": "{{ stop_atr_mult }}" },
+    "take_profit": { "type": "atr", "indicator": "primary_atr", "multiplier": "{{ target_atr_mult }}" }
   },
   "metadata": {
     "tags": ["auction_drive", "multi_timeframe", "intraday", "trend_following"]

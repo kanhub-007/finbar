@@ -117,7 +117,9 @@ class StrategyDefinitionParser(ParserInterface):
             resolved_params,
             errors,
         )
-        risk = self._risk_resolver.parse(data.get("risk"), indicators, errors)
+        risk = self._risk_resolver.parse(
+            data.get("risk"), indicators, resolved_params, errors
+        )
         sides = self._condition_parser.parse_sides(
             data.get("sides"),
             indicators,

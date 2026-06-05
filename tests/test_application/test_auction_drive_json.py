@@ -32,7 +32,7 @@ def test_auction_drive_json_parses():
 
     # Risk
     assert result.definition.risk is not None
-    assert result.definition.risk.stop_loss_type == "atr"
+    assert result.definition.risk.stop_multiplier == 2.5
 
     # Indicators present (6 declared)
     assert len(result.definition.indicators) == 6
