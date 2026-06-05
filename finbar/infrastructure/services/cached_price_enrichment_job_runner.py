@@ -79,6 +79,7 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
         )
         if enriched is None:
             return
+        enriched, frame = enriched
         self._manager.update(
             job,
             status="completed",
@@ -87,6 +88,7 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
             message="Enrichment completed",
             total_bar_count=len(enriched),
         )
+        self._manager.store_frame(job, frame)
         self._manager.store_result(job, enriched)
 
     def _resolve_indicators(self, job: EnrichmentJob) -> tuple[list[str] | None, Any]:
@@ -153,7 +155,7 @@ class CachedPriceEnrichmentJobRunner(EnrichmentJobRunner):
             _fail(self._manager, job, f"Indicator calculation error: {exc}")
             return None
         self._manager.update(job, indicators_applied=list(indicators))
-        return result
+        return result, enriched
 
 
 def _apply_features(
@@ -163,9 +165,14 @@ def _apply_features(
     manager: EnrichmentJobManager,
     converter: BarFrameConverter,
     feature_calculator: StrategyFeatureCalculator,
-) -> list[dict] | None:
+) -> tuple[list[dict] | None, Any]:
+    """Return (bars, frame) tuple. Frame is for hot-path caching."""
     if not _should_apply_features(job, validation):
-        return bars
+        try:
+            frame = converter.bars_to_frame(bars)
+            return bars, frame
+        except Exception:
+            return bars, None
     _mark(manager, job, 70, "calculate_features", "Calculating strategy features")
     try:
         frame = converter.bars_to_frame(bars)

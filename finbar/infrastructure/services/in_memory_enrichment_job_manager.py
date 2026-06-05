@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import pickle
 import threading
 import uuid
 from collections.abc import Awaitable, Callable
@@ -39,6 +40,7 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
         self._jobs: dict[str, EnrichmentJob] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._results: dict[str, list[dict]] = {}
+        self._frames: dict[str, bytes] = {}
         self._lock = threading.Lock()
         self._max_jobs = max(1, max_jobs)
         self._ttl = timedelta(seconds=max(1, ttl_seconds))
@@ -86,6 +88,11 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
             job.total_bar_count = len(bars)
         self._persist_artifact(job, bars)
 
+    def store_frame(self, job: EnrichmentJob, frame: Any) -> None:
+        """Cache a pickled DataFrame for hot-path backtest access."""
+        with self._lock:
+            self._frames[job.job_id] = pickle.dumps(frame)
+
     def get_artifact_job(self, job_id: str) -> EnrichmentJob | None:
         """Return metadata for an enrichment artifact job."""
         job = self.get(job_id)
@@ -100,6 +107,12 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvi
             if bars is not None:
                 return list(bars)
         return self._load_bars_from_sql(job_id)
+
+    def get_artifact_frame(self, job_id: str) -> Any:
+        """Return a cached DataFrame or None if not available."""
+        with self._lock:
+            data = self._frames.get(job_id)
+            return pickle.loads(data) if data is not None else None
 
     def get_result_page(
         self,
