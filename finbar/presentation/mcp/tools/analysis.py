@@ -84,9 +84,12 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="list_backtest_strategies",
         description=(
-            "List available built-in backtest strategies. "
+            "List all available strategies that can be used with "
+            "run_backtest. Includes both built-in strategies "
+            "(sma_crossover, rsi_mean_reversion, momentum_breakout, "
+            "auction_drive) and any user-saved JSON strategies. "
             "Returns strategy names, descriptions, required indicators, "
-            "and default parameters. Use these names in run_backtest()."
+            "and default parameters."
         ),
     )
     def list_backtest_strategies() -> str:
@@ -110,13 +113,19 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="run_backtest",
         description=(
-            "Run a backtest with a named strategy against historical bars. "
-            "Pass bars (optionally enriched with apply_indicators) as JSON, "
-            "a strategy name (use list_backtest_strategies to discover), "
-            "and optional strategy parameters. "
-            "Returns performance metrics: total_return, sharpe_ratio, "
-            "max_drawdown, win_rate, trades list, equity_curve. "
-            "Built-in strategies: sma_crossover, rsi_mean_reversion."
+            "Run a backtest with a named strategy against historical "
+            "OHLCV bars. Pass bars (optionally enriched with "
+            "apply_indicators) as a JSON array, a strategy name (use "
+            "list_backtest_strategies to discover available names), "
+            "and optional strategy parameters as a JSON object. "
+            "Works with both built-in strategies (sma_crossover, "
+            "rsi_mean_reversion, momentum_breakout, auction_drive) "
+            "and saved JSON strategies. Returns full performance "
+            "metrics: total_return, annualized_return, sharpe_ratio, "
+            "sortino_ratio, max_drawdown, win_rate, profit_factor, "
+            "calmar_ratio, trades list (entry/exit dates, prices, "
+            "PnL, direction), and equity_curve (date, close, value, "
+            "drawdown, position)."
         ),
     )
     def run_backtest(

@@ -35,9 +35,15 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="get_strategy_capabilities",
         description=(
-            "Return supported strategy JSON capabilities. Includes operators, "
-            "OHLCV fields, supported concrete indicators, and notes that "
-            "backtest_strategy_json expects already-enriched bars."
+            "Return everything an AI needs to author a strategy JSON document. "
+            "Includes supported operators (<, >, crosses_above, between, "
+            "is_true, etc.), OHLCV fields (open, high, low, close, volume), "
+            "supported indicator types (sma, ema, rsi, macd, atr, adx, vwap, "
+            "bbands, rvol, ibs), supported feature types (rolling_max, "
+            "rolling_min, body_pct, typical_price, ohlc4, etc.), supported "
+            "risk types (atr, fixed_pct, risk_reward), and the exact concrete "
+            "indicator names currently available (sma_20, rsi_14, atr, etc.). "
+            "Call this first before writing any strategy JSON."
         ),
     )
     def get_strategy_capabilities() -> str:
@@ -46,7 +52,11 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(
         name="get_strategy_schema",
-        description="Return a compact JSON Schema for strategy definitions.",
+        description=(
+            "Return a JSON Schema describing the structure of a valid strategy "
+            "definition. Use this for pre-validation or to understand required "
+            "and optional fields before calling validate_strategy_json."
+        ),
     )
     def get_strategy_schema() -> str:
         """Return a compact JSON Schema for strategy JSON."""
@@ -55,8 +65,14 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="validate_strategy_json",
         description=(
-            "Validate a strategy JSON definition. Returns required indicator "
-            "columns but does not fetch bars or calculate indicators."
+            "Validate a strategy JSON definition. Returns whether the "
+            "definition is valid, any path-specific validation errors "
+            "(unknown indicators, unsupported operators, missing fields), "
+            "the list of concrete indicator columns required (e.g., "
+            "['sma_20', 'sma_50']), and the list of bar columns needed "
+            "to execute (OHLCV + indicators + features). Does NOT fetch "
+            "prices or calculate indicators — the agent must do those "
+            "separately."
         ),
     )
     def validate_strategy_json(definition_json: str, params_json: str = "{}") -> str:
@@ -71,7 +87,14 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(
         name="explain_strategy_json",
-        description="Explain a strategy JSON definition in plain language.",
+        description=(
+            "Explain a strategy JSON definition in plain language. "
+            "Returns a Markdown-formatted explanation with sections for "
+            "parameters, indicators, features, risk settings, and "
+            "entry/exit conditions for each side. Useful for verifying "
+            "that a generated strategy matches the intended behavior "
+            "before running a backtest."
+        ),
     )
     def explain_strategy_json(definition_json: str, params_json: str = "{}") -> str:
         """Explain a strategy JSON string and optional param overrides."""
@@ -86,8 +109,14 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="apply_strategy_features",
         description=(
-            "Apply derived features declared in a strategy JSON document. "
-            "This is a separate enrichment step before backtest_strategy_json."
+            "Calculate derived features declared in a strategy JSON document. "
+            "Features are computed from OHLCV + indicator data and include "
+            "rolling_max, rolling_min, rolling_mean, body_pct, range_pct, "
+            "typical_price, ohlc4, and shift. Each feature can have a window "
+            "and a lookback shift (e.g., rolling_max(high, 20).shift(1) for "
+            "prior swing high). Returns enriched bars with feature columns "
+            "added. Call this BEFORE backtest_strategy_json if the strategy "
+            "declares features."
         ),
     )
     def apply_strategy_features(
@@ -118,9 +147,16 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="backtest_strategy_json",
         description=(
-            "Backtest an unsaved strategy JSON against already-enriched bars. "
-            "This tool does not fetch prices and does not calculate indicators; "
-            "the AI agent must call apply_indicators first when required."
+            "Run a backtest with a strategy JSON definition against "
+            "already-enriched bars (including any indicators and features "
+            "the strategy needs). Does NOT fetch prices or calculate "
+            "indicators — the agent must call apply_indicators and "
+            "apply_strategy_features BEFORE this tool. Returns full "
+            "backtest results: total_return, sharpe_ratio, max_drawdown, "
+            "win_rate, profit_factor, trades list (with entry/exit "
+            "dates, prices, PnL, direction), and equity_curve (with "
+            "date, close, portfolio value, drawdown, position). The "
+            "equity curve includes close prices for overlay charting."
         ),
     )
     def backtest_strategy_json(
@@ -155,9 +191,12 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="save_strategy_json",
         description=(
-            "Validate and persist a strategy JSON definition. "
-            "Returns validation errors if the definition is invalid. "
-            "On success, the strategy can be backtested by name."
+            "Validate and persist a strategy JSON definition to the database. "
+            "The definition is validated before saving. On success, the "
+            "strategy appears in list_backtest_strategies and can be "
+            "backtested by name via run_backtest. Returns validation errors "
+            "if the definition is invalid. Use name_override to save under "
+            "a different name than the one in the definition."
         ),
     )
     def save_strategy_json(
@@ -196,7 +235,11 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(
         name="delete_strategy_json",
-        description="Delete a saved strategy document by name.",
+        description=(
+            "Delete a previously saved strategy JSON document by name. "
+            "Returns confirmation with the deleted name or an error if "
+            "not found. Built-in strategies cannot be deleted."
+        ),
     )
     def delete_strategy_json(name: str) -> str:
         """Delete a saved strategy document."""
