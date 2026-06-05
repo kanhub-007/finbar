@@ -16,6 +16,9 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
     _OPTIONAL_PERIOD_RANGES = {
         "atr": (2, 200),
         "adx": (2, 100),
+        "bb_upper": (2, 200),
+        "bb_middle": (2, 200),
+        "bb_lower": (2, 200),
     }
     _FIXED = {
         "atr": "atr",

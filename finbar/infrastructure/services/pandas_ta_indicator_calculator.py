@@ -587,6 +587,9 @@ _DYNAMIC_HANDLERS: dict[str, tuple[Callable, str]] = {
     "rsi": (ta.rsi, "close"),
     "atr": (ta.atr, "hlc"),
     "adx": (ta.adx, "hlc"),
+    "bb_upper": (ta.bbands, "bb"),
+    "bb_middle": (ta.bbands, "bb"),
+    "bb_lower": (ta.bbands, "bb"),
 }
 
 
@@ -609,7 +612,25 @@ def _compute_dynamic(df: pd.DataFrame, name: str) -> pd.DataFrame:
                 col = f"{prefix.upper()}_{period}"
                 if result_df is not None and col in result_df.columns:
                     df[name] = result_df[col]
+            elif source_col == "bb":
+                result_df = func(df["close"], length=period, std=2)
+                if result_df is not None:
+                    bb_col = _extract_bb_column(result_df, prefix, period)
+                    if bb_col:
+                        df[name] = result_df[bb_col]
             else:
                 df[name] = _safe_ta(func, df[source_col], length=period)
             return df
     return df
+
+
+def _extract_bb_column(result_df, prefix: str, period: int) -> str | None:
+    """Extract the correct Bollinger Band column from a pandas_ta result."""
+    mapping = {"bb_upper": "BBU", "bb_middle": "BBM", "bb_lower": "BBL"}
+    bb_prefix = mapping.get(prefix, "")
+    if not bb_prefix:
+        return None
+    for col in result_df.columns:
+        if col.startswith(f"{bb_prefix}_{period}"):
+            return col
+    return None
