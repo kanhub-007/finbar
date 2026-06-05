@@ -10,10 +10,10 @@ from finbar.core.application.dto.save_strategy_definition_request import (
 from finbar.core.application.dto.save_strategy_definition_result import (
     SaveStrategyDefinitionResult,
 )
-from finbar.core.application.services.strategy_definition_v2_parser import (
+from finbar.core.domain.entities.strategy_document import StrategyDocument
+from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
     StrategyDefinitionV2Parser,
 )
-from finbar.core.domain.entities.strategy_document import StrategyDocument
 from finbar.core.domain.interfaces.strategy_document_repository import (
     StrategyDocumentRepository,
 )
@@ -24,13 +24,27 @@ logger = logging.getLogger(__name__)
 class SaveStrategyDefinitionUseCase:
     """Validate a v2 JSON strategy definition and persist it if valid."""
 
-    def __init__(self, repository: StrategyDocumentRepository):
-        """Create the use case with a document repository.
+    def __init__(
+        self,
+        repository: StrategyDocumentRepository,
+        parser: StrategyDefinitionV2Parser | None = None,
+    ):
+        """Create the use case with a document repository and optional parser.
 
         Args:
             repository: StrategyDocumentRepository for persistence.
+            parser: Optional parser; defaults to concrete implementation.
         """
         self._repository = repository
+
+        if parser is not None:
+            self._parser = parser
+        else:
+            from finbar.core.application.services.strategy_definition_v2_parser import (
+                StrategyDefinitionV2Parser as ConcreteParser,
+            )
+
+            self._parser = ConcreteParser()
 
     def execute(
         self, request: SaveStrategyDefinitionRequest
@@ -50,8 +64,7 @@ class SaveStrategyDefinitionUseCase:
                 saved=False, error=f"Invalid JSON: {exc}"
             )
 
-        parser = StrategyDefinitionV2Parser()
-        validation = parser.parse(raw)
+        validation = self._parser.parse(raw)
 
         if not validation.valid:
             return SaveStrategyDefinitionResult(

@@ -6,6 +6,7 @@ Pure dataclass — no behavior, no ORM, no framework dependencies.
 from dataclasses import dataclass, field
 
 from finbar.core.domain.entities.data_mode import DataMode
+from finbar.core.domain.entities.strategy_kind import StrategyKind
 
 
 @dataclass(frozen=True)
@@ -35,5 +36,5 @@ class StrategyMeta:
     required_features: list[str] = field(default_factory=list)
     """Feature names this strategy needs, e.g. ["prior_swing_high"]."""
 
-    type: str = ""
-    """Strategy type: builtin, user_defined, or user_defined_v2."""
+    kind: StrategyKind = StrategyKind.BUILTIN
+    """Strategy provenance: builtin, user_defined, or user_defined_v2."""

@@ -6,6 +6,9 @@ keeps concrete infrastructure construction out of presentation modules.
 
 from sqlalchemy.orm import Session
 
+from finbar.core.application.services.strategy_definition_v2_parser import (
+    StrategyDefinitionV2Parser,
+)
 from finbar.core.application.use_cases.apply_strategy_features import (
     ApplyStrategyFeaturesUseCase,
 )
@@ -14,6 +17,9 @@ from finbar.core.application.use_cases.backtest_strategy_definition import (
 )
 from finbar.core.application.use_cases.delete_cached_prices import (
     DeleteCachedPricesUseCase,
+)
+from finbar.core.application.use_cases.delete_strategy_definition import (
+    DeleteStrategyDefinitionUseCase,
 )
 from finbar.core.application.use_cases.fetch_prices import FetchPricesUseCase
 from finbar.core.application.use_cases.get_latest_quote import GetLatestQuoteUseCase
@@ -83,6 +89,7 @@ _bt_runner: BacktestRunner | None = None
 _builtin_strategy_provider: BuiltinStrategyProvider | None = None
 _json_strategy_factory: JsonStrategyDefinitionStrategyFactory | None = None
 _strategy_feature_calculator: PandasStrategyFeatureCalculator | None = None
+_v2_parser: StrategyDefinitionV2Parser | None = None
 
 
 def _get_db() -> Session:
@@ -259,6 +266,7 @@ def _make_apply_strategy_features_use_case() -> ApplyStrategyFeaturesUseCase:
     return ApplyStrategyFeaturesUseCase(
         _get_bar_frame_converter(),
         _get_strategy_feature_calculator(),
+        parser=_get_v2_parser(),
     )
 
 
@@ -286,6 +294,14 @@ def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:
     return _strategy_feature_calculator
 
 
+def _get_v2_parser() -> StrategyDefinitionV2Parser:
+    """Return the shared v2 strategy JSON parser."""
+    global _v2_parser
+    if _v2_parser is None:
+        _v2_parser = StrategyDefinitionV2Parser()
+    return _v2_parser
+
+
 def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvider:
     """Create the composite strategy provider used by backtesting tools."""
     global _builtin_strategy_provider
@@ -297,7 +313,7 @@ def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvi
         repo = SqlStrategyDefinitionRepository(db)
         providers.append(DatabaseStrategyProvider(repo))
         v2_repo = SqlStrategyDocumentRepository(db)
-        providers.append(DatabaseV2StrategyProvider(v2_repo))
+        providers.append(DatabaseV2StrategyProvider(v2_repo, _get_v2_parser()))
     return CompositeStrategyProvider(providers)
 
 
@@ -315,4 +331,14 @@ def _make_save_strategy_definition_use_case(
     db: Session,
 ) -> SaveStrategyDefinitionUseCase:
     """Create a use case for validating and saving v2 strategy documents."""
-    return SaveStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))
+    return SaveStrategyDefinitionUseCase(
+        SqlStrategyDocumentRepository(db),
+        parser=_get_v2_parser(),
+    )
+
+
+def _make_delete_strategy_definition_use_case(
+    db: Session,
+) -> DeleteStrategyDefinitionUseCase:
+    """Create a use case for deleting v2 strategy documents."""
+    return DeleteStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))

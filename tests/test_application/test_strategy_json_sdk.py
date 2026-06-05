@@ -664,52 +664,6 @@ def _make_use_case() -> BacktestStrategyDefinitionUseCase:
 # ---------------------------------------------------------------------------
 
 
-def _make_save_use_case(db) -> SaveStrategyDefinitionUseCase:
-    return SaveStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))
-
-
-def _sma_json_str() -> str:
-    return json.dumps(
-        {
-            "schema_version": "2.0",
-            "name": "persisted_sma_cross",
-            "parameters": {
-                "fast_period": {
-                    "type": "int",
-                    "default": 20,
-                    "minimum": 2,
-                    "maximum": 200,
-                },
-                "slow_period": {
-                    "type": "int",
-                    "default": 50,
-                    "minimum": 2,
-                    "maximum": 200,
-                },
-            },
-            "indicators": [
-                {"name": "fast_sma", "type": "sma", "period": "{{ fast_period }}"},
-                {"name": "slow_sma", "type": "sma", "period": "{{ slow_period }}"},
-            ],
-            "sides": {
-                "long": {
-                    "entry": {
-                        "condition": {
-                            "all": [
-                                {
-                                    "left": "fast_sma",
-                                    "operator": "crosses_above",
-                                    "right": "slow_sma",
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-        }
-    )
-
-
 def _summary_bar(**overrides) -> dict:
     bar = {
         "timestamp": "2024-01-01",
@@ -775,12 +729,18 @@ class TestStrategyPersistence:
         use_case = _make_save_use_case(mem_db)
         use_case.execute(SaveStrategyDefinitionRequest(definition_json=_sma_json_str()))
 
+        from finbar.core.application.services.strategy_definition_v2_parser import (
+            StrategyDefinitionV2Parser,
+        )
         from finbar.core.domain.entities.strategy_meta import DataMode
         from finbar.infrastructure.services.database_v2_strategy_provider import (
             DatabaseV2StrategyProvider,
         )
 
-        provider = DatabaseV2StrategyProvider(SqlStrategyDocumentRepository(mem_db))
+        provider = DatabaseV2StrategyProvider(
+            SqlStrategyDocumentRepository(mem_db),
+            parser=StrategyDefinitionV2Parser(),
+        )
         strategy = provider.create("persisted_sma_cross")
         assert strategy is not None
 

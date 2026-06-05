@@ -38,6 +38,7 @@ from finbar.startup.service_factory import (
     _get_db,
     _make_apply_strategy_features_use_case,
     _make_backtest_strategy_definition_use_case,
+    _make_delete_strategy_definition_use_case,
     _make_save_strategy_definition_use_case,
 )
 
@@ -215,15 +216,19 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         """Delete a saved v2 strategy document."""
         db = _get_db()
         try:
-            from finbar.infrastructure.repositories import (
-                sql_strategy_document_repository as sdd,
+            from finbar.core.application.dto.delete_strategy_definition_request import (
+                DeleteStrategyDefinitionRequest,
             )
 
-            repo = sdd.SqlStrategyDocumentRepository(db)
-            if repo.delete(name):
-                return json.dumps({"deleted": True, "name": name}, indent=2)
+            use_case = _make_delete_strategy_definition_use_case(db)
+            result = use_case.execute(DeleteStrategyDefinitionRequest(name=name))
             return json.dumps(
-                {"deleted": False, "name": name, "error": "not found"}, indent=2
+                {
+                    "deleted": result.deleted,
+                    "name": result.name,
+                    "error": result.error,
+                },
+                indent=2,
             )
         finally:
             db.close()

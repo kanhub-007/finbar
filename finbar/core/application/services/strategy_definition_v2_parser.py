@@ -35,9 +35,12 @@ from finbar.core.domain.entities.strategy_validation_result import (
 from finbar.core.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
+from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
+    StrategyDefinitionV2Parser as V2ParserInterface,
+)
 
 
-class StrategyDefinitionV2Parser:
+class StrategyDefinitionV2Parser(V2ParserInterface):
     """Parse agent-authored JSON into canonical v2 strategy definitions."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
@@ -107,6 +110,15 @@ class StrategyDefinitionV2Parser:
             required_indicators=[item.concrete_name for item in indicators],
             required_columns=RequiredColumnCollector().collect(definition),
         )
+
+    def parse_definition(
+        self,
+        raw_definition: str | dict,
+        param_overrides: dict | None = None,
+    ):
+        """Parse and return the canonical definition entity directly."""
+        result = self.parse(raw_definition, param_overrides)
+        return result.definition
 
     def _load(
         self,

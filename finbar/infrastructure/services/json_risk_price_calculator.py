@@ -17,61 +17,101 @@ class JsonRiskPriceCalculator(RiskPriceCalculator):
         if risk is None:
             return 0.0, 0.0
         close = float(bar.get("close", 0) or 0)
-        stop = _stop_price(risk, bar, close, side)
-        target = _target_price(risk, bar, close, side, stop)
+        stop = _calculate_stop(risk, bar, close, side)
+        target = _calculate_target(risk, bar, close, side, stop)
         return round(stop, 2), round(target, 2)
 
 
-def _stop_price(risk: RiskSpec, bar: dict, close: float, side: str) -> float:
-    if risk.stop_loss_type == "atr":
-        return _atr_stop(risk, bar, close, side)
-    if risk.stop_loss_type == "fixed_pct" and risk.stop_pct > 0:
-        return (
-            close * (1 - risk.stop_pct)
-            if side == "long"
-            else close * (1 + risk.stop_pct)
-        )
-    return 0.0
+def _calculate_stop(risk: RiskSpec, bar: dict, close: float, side: str) -> float:
+    handler = _STOP_HANDLERS.get(risk.stop_loss_type)
+    return handler(risk, bar, close, side) if handler else 0.0
 
 
-def _target_price(
+def _calculate_target(
     risk: RiskSpec,
     bar: dict,
     close: float,
     side: str,
     stop: float,
 ) -> float:
-    if risk.take_profit_type == "risk_reward" and stop > 0:
-        distance = abs(close - stop) * risk.risk_reward_ratio
-        return close + distance if side == "long" else close - distance
-    if risk.take_profit_type == "atr":
-        return _atr_target(risk, bar, close, side)
-    if risk.take_profit_type == "fixed_pct" and risk.take_profit_pct > 0:
-        return (
-            close * (1 + risk.take_profit_pct)
-            if side == "long"
-            else close * (1 - risk.take_profit_pct)
-        )
-    return 0.0
+    handler = _TARGET_HANDLERS.get(risk.take_profit_type)
+    return handler(risk, bar, close, side, stop) if handler else 0.0
 
 
-def _atr_stop(risk: RiskSpec, bar: dict, close: float, side: str) -> float:
+# ---------------------------------------------------------------------------
+# Stop-loss handlers
+# ---------------------------------------------------------------------------
+
+
+def _stop_atr(risk: RiskSpec, bar: dict, close: float, side: str) -> float:
     atr = float(bar.get(risk.stop_indicator, 0) or 0)
     if atr <= 0 or risk.stop_multiplier <= 0:
         return 0.0
-    return (
-        close - atr * risk.stop_multiplier
-        if side == "long"
-        else close + atr * risk.stop_multiplier
-    )
+    distance = atr * risk.stop_multiplier
+    return close - distance if side == "long" else close + distance
 
 
-def _atr_target(risk: RiskSpec, bar: dict, close: float, side: str) -> float:
+def _stop_fixed_pct(risk: RiskSpec, _bar: dict, close: float, side: str) -> float:
+    if risk.stop_pct <= 0:
+        return 0.0
+    if side == "long":
+        return close * (1 - risk.stop_pct)
+    return close * (1 + risk.stop_pct)
+
+
+def _stop_none(*_args) -> float:
+    return 0.0
+
+
+# ---------------------------------------------------------------------------
+# Take-profit handlers
+# ---------------------------------------------------------------------------
+
+
+def _target_atr(
+    risk: RiskSpec, bar: dict, close: float, side: str, _stop: float
+) -> float:
     atr = float(bar.get(risk.take_profit_indicator, 0) or 0)
     if atr <= 0 or risk.take_profit_multiplier <= 0:
         return 0.0
+    distance = atr * risk.take_profit_multiplier
+    return close + distance if side == "long" else close - distance
+
+
+def _target_fixed_pct(
+    risk: RiskSpec, _bar: dict, close: float, side: str, _stop: float
+) -> float:
+    if risk.take_profit_pct <= 0:
+        return 0.0
     return (
-        close + atr * risk.take_profit_multiplier
+        close * (1 + risk.take_profit_pct)
         if side == "long"
-        else close - atr * risk.take_profit_multiplier
+        else close * (1 - risk.take_profit_pct)
     )
+
+
+def _target_risk_reward(
+    risk: RiskSpec, _bar: dict, close: float, side: str, stop: float
+) -> float:
+    if stop <= 0 or risk.risk_reward_ratio <= 0:
+        return 0.0
+    distance = abs(close - stop) * risk.risk_reward_ratio
+    return close + distance if side == "long" else close - distance
+
+
+def _target_none(*_args) -> float:
+    return 0.0
+
+
+_STOP_HANDLERS = {
+    "atr": _stop_atr,
+    "fixed_pct": _stop_fixed_pct,
+    "none": _stop_none,
+}
+
+_TARGET_HANDLERS = {
+    "atr": _target_atr,
+    "fixed_pct": _target_fixed_pct,
+    "risk_reward": _target_risk_reward,
+    "none": _target_none,
+}

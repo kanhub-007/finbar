@@ -2,10 +2,11 @@
 
 import json
 
-from finbar.core.application.services.strategy_definition_v2_parser import (
+from finbar.core.domain.entities.strategy_kind import StrategyKind
+from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
+from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
     StrategyDefinitionV2Parser,
 )
-from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
 from finbar.core.domain.interfaces.strategy_document_repository import (
     StrategyDocumentRepository,
 )
@@ -39,11 +40,20 @@ def _flat_features(definition: dict) -> list[str]:
 class DatabaseV2StrategyProvider(StrategyProvider):
     """Resolves saved v2 strategy documents into executable strategies."""
 
-    def __init__(self, repository: StrategyDocumentRepository):
-        """Initialize with a v2 strategy document repository."""
+    def __init__(
+        self,
+        repository: StrategyDocumentRepository,
+        parser: StrategyDefinitionV2Parser,
+    ):
+        """Initialize with a v2 strategy document repository.
+
+        Args:
+            repository: StrategyDocumentRepository for persistence lookups.
+            parser: Parser for v2 JSON definitions (injected from composition root).
+        """
         self._repository = repository
         self._factory = JsonStrategyDefinitionStrategyFactory()
-        self._parser = StrategyDefinitionV2Parser()
+        self._parser = parser
 
     def create(self, name: str, params: dict | None = None) -> TradingStrategy | None:
         """Create a JsonRuleBasedStrategy from a saved v2 document.
@@ -74,7 +84,7 @@ class DatabaseV2StrategyProvider(StrategyProvider):
                 StrategyMeta(
                     name=doc.name,
                     variant=DataMode.REAL,
-                    type="user_defined_v2",
+                    kind=StrategyKind.USER_DEFINED_V2,
                     description=doc.description or definition.get("description", ""),
                     required_indicators=_flat_indicators(definition),
                     required_features=_flat_features(definition),
