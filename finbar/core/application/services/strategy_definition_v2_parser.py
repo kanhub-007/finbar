@@ -39,6 +39,11 @@ from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
     StrategyDefinitionV2Parser as V2ParserInterface,
 )
 
+MAX_INDICATORS = 20
+MAX_FEATURES = 20
+MAX_CONDITION_DEPTH = 5
+MAX_PARAMETERS = 20
+
 
 class StrategyDefinitionV2Parser(V2ParserInterface):
     """Parse agent-authored JSON into canonical v2 strategy definitions."""
@@ -103,12 +108,19 @@ class StrategyDefinitionV2Parser(V2ParserInterface):
             sides=sides,
             metadata=_metadata(data),
         )
+        warnings: list[StrategyValidationError] = []
+        _add_strategy_warnings(definition, warnings)
+        _enforce_limits(params, indicators, features, definition, errors)
+        if errors:
+            return StrategyValidationResult(valid=False, errors=errors)
+
         return StrategyValidationResult(
             valid=True,
             definition=definition,
             normalized=_serialize_definition(definition),
             required_indicators=[item.concrete_name for item in indicators],
             required_columns=RequiredColumnCollector().collect(definition),
+            warnings=warnings,
         )
 
     def parse_definition(
@@ -245,3 +257,103 @@ def _serialize_group(group) -> dict:
         return entry
     result: dict = {group.kind: [_serialize_group(child) for child in group.children]}
     return result
+
+
+# ---------------------------------------------------------------------------
+# Warnings and limits
+# ---------------------------------------------------------------------------
+
+
+def _add_strategy_warnings(
+    definition: StrategyDefinitionV2,
+    warnings: list[StrategyValidationError],
+) -> None:
+    _warn_no_exits(definition, warnings)
+    _warn_no_risk(definition, warnings)
+
+
+def _warn_no_exits(
+    definition: StrategyDefinitionV2,
+    warnings: list[StrategyValidationError],
+) -> None:
+    for side, rules in definition.sides.items():
+        if rules.exit is None:
+            warnings.append(
+                _w(
+                    f"$.sides.{side}",
+                    f"no exit condition defined for {side} side",
+                    "no_exit",
+                )
+            )
+
+
+def _warn_no_risk(
+    definition: StrategyDefinitionV2,
+    warnings: list[StrategyValidationError],
+) -> None:
+    if definition.risk is None or definition.risk.stop_loss_type == "none":
+        warnings.append(
+            _w(
+                "$.risk",
+                "no stop-loss defined — strategy may hold losing positions",
+                "no_stop",
+            )
+        )
+
+
+def _enforce_limits(
+    params: dict,
+    indicators: list,
+    features: list,
+    definition: StrategyDefinitionV2,
+    errors: list[StrategyValidationError],
+) -> None:
+    if len(params) > MAX_PARAMETERS:
+        errors.append(
+            _err(
+                "$.parameters",
+                f"maximum {MAX_PARAMETERS} parameters allowed, got {len(params)}",
+            )
+        )
+    if len(indicators) > MAX_INDICATORS:
+        errors.append(
+            _err(
+                "$.indicators",
+                f"maximum {MAX_INDICATORS} indicators allowed, got {len(indicators)}",
+            )
+        )
+    if len(features) > MAX_FEATURES:
+        errors.append(
+            _err(
+                "$.features",
+                f"maximum {MAX_FEATURES} features allowed, got {len(features)}",
+            )
+        )
+    for side, rules in definition.sides.items():
+        depth = _condition_depth(rules.entry)
+        if depth > MAX_CONDITION_DEPTH:
+            errors.append(
+                _err(
+                    f"$.sides.{side}.entry.condition",
+                    f"max depth {MAX_CONDITION_DEPTH} exceeded (got {depth})",
+                )
+            )
+        if rules.exit is not None:
+            depth = _condition_depth(rules.exit)
+            if depth > MAX_CONDITION_DEPTH:
+                errors.append(
+                    _err(
+                        f"$.sides.{side}.exit.condition",
+                        f"max depth {MAX_CONDITION_DEPTH} exceeded (got {depth})",
+                    )
+                )
+
+
+def _condition_depth(group) -> int:
+    if group.kind == "condition":
+        return 0
+    return 1 + max((_condition_depth(child) for child in group.children), default=0)
+
+
+def _w(path: str, message: str, code: str = "warning") -> StrategyValidationError:
+    return StrategyValidationError(path=path, message=message, code=code)

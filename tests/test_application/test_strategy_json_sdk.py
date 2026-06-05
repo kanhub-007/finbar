@@ -24,6 +24,9 @@ from finbar.core.application.use_cases.apply_strategy_features import (
 from finbar.core.application.use_cases.backtest_strategy_definition import (
     BacktestStrategyDefinitionUseCase,
 )
+from finbar.core.application.use_cases.explain_strategy_definition import (
+    ExplainStrategyDefinitionUseCase,
+)
 from finbar.core.application.use_cases.save_strategy_definition import (
     SaveStrategyDefinitionUseCase,
 )
@@ -626,6 +629,7 @@ def _bar(
     low: int = 99,
     close: int = 100,
     atr: int | None = None,
+    rsi_14: int | None = None,
 ) -> dict:
     bar = {
         "timestamp": timestamp,
@@ -641,6 +645,8 @@ def _bar(
         bar["sma_50"] = sma_50
     if atr is not None:
         bar["atr"] = atr
+    if rsi_14 is not None:
+        bar["rsi_14"] = rsi_14
     return bar
 
 
@@ -767,3 +773,375 @@ class TestStrategyPersistence:
         assert len(docs) == 1
         assert docs[0].name == "persisted_sma_cross"
         assert docs[0].schema_version == "2.0"
+
+
+class TestSignalParity:
+    def _make_json_strategy(self, definition: dict):
+        factory = JsonStrategyDefinitionStrategyFactory()
+        parser = StrategyDefinitionV2Parser()
+        result = parser.parse(definition)
+        assert result.valid and result.definition is not None
+        return factory.create(result.definition)
+
+    def _sma_crossover_v2(self) -> dict:
+        return {
+            "schema_version": "2.0",
+            "name": "sma_parity",
+            "parameters": {
+                "fast_period": {
+                    "type": "int",
+                    "default": 20,
+                    "minimum": 2,
+                    "maximum": 200,
+                },
+                "slow_period": {
+                    "type": "int",
+                    "default": 50,
+                    "minimum": 2,
+                    "maximum": 200,
+                },
+            },
+            "indicators": [
+                {"name": "fast_sma", "type": "sma", "period": "{{ fast_period }}"},
+                {"name": "slow_sma", "type": "sma", "period": "{{ slow_period }}"},
+            ],
+            "sides": {
+                "long": {
+                    "entry": {
+                        "condition": {
+                            "all": [
+                                {
+                                    "left": "fast_sma",
+                                    "operator": "crosses_above",
+                                    "right": "slow_sma",
+                                }
+                            ]
+                        }
+                    },
+                    "exit": {
+                        "condition": {
+                            "any": [
+                                {
+                                    "left": "fast_sma",
+                                    "operator": "crosses_below",
+                                    "right": "slow_sma",
+                                }
+                            ]
+                        }
+                    },
+                },
+                "short": {
+                    "entry": {
+                        "condition": {
+                            "all": [
+                                {
+                                    "left": "fast_sma",
+                                    "operator": "crosses_below",
+                                    "right": "slow_sma",
+                                }
+                            ]
+                        }
+                    },
+                    "exit": {
+                        "condition": {
+                            "any": [
+                                {
+                                    "left": "fast_sma",
+                                    "operator": "crosses_above",
+                                    "right": "slow_sma",
+                                }
+                            ]
+                        }
+                    },
+                },
+            },
+        }
+
+    def _rsi_reversion_v2(self, oversold: int = 30, overbought: int = 70) -> dict:
+        return {
+            "schema_version": "2.0",
+            "name": "rsi_parity",
+            "parameters": {
+                "rsi_period": {
+                    "type": "int",
+                    "default": 14,
+                    "minimum": 2,
+                    "maximum": 100,
+                },
+                "oversold": {
+                    "type": "float",
+                    "default": oversold,
+                    "minimum": 1,
+                    "maximum": 50,
+                },
+                "overbought": {
+                    "type": "float",
+                    "default": overbought,
+                    "minimum": 50,
+                    "maximum": 99,
+                },
+            },
+            "indicators": [
+                {"name": "rsi", "type": "rsi", "period": "{{ rsi_period }}"},
+            ],
+            "sides": {
+                "long": {
+                    "entry": {
+                        "condition": {
+                            "all": [
+                                {
+                                    "left": "rsi",
+                                    "operator": "<",
+                                    "right": "{{ oversold }}",
+                                }
+                            ]
+                        }
+                    },
+                    "exit": {
+                        "condition": {
+                            "any": [
+                                {
+                                    "left": "rsi",
+                                    "operator": ">",
+                                    "right": "{{ overbought }}",
+                                }
+                            ]
+                        }
+                    },
+                },
+                "short": {
+                    "entry": {
+                        "condition": {
+                            "all": [
+                                {
+                                    "left": "rsi",
+                                    "operator": ">",
+                                    "right": "{{ overbought }}",
+                                }
+                            ]
+                        }
+                    },
+                    "exit": {
+                        "condition": {
+                            "any": [
+                                {
+                                    "left": "rsi",
+                                    "operator": "<",
+                                    "right": "{{ oversold }}",
+                                }
+                            ]
+                        }
+                    },
+                },
+            },
+        }
+
+    def test_sma_crossover_long_entry_parity(self):
+        from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
+            SmaCrossoverStrategy,
+        )
+
+        json_strategy = self._make_json_strategy(self._sma_crossover_v2())
+        builtin = SmaCrossoverStrategy(fast_period=20, slow_period=50)
+        json_strategy.on_reset()
+        builtin.on_reset()
+
+        bars = [
+            _bar("day1", sma_20=100, sma_50=101),
+            _bar("day2", sma_20=100, sma_50=100),
+            _bar("day3", sma_20=102, sma_50=100),
+        ]
+
+        for bar in bars:
+            json_sig = json_strategy.on_bar(bar, {})
+            builtin_sig = builtin.on_bar(bar, {})
+            assert json_sig.action == builtin_sig.action, f'bar {bar["timestamp"]}'
+
+            assert json_sig.direction == builtin_sig.direction
+
+    def test_sma_crossover_long_exit_parity(self):
+        from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
+            SmaCrossoverStrategy,
+        )
+
+        json_strategy = self._make_json_strategy(self._sma_crossover_v2())
+        builtin = SmaCrossoverStrategy(fast_period=20, slow_period=50)
+        json_strategy.on_reset()
+        builtin.on_reset()
+
+        bars = [
+            _bar("day1", sma_20=102, sma_50=100),
+            _bar("day2", sma_20=103, sma_50=100),
+            _bar("day3", sma_20=99, sma_50=101),
+        ]
+
+        for i, bar in enumerate(bars):
+            pos = {"size": 100, "direction": "long"} if i >= 1 else {}
+            json_sig = json_strategy.on_bar(bar, pos)
+            builtin_sig = builtin.on_bar(bar, pos)
+            assert json_sig.action == builtin_sig.action, f'bar {bar["timestamp"]}'
+
+            assert json_sig.direction == builtin_sig.direction
+
+    def test_sma_crossover_short_entry_parity(self):
+        from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
+            SmaCrossoverStrategy,
+        )
+
+        json_strategy = self._make_json_strategy(self._sma_crossover_v2())
+        builtin = SmaCrossoverStrategy(fast_period=20, slow_period=50)
+        json_strategy.on_reset()
+        builtin.on_reset()
+
+        bars = [
+            _bar("day1", sma_20=101, sma_50=100),
+            _bar("day2", sma_20=101, sma_50=100),
+            _bar("day3", sma_20=98, sma_50=100),
+        ]
+
+        for bar in bars:
+            json_sig = json_strategy.on_bar(bar, {})
+            builtin_sig = builtin.on_bar(bar, {})
+            assert json_sig.action == builtin_sig.action, f'bar {bar["timestamp"]}'
+
+            assert json_sig.direction == builtin_sig.direction
+
+    def test_rsi_mean_reversion_long_entry_parity(self):
+        from finbar.infrastructure.services.backtest_strategies.rsi_mean_reversion import (  # noqa: E501
+            RsiMeanReversionStrategy,
+        )
+
+        json_strategy = self._make_json_strategy(self._rsi_reversion_v2())
+        builtin = RsiMeanReversionStrategy(rsi_period=14, oversold=30, overbought=70)
+        json_strategy.on_reset()
+        builtin.on_reset()
+
+        bars = [
+            _bar("day1", rsi_14=50),
+            _bar("day2", rsi_14=25),
+            _bar("day3", rsi_14=75),
+        ]
+
+        pos = {}
+        for bar in bars:
+            json_sig = json_strategy.on_bar(bar, pos)
+            builtin_sig = builtin.on_bar(bar, pos)
+            assert json_sig.action == builtin_sig.action, f"bar {bar['timestamp']}"
+            assert json_sig.direction == builtin_sig.direction
+            if builtin_sig.action == "buy" and builtin_sig.direction == "long":
+                pos = {"size": 100, "direction": "long"}
+
+    def test_rsi_mean_reversion_long_exit_parity(self):
+        from finbar.infrastructure.services.backtest_strategies.rsi_mean_reversion import (  # noqa: E501
+            RsiMeanReversionStrategy,
+        )
+
+        json_strategy = self._make_json_strategy(self._rsi_reversion_v2())
+        builtin = RsiMeanReversionStrategy(rsi_period=14, oversold=30, overbought=70)
+        json_strategy.on_reset()
+        builtin.on_reset()
+
+        bars = [
+            _bar("day1", rsi_14=25),
+            _bar("day2", rsi_14=80),
+        ]
+
+        pos = {"size": 100, "direction": "long"}
+        for bar in bars:
+            json_sig = json_strategy.on_bar(bar, pos)
+            builtin_sig = builtin.on_bar(bar, pos)
+            assert json_sig.action == builtin_sig.action, f"bar {bar['timestamp']}"
+            assert json_sig.direction == builtin_sig.direction
+
+    def test_flat_strategy_stays_hold(self):
+        json_strategy = self._make_json_strategy(self._sma_crossover_v2())
+        json_strategy.on_reset()
+        bars = [
+            _bar("day1", sma_20=100, sma_50=100),
+            _bar("day2", sma_20=100, sma_50=100),
+            _bar("day3", sma_20=100, sma_50=100),
+        ]
+        for bar in bars:
+            assert json_strategy.on_bar(bar, {}).action == "hold"
+
+
+class TestValidationWarningsAndLimits:
+    def test_warns_when_no_exit_defined(self):
+        strategy = _sma_strategy()
+        strategy["sides"]["long"].pop("exit", None)
+        result = StrategyDefinitionV2Parser().parse(strategy)
+        assert result.valid is True
+        assert any(w.code == "no_exit" for w in result.warnings)
+
+    def test_warns_when_no_stop_defined(self):
+        result = StrategyDefinitionV2Parser().parse(_sma_strategy())
+        assert result.valid is True
+        assert any(w.code == "no_stop" for w in result.warnings)
+
+    def test_warns_on_both_no_exit_and_no_stop(self):
+        strategy = _sma_strategy()
+        strategy["sides"]["long"].pop("exit", None)
+        result = StrategyDefinitionV2Parser().parse(strategy)
+        codes = {w.code for w in result.warnings}
+        assert "no_exit" in codes
+        assert "no_stop" in codes
+
+    def test_limits_max_indicators_rejected(self):
+        strategy = _sma_strategy()
+        strategy["indicators"] = [
+            {"name": "fast_sma", "type": "sma", "period": "{{ fast_period }}"},
+            {"name": "slow_sma", "type": "sma", "period": "{{ slow_period }}"},
+        ] + [
+            {"name": f"ind_{i}", "type": "sma", "period": "{{ fast_period }}"}
+            for i in range(19)
+        ]
+        strategy["sides"]["long"]["entry"]["condition"] = {
+            "all": [{"left": "fast_sma", "operator": ">", "right": "slow_sma"}]
+        }
+        result = StrategyDefinitionV2Parser().parse(strategy)
+        assert result.valid is False
+        assert any(
+            "max" in e.message.lower() and "20" in e.message for e in result.errors
+        )
+
+    def test_limits_max_condition_depth_rejected(self):
+        strategy = _sma_strategy()
+        nested: dict = {"all": [{"left": "close", "operator": ">", "right": 1}]}
+        for _ in range(6):
+            nested = {"all": [nested]}
+        strategy["sides"]["long"]["entry"]["condition"] = nested
+        result = StrategyDefinitionV2Parser().parse(strategy)
+        assert result.valid is False
+        assert any("max depth" in e.message.lower() for e in result.errors)
+
+    def test_explainer_includes_risk_when_defined(self):
+        strategy = _momentum_breakout_strategy()
+        result = ExplainStrategyDefinitionUseCase().execute(strategy)
+        assert result["valid"] is True
+        assert "Stop-loss: ATR" in result["explanation"]
+
+    def test_explainer_includes_features_when_defined(self):
+        strategy = _momentum_breakout_strategy()
+        result = ExplainStrategyDefinitionUseCase().execute(strategy)
+        assert result["valid"] is True
+        assert "rolling_max" in result["explanation"]
+
+    def test_explainer_includes_warnings(self):
+        strategy = _sma_strategy()
+        strategy["sides"]["long"].pop("exit", None)
+        result = ExplainStrategyDefinitionUseCase().execute(strategy)
+        assert result["valid"] is True
+        assert "no exit condition" in result["explanation"].lower()
+
+    def test_explainer_includes_required_indicators(self):
+        result = ExplainStrategyDefinitionUseCase().execute(_sma_strategy())
+        assert result["valid"] is True
+        assert "sma_20" in result["explanation"]
+        assert "sma_50" in result["explanation"]
+
+    def test_explainer_handles_invalid_strategy(self):
+        result = ExplainStrategyDefinitionUseCase().execute(
+            json.dumps({"schema_version": "2.0", "name": "bad"})
+        )
+        assert result["valid"] is False
+        assert "invalid" in result["explanation"].lower()
