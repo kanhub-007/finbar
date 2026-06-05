@@ -28,6 +28,7 @@ class StrategyConditionGroupParser:
         self,
         raw: Any,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         params: dict[str, Any],
         path: str,
@@ -43,6 +44,7 @@ class StrategyConditionGroupParser:
                     kind,
                     raw[kind],
                     aliases,
+                    sources_map,
                     feature_aliases,
                     params,
                     path,
@@ -50,11 +52,17 @@ class StrategyConditionGroupParser:
                 )
         if "not" in raw:
             child = self.parse(
-                raw["not"], aliases, feature_aliases, params, f"{path}.not", errors
+                raw["not"],
+                aliases,
+                sources_map,
+                feature_aliases,
+                params,
+                f"{path}.not",
+                errors,
             )
             return ConditionGroup(kind="not", children=[child])
         condition = self._parse_condition(
-            raw, aliases, feature_aliases, params, path, errors
+            raw, aliases, sources_map, feature_aliases, params, path, errors
         )
         return ConditionGroup(kind="condition", condition=condition)
 
@@ -63,6 +71,7 @@ class StrategyConditionGroupParser:
         kind: str,
         raw_children: Any,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         params: dict[str, Any],
         path: str,
@@ -77,6 +86,7 @@ class StrategyConditionGroupParser:
             self.parse(
                 child,
                 aliases,
+                sources_map,
                 feature_aliases,
                 params,
                 f"{path}.{kind}[{idx}]",
@@ -90,6 +100,7 @@ class StrategyConditionGroupParser:
         self,
         raw: dict,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         params: dict[str, Any],
         path: str,
@@ -101,13 +112,20 @@ class StrategyConditionGroupParser:
                 make_error(f"{path}.operator", f"unsupported operator '{operator}'")
             )
         left = self._operand_parser.parse(
-            raw.get("left"), aliases, feature_aliases, params, f"{path}.left", errors
+            raw.get("left"),
+            aliases,
+            sources_map,
+            feature_aliases,
+            params,
+            f"{path}.left",
+            errors,
         )
         right = None
         if operator in BINARY_OPERATORS:
             right = self._operand_parser.parse(
                 raw.get("right"),
                 aliases,
+                sources_map,
                 feature_aliases,
                 params,
                 f"{path}.right",

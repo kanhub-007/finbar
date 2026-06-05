@@ -75,7 +75,15 @@ class ConditionEvaluator:
     @staticmethod
     def _resolve_operand(operand: Operand, bar: dict) -> Any:
         if operand.kind in ("field", "indicator", "feature", "column"):
-            return bar.get(str(operand.value))
+            value = bar.get(str(operand.value))
+            if value is not None:
+                if not _is_nan(value):
+                    return value
+            for source in operand.sources:
+                value = bar.get(source)
+                if value is not None and not _is_nan(value):
+                    return value
+            return None
         return operand.value
 
     @staticmethod
@@ -136,3 +144,8 @@ class ConditionEvaluator:
         if condition.operator == "crosses_below":
             return previous_left >= previous_right and left < right
         return False
+
+
+def _is_nan(value) -> bool:
+    """Return True when value is a float NaN."""
+    return isinstance(value, float) and value != value

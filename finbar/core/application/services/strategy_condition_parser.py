@@ -51,15 +51,19 @@ class StrategyConditionParser:
             )
             return {}
         aliases = {item.name: item.column_name() for item in indicators}
+        sources_map = {
+            item.column_name(): item.sources for item in indicators if item.sources
+        }
         feature_aliases = {item.name: item.name for item in features}
         return self._parse_side_map(
-            raw, aliases, feature_aliases, resolved_params, errors
+            raw, aliases, sources_map, feature_aliases, resolved_params, errors
         )
 
     def _parse_side_map(
         self,
         raw: dict,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         resolved_params: dict[str, Any],
         errors: list[StrategyValidationError],
@@ -67,7 +71,13 @@ class StrategyConditionParser:
         sides: dict[str, SideRules] = {}
         for side, spec in raw.items():
             rules = self._parse_side(
-                side, spec, aliases, feature_aliases, resolved_params, errors
+                side,
+                spec,
+                aliases,
+                sources_map,
+                feature_aliases,
+                resolved_params,
+                errors,
             )
             if rules is not None:
                 sides[side] = rules
@@ -78,6 +88,7 @@ class StrategyConditionParser:
         side: str,
         spec: Any,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         resolved_params: dict[str, Any],
         errors: list[StrategyValidationError],
@@ -87,12 +98,24 @@ class StrategyConditionParser:
             errors.append(make_error(path, "side must be long/short object"))
             return None
         entry = self._parse_entry(
-            spec, aliases, feature_aliases, resolved_params, path, errors
+            spec,
+            aliases,
+            sources_map,
+            feature_aliases,
+            resolved_params,
+            path,
+            errors,
         )
         if entry is None:
             return None
         exit_group = self._parse_exit_group(
-            spec, aliases, feature_aliases, resolved_params, path, errors
+            spec,
+            aliases,
+            sources_map,
+            feature_aliases,
+            resolved_params,
+            path,
+            errors,
         )
         return SideRules(side=side, entry=entry, exit=exit_group)
 
@@ -100,6 +123,7 @@ class StrategyConditionParser:
         self,
         spec: dict,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         resolved_params: dict[str, Any],
         path: str,
@@ -114,6 +138,7 @@ class StrategyConditionParser:
         return self._group_parser.parse(
             entry_raw,
             aliases,
+            sources_map,
             feature_aliases,
             resolved_params,
             f"{path}.entry.condition",
@@ -124,6 +149,7 @@ class StrategyConditionParser:
         self,
         spec: dict,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         resolved_params: dict[str, Any],
         path: str,
@@ -135,6 +161,7 @@ class StrategyConditionParser:
         return self._group_parser.parse(
             exit_raw,
             aliases,
+            sources_map,
             feature_aliases,
             resolved_params,
             f"{path}.exit.condition",

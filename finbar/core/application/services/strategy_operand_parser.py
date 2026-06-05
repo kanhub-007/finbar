@@ -27,6 +27,7 @@ class StrategyOperandParser:
         self,
         raw: Any,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         resolved_params: dict[str, Any],
         path: str,
@@ -37,7 +38,9 @@ class StrategyOperandParser:
         if isinstance(value, (int, float, bool, list)):
             return Operand(kind="literal", value=value, label=str(raw))
         if isinstance(value, str):
-            return self._parse_named(value, aliases, feature_aliases, path, errors)
+            return self._parse_named(
+                value, aliases, sources_map, feature_aliases, path, errors
+            )
         errors.append(make_error(path, "operand is required"))
         return Operand(kind="literal", value=0, label=str(raw))
 
@@ -45,12 +48,20 @@ class StrategyOperandParser:
         self,
         value: str,
         aliases: dict[str, str],
+        sources_map: dict[str, list[str]],
         feature_aliases: dict[str, str],
         path: str,
         errors: list[StrategyValidationError],
     ) -> Operand:
         if value in aliases:
-            return Operand(kind="indicator", value=aliases[value], label=value)
+            resolved = aliases[value]
+            fallback = sources_map.get(resolved, [])
+            return Operand(
+                kind="indicator",
+                value=resolved,
+                label=value,
+                sources=fallback,
+            )
         if value in feature_aliases:
             return Operand(kind="feature", value=feature_aliases[value], label=value)
         if value in OHLCV_FIELDS:

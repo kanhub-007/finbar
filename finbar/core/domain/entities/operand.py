@@ -1,6 +1,6 @@
 """Operand entity for JSON strategy conditions."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -16,3 +16,7 @@ class Operand:
 
     label: str = ""
     """Original human-readable alias or expression used for explanations."""
+
+    sources: list[str] = field(default_factory=list)
+    """Ordered fallback column names. The evaluator tries value first, then
+    each source in order, returning the first non-None bar value."""

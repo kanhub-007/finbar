@@ -93,11 +93,15 @@ class StrategyIndicatorResolver:
                 )
             )
             return
+        sources = self._parse_sources(
+            indicator_type, item.get("sources"), f"{path}.sources", errors
+        )
         timeframe = _resolve_timeframe(
             item.get("timeframe", "primary"), timeframes, f"{path}.timeframe", errors
         )
         if timeframe is None:
             return
+        primary_source = sources[0] if sources else concrete
         indicators.append(
             IndicatorSpec(
                 name=alias,
@@ -105,9 +109,10 @@ class StrategyIndicatorResolver:
                 period=period,
                 raw_period=item.get("period"),
                 source=str(item.get("source", "close")),
-                concrete_name=concrete,
-                expected_column=_expected_column(concrete, timeframe, timeframes),
+                concrete_name=primary_source,
+                expected_column=_expected_column(primary_source, timeframe, timeframes),
                 timeframe=timeframe,
+                sources=sources[1:] if len(sources) > 1 else sources,
             )
         )
         used_aliases.add(alias)
@@ -153,6 +158,48 @@ class StrategyIndicatorResolver:
             )
             return True
         return False
+
+    def _parse_sources(
+        self,
+        indicator_type: str,
+        raw: Any,
+        path: str,
+        errors: list[StrategyValidationError],
+    ) -> list[str]:
+        """Parse fallback indicator sources."""
+        if indicator_type != "fallback":
+            if raw is not None:
+                errors.append(make_error(path, "sources only valid for fallback type"))
+            return []
+        if raw is None or not isinstance(raw, list) or len(raw) < 2:
+            errors.append(
+                make_error(
+                    path,
+                    "fallback indicators require at least 2 sources",
+                )
+            )
+            return []
+        result: list[str] = []
+        for idx, source in enumerate(raw):
+            if not isinstance(source, str) or not source.strip():
+                errors.append(
+                    make_error(
+                        f"{path}[{idx}]",
+                        "each source must be a non-empty string",
+                    )
+                )
+                continue
+            name = source.strip()
+            if not self._catalog.supports_concrete(name):
+                errors.append(
+                    make_error(
+                        f"{path}[{idx}]",
+                        f"unknown concrete indicator '{name}'",
+                        "unsupported_indicator",
+                    )
+                )
+            result.append(name)
+        return result
 
 
 def _resolve_timeframe(

@@ -31,6 +31,7 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "bb_upper": "bb_upper",
         "bb_middle": "bb_middle",
         "bb_lower": "bb_lower",
+        "fallback": "fallback",
     }
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
@@ -55,6 +56,9 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         """Return True when a concrete enrichment column is known."""
         if name in self._FIXED or name in self._FIXED.values():
             return True
+        for suffix in ("_1d", "_1h", "_30min", "_5min", "_1w"):
+            if name.endswith(suffix):
+                return self.supports_concrete(name[: -len(suffix)])
         for prefix in self._PERIOD_RANGES:
             if name.startswith(f"{prefix}_"):
                 rest = name[len(prefix) + 1 :]

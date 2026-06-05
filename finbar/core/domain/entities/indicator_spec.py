@@ -1,6 +1,6 @@
 """IndicatorSpec entity for JSON strategies."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -26,6 +26,9 @@ class IndicatorSpec:
 
     timeframe: str = "primary"
     """Timeframe alias used to calculate this indicator."""
+
+    sources: list[str] = field(default_factory=list)
+    """Ordered fallback column names for fallback-type indicators."""
 
     period: int | None = None
     """Resolved period for period-based indicators."""
