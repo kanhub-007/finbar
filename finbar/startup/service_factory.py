@@ -21,6 +21,9 @@ from finbar.core.application.use_cases.delete_cached_prices import (
 from finbar.core.application.use_cases.delete_strategy_definition import (
     DeleteStrategyDefinitionUseCase,
 )
+from finbar.core.application.use_cases.explain_strategy_definition import (
+    ExplainStrategyDefinitionUseCase,
+)
 from finbar.core.application.use_cases.fetch_prices import FetchPricesUseCase
 from finbar.core.application.use_cases.get_latest_quote import GetLatestQuoteUseCase
 from finbar.core.application.use_cases.get_symbol_info import GetSymbolInfoUseCase
@@ -33,6 +36,9 @@ from finbar.core.application.use_cases.query_cached_prices import (
 from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
 from finbar.core.application.use_cases.save_strategy_definition import (
     SaveStrategyDefinitionUseCase,
+)
+from finbar.core.application.use_cases.validate_strategy_definition import (
+    ValidateStrategyDefinitionUseCase,
 )
 from finbar.core.domain.entities.data_source import DataSource
 from finbar.core.domain.entities.interval import Interval
@@ -342,3 +348,13 @@ def _make_delete_strategy_definition_use_case(
 ) -> DeleteStrategyDefinitionUseCase:
     """Create a use case for deleting v2 strategy documents."""
     return DeleteStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))
+
+
+def _make_explain_strategy_definition_use_case() -> ExplainStrategyDefinitionUseCase:
+    """Create a use case for explaining v2 strategy JSON."""
+    return ExplainStrategyDefinitionUseCase(parser=_get_v2_parser())
+
+
+def _make_validate_strategy_definition_use_case() -> ValidateStrategyDefinitionUseCase:
+    """Create a use case for validating v2 strategy JSON."""
+    return ValidateStrategyDefinitionUseCase(_get_v2_parser())

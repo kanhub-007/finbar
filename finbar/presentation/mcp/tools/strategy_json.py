@@ -16,20 +16,8 @@ from finbar.core.application.dto.save_strategy_definition_request import (
 from finbar.core.application.services.strategy_capability_service import (
     StrategyCapabilityService,
 )
-from finbar.core.application.services.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser,
-)
-from finbar.core.application.services.strategy_indicator_catalog import (
-    StrategyIndicatorCatalog,
-)
 from finbar.core.application.services.strategy_schema_provider import (
     StrategySchemaProvider,
-)
-from finbar.core.application.use_cases.explain_strategy_definition import (
-    ExplainStrategyDefinitionUseCase,
-)
-from finbar.core.application.use_cases.validate_strategy_definition import (
-    ValidateStrategyDefinitionUseCase,
 )
 from finbar.presentation.mcp.presenters.strategy_json_presenter import (
     StrategyJsonPresenter,
@@ -39,7 +27,9 @@ from finbar.startup.service_factory import (
     _make_apply_strategy_features_use_case,
     _make_backtest_strategy_definition_use_case,
     _make_delete_strategy_definition_use_case,
+    _make_explain_strategy_definition_use_case,
     _make_save_strategy_definition_use_case,
+    _make_validate_strategy_definition_use_case,
 )
 
 
@@ -78,9 +68,9 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         params = _loads_object(params_json, "params_json")
         if "error" in params:
             return json.dumps(params)
-        result = ValidateStrategyDefinitionUseCase(
-            StrategyDefinitionV2Parser(StrategyIndicatorCatalog())
-        ).execute(definition_json, params)
+        result = _make_validate_strategy_definition_use_case().execute(
+            definition_json, params
+        )
         return json.dumps(StrategyJsonPresenter().validation_result(result), indent=2)
 
     @mcp.tool(
@@ -92,9 +82,9 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         params = _loads_object(params_json, "params_json")
         if "error" in params:
             return json.dumps(params)
-        result = ExplainStrategyDefinitionUseCase(
-            StrategyDefinitionV2Parser(StrategyIndicatorCatalog())
-        ).execute(definition_json, params)
+        result = _make_explain_strategy_definition_use_case().execute(
+            definition_json, params
+        )
         return json.dumps(result, indent=2)
 
     @mcp.tool(

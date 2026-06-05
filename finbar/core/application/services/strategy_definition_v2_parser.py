@@ -10,6 +10,9 @@ from finbar.core.application.services.required_column_collector import (
 from finbar.core.application.services.strategy_condition_parser import (
     StrategyConditionParser,
 )
+from finbar.core.application.services.strategy_definition_v2_serializer import (
+    StrategyDefinitionV2Serializer,
+)
 from finbar.core.application.services.strategy_feature_resolver import (
     StrategyFeatureResolver,
 )
@@ -19,11 +22,19 @@ from finbar.core.application.services.strategy_indicator_catalog import (
 from finbar.core.application.services.strategy_indicator_resolver import (
     StrategyIndicatorResolver,
 )
+from finbar.core.application.services.strategy_limit_rules import (
+    DEFAULT_LIMIT_RULES,
+    StrategyLimitRule,
+)
 from finbar.core.application.services.strategy_parameter_resolver import (
     StrategyParameterResolver,
 )
 from finbar.core.application.services.strategy_risk_resolver import (
     StrategyRiskResolver,
+)
+from finbar.core.application.services.strategy_warning_rules import (
+    DEFAULT_WARNING_RULES,
+    StrategyWarningRule,
 )
 from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
 from finbar.core.domain.entities.strategy_validation_error import (
@@ -39,18 +50,32 @@ from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
     StrategyDefinitionV2Parser as V2ParserInterface,
 )
 
-MAX_INDICATORS = 20
-MAX_FEATURES = 20
-MAX_CONDITION_DEPTH = 5
-MAX_PARAMETERS = 20
-
 
 class StrategyDefinitionV2Parser(V2ParserInterface):
-    """Parse agent-authored JSON into canonical v2 strategy definitions."""
+    """Parse agent-authored JSON into canonical v2 strategy definitions.
 
-    def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
-        """Create a parser with injectable parsing collaborators."""
+    Warning rules, limit rules, and serializer are injectable for OCP compliance.
+    """
+
+    def __init__(
+        self,
+        catalog: IndicatorCapabilityProvider | None = None,
+        warning_rules: list[StrategyWarningRule] | None = None,
+        limit_rules: list[StrategyLimitRule] | None = None,
+        serializer: StrategyDefinitionV2Serializer | None = None,
+    ):
+        """Create a parser with injectable parsing collaborators.
+
+        Args:
+            catalog: Indicator capability provider for alias resolution.
+            warning_rules: Rules that generate warnings for suspicious strategies.
+            limit_rules: Rules that enforce SDK limits.
+            serializer: Serializer for canonical dict output.
+        """
         self._catalog = catalog or StrategyIndicatorCatalog()
+        self._warning_rules = warning_rules or DEFAULT_WARNING_RULES
+        self._limit_rules = limit_rules or DEFAULT_LIMIT_RULES
+        self._serializer = serializer or StrategyDefinitionV2Serializer()
         self._parameter_resolver = StrategyParameterResolver()
         self._indicator_resolver = StrategyIndicatorResolver(self._catalog)
         self._feature_resolver = StrategyFeatureResolver(self._catalog)
@@ -108,16 +133,19 @@ class StrategyDefinitionV2Parser(V2ParserInterface):
             sides=sides,
             metadata=_metadata(data),
         )
-        warnings: list[StrategyValidationError] = []
-        _add_strategy_warnings(definition, warnings)
-        _enforce_limits(params, indicators, features, definition, errors)
+
+        warnings = _collect_warnings(definition, self._warning_rules)
+        limit_errors = _collect_limit_errors(
+            definition, params, indicators, features, self._limit_rules
+        )
+        errors.extend(limit_errors)
         if errors:
             return StrategyValidationResult(valid=False, errors=errors)
 
         return StrategyValidationResult(
             valid=True,
             definition=definition,
-            normalized=_serialize_definition(definition),
+            normalized=self._serializer.serialize(definition),
             required_indicators=[item.concrete_name for item in indicators],
             required_columns=RequiredColumnCollector().collect(definition),
             warnings=warnings,
@@ -173,187 +201,28 @@ def _err(
     return StrategyValidationError(path=path, message=message, code=code)
 
 
-def _serialize_definition(definition: StrategyDefinitionV2) -> dict:
-    """Serialize a canonical v2 definition to a JSON-serializable dict."""
-    result: dict = {
-        "schema_version": definition.schema_version,
-        "name": definition.name,
-    }
-    if definition.description:
-        result["description"] = definition.description
-
-    if definition.parameters:
-        result["parameters"] = {
-            name: _serialize_parameter(p) for name, p in definition.parameters.items()
-        }
-
-    if definition.indicators:
-        result["indicators"] = [
-            {
-                "name": i.name,
-                "type": i.type,
-                "concrete_name": i.concrete_name,
-                "period": i.period,
-                "source": i.source,
-            }
-            for i in definition.indicators
-        ]
-
-    if definition.features:
-        result["features"] = [
-            {
-                "name": f.name,
-                "type": f.type,
-                "source": f.source,
-                "window": f.window,
-                "shift": f.shift,
-            }
-            for f in definition.features
-        ]
-
-    if definition.risk is not None:
-        result["risk"] = {
-            "stop_loss": {
-                "type": definition.risk.stop_loss_type,
-                "indicator": definition.risk.stop_indicator,
-                "multiplier": definition.risk.stop_multiplier,
-            },
-            "take_profit": {
-                "type": definition.risk.take_profit_type,
-                "indicator": definition.risk.take_profit_indicator,
-                "multiplier": definition.risk.take_profit_multiplier,
-            },
-        }
-
-    if definition.sides:
-        result["sides"] = {}
-        for side, s in definition.sides.items():
-            side_obj: dict = {"entry": {"condition": _serialize_group(s.entry)}}
-            if s.exit is not None:
-                side_obj["exit"] = {"condition": _serialize_group(s.exit)}
-            result["sides"][side] = side_obj
-
-    if definition.metadata:
-        result["metadata"] = definition.metadata
-
-    return result
-
-
-def _serialize_parameter(param) -> dict:
-    p: dict = {"type": param.type, "default": param.default}
-    if param.minimum is not None:
-        p["minimum"] = param.minimum
-    if param.maximum is not None:
-        p["maximum"] = param.maximum
-    return p
-
-
-def _serialize_group(group) -> dict:
-    if group.kind == "condition" and group.condition is not None:
-        c = group.condition
-        entry: dict = {"left": c.left.value, "operator": c.operator}
-        if c.right is not None:
-            entry["right"] = c.right.value
-        return entry
-    result: dict = {group.kind: [_serialize_group(child) for child in group.children]}
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Warnings and limits
-# ---------------------------------------------------------------------------
-
-
-def _add_strategy_warnings(
+def _collect_warnings(
     definition: StrategyDefinitionV2,
-    warnings: list[StrategyValidationError],
-) -> None:
-    _warn_no_exits(definition, warnings)
-    _warn_no_risk(definition, warnings)
+    rules: list[StrategyWarningRule],
+) -> list[StrategyValidationError]:
+    warnings: list[StrategyValidationError] = []
+    for rule in rules:
+        warning = rule.check(definition)
+        if warning is not None:
+            warnings.append(warning)
+    return warnings
 
 
-def _warn_no_exits(
+def _collect_limit_errors(
     definition: StrategyDefinitionV2,
-    warnings: list[StrategyValidationError],
-) -> None:
-    for side, rules in definition.sides.items():
-        if rules.exit is None:
-            warnings.append(
-                _w(
-                    f"$.sides.{side}",
-                    f"no exit condition defined for {side} side",
-                    "no_exit",
-                )
-            )
-
-
-def _warn_no_risk(
-    definition: StrategyDefinitionV2,
-    warnings: list[StrategyValidationError],
-) -> None:
-    if definition.risk is None or definition.risk.stop_loss_type == "none":
-        warnings.append(
-            _w(
-                "$.risk",
-                "no stop-loss defined — strategy may hold losing positions",
-                "no_stop",
-            )
-        )
-
-
-def _enforce_limits(
     params: dict,
     indicators: list,
     features: list,
-    definition: StrategyDefinitionV2,
-    errors: list[StrategyValidationError],
-) -> None:
-    if len(params) > MAX_PARAMETERS:
-        errors.append(
-            _err(
-                "$.parameters",
-                f"maximum {MAX_PARAMETERS} parameters allowed, got {len(params)}",
-            )
-        )
-    if len(indicators) > MAX_INDICATORS:
-        errors.append(
-            _err(
-                "$.indicators",
-                f"maximum {MAX_INDICATORS} indicators allowed, got {len(indicators)}",
-            )
-        )
-    if len(features) > MAX_FEATURES:
-        errors.append(
-            _err(
-                "$.features",
-                f"maximum {MAX_FEATURES} features allowed, got {len(features)}",
-            )
-        )
-    for side, rules in definition.sides.items():
-        depth = _condition_depth(rules.entry)
-        if depth > MAX_CONDITION_DEPTH:
-            errors.append(
-                _err(
-                    f"$.sides.{side}.entry.condition",
-                    f"max depth {MAX_CONDITION_DEPTH} exceeded (got {depth})",
-                )
-            )
-        if rules.exit is not None:
-            depth = _condition_depth(rules.exit)
-            if depth > MAX_CONDITION_DEPTH:
-                errors.append(
-                    _err(
-                        f"$.sides.{side}.exit.condition",
-                        f"max depth {MAX_CONDITION_DEPTH} exceeded (got {depth})",
-                    )
-                )
-
-
-def _condition_depth(group) -> int:
-    if group.kind == "condition":
-        return 0
-    return 1 + max((_condition_depth(child) for child in group.children), default=0)
-
-
-def _w(path: str, message: str, code: str = "warning") -> StrategyValidationError:
-    return StrategyValidationError(path=path, message=message, code=code)
+    rules: list[StrategyLimitRule],
+) -> list[StrategyValidationError]:
+    errors: list[StrategyValidationError] = []
+    for rule in rules:
+        error = rule.check(definition, params, indicators, features)
+        if error is not None:
+            errors.append(error)
+    return errors
