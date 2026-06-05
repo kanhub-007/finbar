@@ -3,7 +3,9 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from finbar.core.domain.entities.feature_spec import FeatureSpec
 from finbar.core.domain.entities.indicator_spec import IndicatorSpec
+from finbar.core.domain.entities.risk_spec import RiskSpec
 from finbar.core.domain.entities.side_rules import SideRules
 from finbar.core.domain.entities.strategy_parameter import StrategyParameter
 
@@ -36,6 +38,12 @@ class StrategyDefinitionV2:
 
     indicators: list[IndicatorSpec] = field(default_factory=list)
     """Resolved strategy-local indicator aliases."""
+
+    features: list[FeatureSpec] = field(default_factory=list)
+    """Resolved derived feature declarations."""
+
+    risk: RiskSpec | None = None
+    """Optional structured risk settings."""
 
     metadata: dict[str, Any] = field(default_factory=dict)
     """Optional free-form metadata."""

@@ -34,6 +34,16 @@ class StrategyJsonPresenter:
             payload["result"] = asdict(result.result)
         return payload
 
+    def feature_result(self, result) -> dict:
+        """Format a strategy feature-enrichment result."""
+        return {
+            "bar_count": result.bar_count,
+            "features_applied": result.features_applied,
+            "bars": result.bars,
+            "errors": [self.diagnostic(error) for error in result.errors],
+            "error": result.error,
+        }
+
     def diagnostic(self, error) -> dict:
         """Format a validation diagnostic."""
         return {"path": error.path, "message": error.message, "code": error.code}

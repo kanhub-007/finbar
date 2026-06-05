@@ -28,6 +28,7 @@ class RequiredColumnCollector(ConditionTreeVisitor):
         for rules in definition.sides.values():
             self.visit_group(rules.entry)
             self.visit_group(rules.exit)
+        self._add_risk_columns(definition)
         return list(self._columns)
 
     def visit_condition(self, condition: Condition) -> None:
@@ -39,6 +40,15 @@ class RequiredColumnCollector(ConditionTreeVisitor):
     def _add_operand(self, operand: Operand) -> None:
         if operand.kind in _COLUMN_OPERAND_KINDS:
             self._add(str(operand.value))
+
+    def _add_risk_columns(self, definition: StrategyDefinitionV2) -> None:
+        risk = definition.risk
+        if risk is None:
+            return
+        if risk.stop_loss_type == "atr" and risk.stop_indicator:
+            self._add(risk.stop_indicator)
+        if risk.take_profit_type == "atr" and risk.take_profit_indicator:
+            self._add(risk.take_profit_indicator)
 
     def _add(self, column: str) -> None:
         if column not in self._columns:

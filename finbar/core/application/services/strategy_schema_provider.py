@@ -19,6 +19,8 @@ class StrategySchemaProvider:
                 "description": {"type": "string"},
                 "parameters": {"type": "object"},
                 "indicators": {"type": "array"},
+                "features": {"type": "array"},
+                "risk": {"type": "object"},
                 "sides": {"type": "object", "minProperties": 1},
                 "metadata": {"type": "object"},
             },

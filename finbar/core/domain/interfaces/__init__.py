@@ -9,8 +9,12 @@ from finbar.core.domain.interfaces.indicator_calculator import IndicatorCalculat
 from finbar.core.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
+from finbar.core.domain.interfaces.risk_price_calculator import RiskPriceCalculator
 from finbar.core.domain.interfaces.strategy_definition_strategy_factory import (
     StrategyDefinitionStrategyFactory,
+)
+from finbar.core.domain.interfaces.strategy_feature_calculator import (
+    StrategyFeatureCalculator,
 )
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
@@ -21,7 +25,9 @@ __all__ = [
     "ConditionTreeVisitor",
     "IndicatorCalculator",
     "IndicatorCapabilityProvider",
+    "RiskPriceCalculator",
     "StrategyDefinitionStrategyFactory",
+    "StrategyFeatureCalculator",
     "StrategyProvider",
     "TradingStrategy",
 ]

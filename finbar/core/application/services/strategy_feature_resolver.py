@@ -1,0 +1,151 @@
+"""StrategyFeatureResolver — parse v2 derived feature declarations."""
+
+from typing import Any
+
+from finbar.core.application.services.strategy_definition_parse_helpers import (
+    OHLCV_FIELDS,
+    make_error,
+    resolve_expression,
+)
+from finbar.core.application.services.strategy_indicator_catalog import (
+    StrategyIndicatorCatalog,
+)
+from finbar.core.domain.entities.feature_spec import FeatureSpec
+from finbar.core.domain.entities.indicator_spec import IndicatorSpec
+from finbar.core.domain.entities.strategy_validation_error import (
+    StrategyValidationError,
+)
+from finbar.core.domain.interfaces.indicator_capability_provider import (
+    IndicatorCapabilityProvider,
+)
+
+_ROLLING_TYPES = {"rolling_max", "rolling_min", "rolling_mean", "rolling_std"}
+_SIMPLE_TYPES = {"body_pct", "range_pct", "typical_price", "ohlc4"}
+_SUPPORTED_TYPES = _ROLLING_TYPES | _SIMPLE_TYPES | {"shift"}
+
+
+class StrategyFeatureResolver:
+    """Resolve feature declarations to concrete feature specs."""
+
+    def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
+        """Create a resolver backed by indicator capabilities."""
+        self._catalog = catalog or StrategyIndicatorCatalog()
+
+    def parse(
+        self,
+        raw: Any,
+        indicators: list[IndicatorSpec],
+        resolved_params: dict[str, Any],
+        errors: list[StrategyValidationError],
+    ) -> list[FeatureSpec]:
+        """Parse feature declarations from a v2 strategy JSON object."""
+        if raw is None:
+            return []
+        if not isinstance(raw, list):
+            errors.append(make_error("$.features", "features must be an array"))
+            return []
+        features: list[FeatureSpec] = []
+        aliases = {item.name: item.concrete_name for item in indicators}
+        used_names: set[str] = set(aliases)
+        for index, item in enumerate(raw):
+            self._parse_one(
+                index, item, aliases, used_names, resolved_params, features, errors
+            )
+        return features
+
+    def _parse_one(
+        self,
+        index: int,
+        item: Any,
+        aliases: dict[str, str],
+        used_names: set[str],
+        resolved_params: dict[str, Any],
+        features: list[FeatureSpec],
+        errors: list[StrategyValidationError],
+    ) -> None:
+        path = f"$.features[{index}]"
+        if not isinstance(item, dict):
+            errors.append(make_error(path, "feature spec must be an object"))
+            return
+        name = str(item.get("name", "")).strip()
+        feature_type = str(item.get("type", "")).lower().strip()
+        if self._name_invalid(name, used_names, f"{path}.name", errors):
+            return
+        if feature_type not in _SUPPORTED_TYPES:
+            errors.append(
+                make_error(f"{path}.type", f"unsupported feature type '{feature_type}'")
+            )
+            return
+        source = self._resolve_source(
+            item.get("source", "close"), aliases, f"{path}.source", errors
+        )
+        window = resolve_expression(
+            item.get("window"), resolved_params, f"{path}.window", errors
+        )
+        shift = resolve_expression(
+            item.get("shift", 0), resolved_params, f"{path}.shift", errors
+        )
+        if self._window_invalid(feature_type, window, f"{path}.window", errors):
+            return
+        if not isinstance(shift, int) or isinstance(shift, bool) or shift < 0:
+            errors.append(
+                make_error(f"{path}.shift", "shift must be a non-negative integer")
+            )
+            return
+        features.append(
+            FeatureSpec(
+                name=name,
+                type=feature_type,
+                source=source,
+                window=window if isinstance(window, int) else None,
+                shift=shift,
+                raw_window=item.get("window"),
+            )
+        )
+        used_names.add(name)
+
+    def _name_invalid(
+        self,
+        name: str,
+        used_names: set[str],
+        path: str,
+        errors: list[StrategyValidationError],
+    ) -> bool:
+        if not name:
+            errors.append(make_error(path, "feature name is required"))
+            return True
+        if name in used_names or name in OHLCV_FIELDS:
+            errors.append(
+                make_error(path, "feature name must be unique and not reserved")
+            )
+            return True
+        return False
+
+    def _resolve_source(
+        self,
+        source: Any,
+        aliases: dict[str, str],
+        path: str,
+        errors: list[StrategyValidationError],
+    ) -> str:
+        source_name = str(source)
+        if source_name in aliases:
+            return aliases[source_name]
+        if source_name in OHLCV_FIELDS or self._catalog.supports_concrete(source_name):
+            return source_name
+        errors.append(make_error(path, f"unknown feature source '{source_name}'"))
+        return source_name
+
+    def _window_invalid(
+        self,
+        feature_type: str,
+        window: Any,
+        path: str,
+        errors: list[StrategyValidationError],
+    ) -> bool:
+        if feature_type not in _ROLLING_TYPES:
+            return False
+        if not isinstance(window, int) or isinstance(window, bool) or window < 1:
+            errors.append(make_error(path, "window must resolve to a positive integer"))
+            return True
+        return False

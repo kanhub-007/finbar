@@ -1,10 +1,16 @@
 """Tests for the v2 strategy JSON SDK application slice."""
 
+from finbar.core.application.dto.apply_strategy_features_request import (
+    ApplyStrategyFeaturesRequest,
+)
 from finbar.core.application.dto.backtest_strategy_definition_request import (
     BacktestStrategyDefinitionRequest,
 )
 from finbar.core.application.services.strategy_definition_v2_parser import (
     StrategyDefinitionV2Parser,
+)
+from finbar.core.application.use_cases.apply_strategy_features import (
+    ApplyStrategyFeaturesUseCase,
 )
 from finbar.core.application.use_cases.backtest_strategy_definition import (
     BacktestStrategyDefinitionUseCase,
@@ -15,6 +21,9 @@ from finbar.infrastructure.services.json_strategy_definition_strategy_factory im
 )
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
+)
+from finbar.infrastructure.services.pandas_strategy_feature_calculator import (
+    PandasStrategyFeatureCalculator,
 )
 
 
@@ -259,6 +268,112 @@ class TestStrategyJsonSdk:
         assert result.result.total_trades == 1
         assert result.result.trades[0]["metadata"]["direction"] == "short"
 
+    def test_strategy_feature_calculator_excludes_current_bar_with_shift(self):
+        result = _make_feature_use_case().execute(
+            ApplyStrategyFeaturesRequest(
+                definition=_momentum_breakout_strategy(),
+                bars=_momentum_bars(),
+            )
+        )
+
+        assert result.error is None
+        assert result.features_applied == ["prior_high"]
+        assert result.bars[2]["prior_high"] == 11
+
+    def test_momentum_breakout_feature_and_atr_stop_backtest(self):
+        feature_result = _make_feature_use_case().execute(
+            ApplyStrategyFeaturesRequest(
+                definition=_momentum_breakout_strategy(),
+                bars=_momentum_bars(),
+            )
+        )
+
+        result = _make_use_case().execute(
+            BacktestStrategyDefinitionRequest(
+                definition=_momentum_breakout_strategy(),
+                bars=feature_result.bars,
+            )
+        )
+
+        assert result.valid is True
+        assert result.result is not None
+        assert result.result.total_trades == 1
+        trade = result.result.trades[0]
+        assert trade["entry_price"] == 12
+        assert trade["exit_price"] == 10
+
+    def test_invalid_risk_multiplier_returns_structured_error(self):
+        strategy = _momentum_breakout_strategy()
+        strategy["risk"]["stop_loss"]["multiplier"] = "two"
+
+        result = StrategyDefinitionV2Parser().parse(strategy)
+
+        assert result.valid is False
+        assert any(error.code == "invalid_risk_parameter" for error in result.errors)
+
+    def test_negative_risk_multiplier_is_rejected(self):
+        strategy = _momentum_breakout_strategy()
+        strategy["risk"]["stop_loss"]["multiplier"] = -1
+
+        result = StrategyDefinitionV2Parser().parse(strategy)
+
+        assert result.valid is False
+        assert any(error.code == "invalid_risk_parameter" for error in result.errors)
+
+    def test_unknown_risk_indicator_is_rejected(self):
+        strategy = _momentum_breakout_strategy()
+        strategy["risk"]["stop_loss"]["indicator"] = "atr_999"
+
+        result = StrategyDefinitionV2Parser().parse(strategy)
+
+        assert result.valid is False
+        assert any(error.code == "unknown_risk_indicator" for error in result.errors)
+
+    def test_backtest_requires_feature_output_not_feature_source(self):
+        bars = [_bar("2024-01-01"), _bar("2024-01-02")]
+        for bar in bars:
+            bar["volume_signal"] = 1
+            del bar["volume"]
+
+        result = _make_use_case().execute(
+            BacktestStrategyDefinitionRequest(
+                definition=_volume_feature_strategy(),
+                bars=bars,
+            )
+        )
+
+        assert result.valid is True
+        assert result.result is not None
+        assert result.result.error is None
+
+    def test_apply_strategy_features_requires_feature_source_columns(self):
+        bars = [dict(bar) for bar in _momentum_bars()]
+        for bar in bars:
+            del bar["high"]
+
+        result = _make_feature_use_case().execute(
+            ApplyStrategyFeaturesRequest(
+                definition=_momentum_breakout_strategy(),
+                bars=bars,
+            )
+        )
+
+        assert result.error is not None
+        assert any(error.code == "missing_columns" for error in result.errors)
+
+    def test_risk_reward_target_exits_at_expected_price(self):
+        result = _make_use_case().execute(
+            BacktestStrategyDefinitionRequest(
+                definition=_risk_reward_strategy(),
+                bars=_risk_reward_bars(),
+            )
+        )
+
+        assert result.valid is True
+        assert result.result is not None
+        assert result.result.total_trades == 1
+        assert result.result.trades[0]["exit_price"] == 12
+
 
 def _volume_filtered_sma_strategy() -> dict:
     strategy = _sma_strategy()
@@ -351,25 +466,113 @@ def _short_sma_strategy() -> dict:
     return strategy
 
 
+def _volume_feature_strategy() -> dict:
+    strategy = _momentum_breakout_strategy()
+    strategy["features"] = [
+        {
+            "name": "volume_signal",
+            "type": "rolling_mean",
+            "source": "volume",
+            "window": 2,
+        }
+    ]
+    strategy.pop("risk")
+    strategy["sides"]["long"]["entry"]["condition"] = {
+        "all": [{"left": "volume_signal", "operator": ">", "right": 0}]
+    }
+    return strategy
+
+
+def _momentum_breakout_strategy() -> dict:
+    return {
+        "schema_version": "2.0",
+        "name": "momentum_breakout_v2",
+        "features": [
+            {
+                "name": "prior_high",
+                "type": "rolling_max",
+                "source": "high",
+                "window": 2,
+                "shift": 1,
+            }
+        ],
+        "risk": {"stop_loss": {"type": "atr", "indicator": "atr", "multiplier": 2.0}},
+        "sides": {
+            "long": {
+                "entry": {
+                    "condition": {
+                        "all": [
+                            {"left": "close", "operator": ">", "right": "prior_high"}
+                        ]
+                    }
+                }
+            }
+        },
+    }
+
+
+def _momentum_bars() -> list[dict]:
+    return [
+        _bar("2024-01-01", open_price=9, high=10, low=8, close=9, atr=1),
+        _bar("2024-01-02", open_price=10, high=11, low=9, close=10, atr=1),
+        _bar("2024-01-03", open_price=12, high=12, low=11, close=12, atr=1),
+        _bar("2024-01-04", open_price=12, high=13, low=9, close=10, atr=1),
+    ]
+
+
+def _risk_reward_strategy() -> dict:
+    strategy = _momentum_breakout_strategy()
+    strategy["risk"] = {
+        "stop_loss": {"type": "fixed_pct", "pct": 0.1},
+        "take_profit": {"type": "risk_reward", "ratio": 2.0},
+    }
+    strategy["features"] = []
+    strategy["sides"]["long"]["entry"]["condition"] = {
+        "all": [{"left": "close", "operator": ">", "right": 1}]
+    }
+    return strategy
+
+
+def _risk_reward_bars() -> list[dict]:
+    return [
+        _bar("2024-01-01", open_price=10, high=11, low=9, close=10),
+        _bar("2024-01-02", open_price=10, high=14, low=10, close=14),
+    ]
+
+
 def _bar(
     timestamp: str,
     volume: int = 1000,
     sma_20: int | None = None,
     sma_50: int | None = None,
+    open_price: int = 100,
+    high: int = 101,
+    low: int = 99,
+    close: int = 100,
+    atr: int | None = None,
 ) -> dict:
     bar = {
         "timestamp": timestamp,
-        "open": 100,
-        "high": 101,
-        "low": 99,
-        "close": 100,
+        "open": open_price,
+        "high": high,
+        "low": low,
+        "close": close,
         "volume": volume,
     }
     if sma_20 is not None:
         bar["sma_20"] = sma_20
     if sma_50 is not None:
         bar["sma_50"] = sma_50
+    if atr is not None:
+        bar["atr"] = atr
     return bar
+
+
+def _make_feature_use_case() -> ApplyStrategyFeaturesUseCase:
+    return ApplyStrategyFeaturesUseCase(
+        converter=PandasBarFrameConverter(),
+        feature_calculator=PandasStrategyFeatureCalculator(),
+    )
 
 
 def _make_use_case() -> BacktestStrategyDefinitionUseCase:

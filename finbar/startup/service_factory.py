@@ -6,6 +6,9 @@ keeps concrete infrastructure construction out of presentation modules.
 
 from sqlalchemy.orm import Session
 
+from finbar.core.application.use_cases.apply_strategy_features import (
+    ApplyStrategyFeaturesUseCase,
+)
 from finbar.core.application.use_cases.backtest_strategy_definition import (
     BacktestStrategyDefinitionUseCase,
 )
@@ -51,6 +54,9 @@ from finbar.infrastructure.services.json_strategy_definition_strategy_factory im
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
 )
+from finbar.infrastructure.services.pandas_strategy_feature_calculator import (
+    PandasStrategyFeatureCalculator,
+)
 from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
@@ -67,6 +73,7 @@ _bar_frame_converter: PandasBarFrameConverter | None = None
 _bt_runner: BacktestRunner | None = None
 _builtin_strategy_provider: BuiltinStrategyProvider | None = None
 _json_strategy_factory: JsonStrategyDefinitionStrategyFactory | None = None
+_strategy_feature_calculator: PandasStrategyFeatureCalculator | None = None
 
 
 def _get_db() -> Session:
@@ -238,6 +245,14 @@ def _make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionU
     )
 
 
+def _make_apply_strategy_features_use_case() -> ApplyStrategyFeaturesUseCase:
+    """Create a use case for applying v2 strategy feature declarations."""
+    return ApplyStrategyFeaturesUseCase(
+        _get_bar_frame_converter(),
+        _get_strategy_feature_calculator(),
+    )
+
+
 def _get_backtest_runner() -> BacktestRunner:
     """Return the shared backtest runner instance."""
     global _bt_runner
@@ -252,6 +267,14 @@ def _get_json_strategy_factory() -> JsonStrategyDefinitionStrategyFactory:
     if _json_strategy_factory is None:
         _json_strategy_factory = JsonStrategyDefinitionStrategyFactory()
     return _json_strategy_factory
+
+
+def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:
+    """Return the shared strategy feature calculator."""
+    global _strategy_feature_calculator
+    if _strategy_feature_calculator is None:
+        _strategy_feature_calculator = PandasStrategyFeatureCalculator()
+    return _strategy_feature_calculator
 
 
 def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvider:

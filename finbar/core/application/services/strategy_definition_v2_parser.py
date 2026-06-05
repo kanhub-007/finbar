@@ -10,6 +10,9 @@ from finbar.core.application.services.required_column_collector import (
 from finbar.core.application.services.strategy_condition_parser import (
     StrategyConditionParser,
 )
+from finbar.core.application.services.strategy_feature_resolver import (
+    StrategyFeatureResolver,
+)
 from finbar.core.application.services.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
@@ -18,6 +21,9 @@ from finbar.core.application.services.strategy_indicator_resolver import (
 )
 from finbar.core.application.services.strategy_parameter_resolver import (
     StrategyParameterResolver,
+)
+from finbar.core.application.services.strategy_risk_resolver import (
+    StrategyRiskResolver,
 )
 from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
 from finbar.core.domain.entities.strategy_validation_error import (
@@ -39,6 +45,8 @@ class StrategyDefinitionV2Parser:
         self._catalog = catalog or StrategyIndicatorCatalog()
         self._parameter_resolver = StrategyParameterResolver()
         self._indicator_resolver = StrategyIndicatorResolver(self._catalog)
+        self._feature_resolver = StrategyFeatureResolver(self._catalog)
+        self._risk_resolver = StrategyRiskResolver(self._catalog)
         self._condition_parser = StrategyConditionParser(self._catalog)
 
     def parse(
@@ -64,9 +72,17 @@ class StrategyDefinitionV2Parser:
             resolved_params,
             errors,
         )
+        features = self._feature_resolver.parse(
+            data.get("features", []),
+            indicators,
+            resolved_params,
+            errors,
+        )
+        risk = self._risk_resolver.parse(data.get("risk"), indicators, errors)
         sides = self._condition_parser.parse_sides(
             data.get("sides"),
             indicators,
+            features,
             resolved_params,
             errors,
         )
@@ -79,6 +95,8 @@ class StrategyDefinitionV2Parser:
             parameters=params,
             resolved_params=resolved_params,
             indicators=indicators,
+            features=features,
+            risk=risk,
             sides=sides,
             metadata=_metadata(data),
         )

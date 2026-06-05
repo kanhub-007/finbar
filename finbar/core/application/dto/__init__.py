@@ -9,6 +9,12 @@ from finbar.core.application.dto.apply_indicators_request import (
 from finbar.core.application.dto.apply_indicators_result import (
     ApplyIndicatorsResult,
 )
+from finbar.core.application.dto.apply_strategy_features_request import (
+    ApplyStrategyFeaturesRequest,
+)
+from finbar.core.application.dto.apply_strategy_features_result import (
+    ApplyStrategyFeaturesResult,
+)
 from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
 from finbar.core.application.dto.backtest_strategy_definition_request import (
@@ -21,6 +27,8 @@ from finbar.core.application.dto.backtest_strategy_definition_result import (
 __all__ = [
     "ApplyIndicatorsRequest",
     "ApplyIndicatorsResult",
+    "ApplyStrategyFeaturesRequest",
+    "ApplyStrategyFeaturesResult",
     "BacktestRequest",
     "BacktestResultDTO",
     "BacktestStrategyDefinitionRequest",

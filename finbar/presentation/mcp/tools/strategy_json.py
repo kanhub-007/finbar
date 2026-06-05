@@ -4,8 +4,14 @@ import json
 
 from fastmcp import FastMCP
 
+from finbar.core.application.dto.apply_strategy_features_request import (
+    ApplyStrategyFeaturesRequest,
+)
 from finbar.core.application.dto.backtest_strategy_definition_request import (
     BacktestStrategyDefinitionRequest,
+)
+from finbar.core.application.services.strategy_capability_service import (
+    StrategyCapabilityService,
 )
 from finbar.core.application.services.strategy_definition_v2_parser import (
     StrategyDefinitionV2Parser,
@@ -25,7 +31,10 @@ from finbar.core.application.use_cases.validate_strategy_definition import (
 from finbar.presentation.mcp.presenters.strategy_json_presenter import (
     StrategyJsonPresenter,
 )
-from finbar.startup.service_factory import _make_backtest_strategy_definition_use_case
+from finbar.startup.service_factory import (
+    _make_apply_strategy_features_use_case,
+    _make_backtest_strategy_definition_use_case,
+)
 
 
 def register_strategy_json_tools(mcp: FastMCP) -> None:
@@ -41,38 +50,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     )
     def get_strategy_capabilities() -> str:
         """Return machine-readable capabilities for agent strategy authoring."""
-        catalog = StrategyIndicatorCatalog()
-        return json.dumps(
-            {
-                "schema_version": "2.0",
-                "orchestration": [
-                    "validate_strategy_json",
-                    "fetch/query prices",
-                    "apply_indicators separately",
-                    "backtest_strategy_json with enriched bars",
-                ],
-                "backtest_calculates_indicators": False,
-                "fields": ["timestamp", "open", "high", "low", "close", "volume"],
-                "operators": [
-                    "<",
-                    ">",
-                    "<=",
-                    ">=",
-                    "==",
-                    "!=",
-                    "crosses_above",
-                    "crosses_below",
-                    "between",
-                    "not_between",
-                    "is_true",
-                    "is_false",
-                    "exists",
-                    "missing",
-                ],
-                "indicators": catalog.as_dict(),
-            },
-            indent=2,
-        )
+        return json.dumps(StrategyCapabilityService().get_capabilities(), indent=2)
 
     @mcp.tool(
         name="get_strategy_schema",
@@ -112,6 +90,38 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             StrategyDefinitionV2Parser(StrategyIndicatorCatalog())
         ).execute(definition_json, params)
         return json.dumps(result, indent=2)
+
+    @mcp.tool(
+        name="apply_strategy_features",
+        description=(
+            "Apply derived features declared in a v2 strategy JSON document. "
+            "This is a separate enrichment step before backtest_strategy_json."
+        ),
+    )
+    def apply_strategy_features(
+        definition_json: str,
+        bars_json: str,
+        params_json: str = "{}",
+    ) -> str:
+        """Apply v2 feature declarations to supplied bars."""
+        bars = _loads_array(bars_json, "bars_json")
+        if isinstance(bars, dict) and "error" in bars:
+            return json.dumps(bars)
+        params = _loads_object(params_json, "params_json")
+        if "error" in params:
+            return json.dumps(params)
+        result = _make_apply_strategy_features_use_case().execute(
+            ApplyStrategyFeaturesRequest(
+                definition=definition_json,
+                bars=bars,
+                params=params,
+            )
+        )
+        return json.dumps(
+            StrategyJsonPresenter().feature_result(result),
+            indent=2,
+            default=str,
+        )
 
     @mcp.tool(
         name="backtest_strategy_json",

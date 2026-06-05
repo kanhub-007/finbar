@@ -3,19 +3,28 @@
 from finbar.core.domain.entities.signal_result import SignalResult
 from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
 from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
+from finbar.core.domain.interfaces.risk_price_calculator import RiskPriceCalculator
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.infrastructure.services.json_condition_evaluator import (
     PrevValues,
     evaluate_condition_group,
+)
+from finbar.infrastructure.services.json_risk_price_calculator import (
+    JsonRiskPriceCalculator,
 )
 
 
 class JsonRuleBasedStrategy(TradingStrategy):
     """TradingStrategy implementation for canonical v2 JSON definitions."""
 
-    def __init__(self, definition: StrategyDefinitionV2):
+    def __init__(
+        self,
+        definition: StrategyDefinitionV2,
+        risk_calculator: RiskPriceCalculator | None = None,
+    ):
         """Create a fresh executable strategy from a validated definition."""
         self._definition = definition
+        self._risk_calculator = risk_calculator or JsonRiskPriceCalculator()
         self._previous_values: PrevValues = {}
 
     def meta(self) -> StrategyMeta:
@@ -49,10 +58,17 @@ class JsonRuleBasedStrategy(TradingStrategy):
             if rules is None:
                 continue
             if evaluate_condition_group(rules.entry, bar, self._previous_values):
+                stop, target = self._risk_calculator.calculate(
+                    self._definition.risk,
+                    bar,
+                    side,
+                )
                 return SignalResult(
                     action="buy" if side == "long" else "sell",
                     direction=side,
                     confidence=rules.entry_confidence,
+                    stop_price=stop,
+                    target_price=target,
                 )
         return SignalResult(action="hold")
 
