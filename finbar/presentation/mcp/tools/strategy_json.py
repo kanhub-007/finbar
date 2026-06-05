@@ -36,13 +36,12 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         name="get_strategy_capabilities",
         description=(
             "Return everything an AI needs to author a strategy JSON document. "
-            "Includes supported operators (<, >, crosses_above, between, "
-            "is_true, etc.), OHLCV fields (open, high, low, close, volume), "
-            "supported indicator types (sma, ema, rsi, macd, atr, adx, vwap, "
-            "bbands, rvol, ibs), supported feature types (rolling_max, "
-            "rolling_min, body_pct, typical_price, ohlc4, etc.), supported "
-            "risk types (atr, fixed_pct, risk_reward), and the exact concrete "
-            "indicator names currently available (sma_20, rsi_14, atr, etc.). "
+            "Includes: supported operators, OHLCV fields, indicator types "
+            "(sma, ema, rsi, atr, adx, vwap, bbands, rvol, ibs, fallback), "
+            "feature types (rolling_max, rolling_min, body_pct, formula), "
+            "risk types (atr, fixed_pct, risk_reward), multi-timeframe support "
+            "(primary + informative with column merging), period ranges "
+            "for parameterized indicators, and concrete indicator names. "
             "Call this first before writing any strategy JSON."
         ),
     )
@@ -66,13 +65,12 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         name="validate_strategy_json",
         description=(
             "Validate a strategy JSON definition. Returns whether the "
-            "definition is valid, any path-specific validation errors "
-            "(unknown indicators, unsupported operators, missing fields), "
-            "the list of concrete indicator columns required (e.g., "
-            "['sma_20', 'sma_50']), and the list of bar columns needed "
-            "to execute (OHLCV + indicators + features). Does NOT fetch "
-            "prices or calculate indicators — the agent must do those "
-            "separately."
+            "definition is valid, any path-specific validation errors, "
+            "the list of required concrete indicator columns, "
+            "primary_required_indicators (for primary bars), "
+            "informative_required_indicators (split by timeframe alias), "
+            "and required bar columns. Does NOT fetch prices or calculate "
+            "indicators — the agent must do those separately."
         ),
     )
     def validate_strategy_json(definition_json: str, params_json: str = "{}") -> str:
@@ -112,11 +110,12 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "Calculate derived features declared in a strategy JSON document. "
             "Features are computed from OHLCV + indicator data and include "
             "rolling_max, rolling_min, rolling_mean, body_pct, range_pct, "
-            "typical_price, ohlc4, and shift. Each feature can have a window "
-            "and a lookback shift (e.g., rolling_max(high, 20).shift(1) for "
-            "prior swing high). Returns enriched bars with feature columns "
-            "added. Call this BEFORE backtest_strategy_json if the strategy "
-            "declares features."
+            "typical_price, ohlc4, shift, and formula (comparisons, "
+            "arithmetic, logical and/or/not over indicators). Each feature "
+            "can have a window and a lookback shift. Formula features use "
+            "expression trees with ops like >, <, +, -, *, /, and, or, not. "
+            "Returns enriched bars with feature columns added. Call this "
+            "BEFORE backtest_strategy_json if the strategy declares features."
         ),
     )
     def apply_strategy_features(
