@@ -149,8 +149,10 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         description=(
             "Run a backtest with a strategy JSON definition against "
             "already-enriched primary bars (including any indicators and "
-            "features the strategy needs). For multi-timeframe strategies, "
-            "also pass informative_bars_json after enriching those bars "
+            "features the strategy needs), or pass bars_artifact_id from a "
+            "completed enrichment job to avoid large JSON round trips. For "
+            "multi-timeframe strategies, also pass informative_bars_json or "
+            "informative_bars_artifact_ids_json after enriching those bars "
             "separately. Does NOT fetch prices or calculate indicators — "
             "the agent must call apply_indicators and apply_strategy_features "
             "BEFORE this tool. Returns full "
@@ -163,15 +165,17 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     )
     def backtest_strategy_json(
         definition_json: str,
-        bars_json: str,
+        bars_json: str = "",
         symbol: str = "",
         interval: str = "",
         params_json: str = "{}",
         initial_cash: float = 10000.0,
         informative_bars_json: str = "",
+        bars_artifact_id: str = "",
+        informative_bars_artifact_ids_json: str = "{}",
     ) -> str:
-        """Backtest a strategy using bars supplied by the agent."""
-        bars = _loads_array(bars_json, "bars_json")
+        """Backtest a strategy using bars supplied by the agent or artifact id."""
+        bars = _loads_array(bars_json, "bars_json") if bars_json else []
         if isinstance(bars, dict) and "error" in bars:
             return json.dumps(bars)
         params = _loads_object(params_json, "params_json")
@@ -180,6 +184,12 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         informative_bars = _loads_optional_informative_bars(informative_bars_json)
         if isinstance(informative_bars, dict) and "error" in informative_bars:
             return json.dumps(informative_bars)
+        informative_artifacts = _loads_string_map(
+            informative_bars_artifact_ids_json,
+            "informative_bars_artifact_ids_json",
+        )
+        if "error" in informative_artifacts:
+            return json.dumps(informative_artifacts)
 
         use_case = _make_backtest_strategy_definition_use_case()
         result = use_case.execute(
@@ -191,6 +201,8 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
                 params=params,
                 initial_cash=initial_cash,
                 informative_bars=informative_bars,
+                bars_artifact_id=bars_artifact_id,
+                informative_bars_artifact_ids=informative_artifacts,
             )
         )
         return json.dumps(StrategyJsonPresenter().backtest_result(result), indent=2)
@@ -287,6 +299,20 @@ def _loads_array(raw: str, name: str) -> list[dict] | dict:
         return {"error": f"Invalid {name}: {exc}"}
     if not isinstance(value, list):
         return {"error": f"{name} must be a JSON array"}
+    return value
+
+
+def _loads_string_map(raw: str, name: str) -> dict[str, str]:
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return {"error": f"Invalid {name}: {exc}"}
+    if not isinstance(value, dict) or not all(
+        isinstance(key, str) and isinstance(item, str) for key, item in value.items()
+    ):
+        return {"error": f"{name} must be a JSON object of string values"}
     return value
 
 

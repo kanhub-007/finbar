@@ -1,8 +1,8 @@
 # Finbar Architecture
 
 Strict clean architecture per AGENTS.md — four layers plus a composition root.
-Dependencies flow inward. One class per file enforced mechanically (151 classes,
-zero multi-class files).
+Dependencies flow inward. One class per file enforced mechanically (152 classes,
+zero multi-class files in `finbar/`).
 
 ## Layer Map
 
@@ -230,12 +230,13 @@ enrichment jobs:
 Agent
   → start_enrichment_job            (server-side cached bars → indicators/features)
   → get_enrichment_job_progress     (poll status/stage/progress)
-  → get_enrichment_job_results      (page enriched bars)
-  → backtest_strategy_json          (run against enriched bars)
+  → get_enrichment_job_results      (page enriched bars when needed)
+  → backtest_strategy_json          (run against bars_artifact_id directly)
 ```
 
 For multi-timeframe strategies, agents fetch and enrich each timeframe
-separately, then pass primary bars plus `informative_bars_json` to
+separately, then pass primary bars plus `informative_bars_json`, or pass
+`bars_artifact_id` plus `informative_bars_artifact_ids_json`, to
 `backtest_strategy_json`. Informative indicator columns are merged into primary
 bars with interval suffixes such as `sma_50_1d`.
 

@@ -22,6 +22,7 @@ from finbar.infrastructure.services.pandas_timeframe_bar_merger import (
 from finbar.infrastructure.services.strategy_definition_factory import (
     StrategyDefinitionFactory,
 )
+from tests.fakes.fake_artifact_provider import FakeArtifactProvider
 
 
 def test_parser_resolves_informative_indicator_to_suffixed_column():
@@ -219,3 +220,104 @@ def _daily_bars() -> list[dict]:
             "sma_50": 100,
         },
     ]
+
+
+def test_backtest_accepts_primary_bars_artifact_id():
+    """A completed enrichment artifact can supply primary backtest bars."""
+    use_case = _make_artifact_use_case(
+        FakeArtifactProvider({"primary-job": _primary_hourly_bars()})
+    )
+
+    result = use_case.execute(
+        BacktestStrategyDefinitionRequest(
+            definition=_single_timeframe_strategy(),
+            bars_artifact_id="primary-job",
+            symbol="AAPL",
+            interval="1h",
+        )
+    )
+
+    assert result.valid is True
+    assert result.result is not None
+    assert result.result.error is None
+
+
+def test_backtest_accepts_informative_artifact_ids():
+    """Completed enrichment artifacts can supply informative timeframe bars."""
+    provider = FakeArtifactProvider(
+        {
+            "primary-job": _primary_hourly_bars(),
+            "daily-job": _daily_bars(),
+        }
+    )
+    use_case = _make_artifact_use_case(provider)
+
+    result = use_case.execute(
+        BacktestStrategyDefinitionRequest(
+            definition=_multi_timeframe_strategy(),
+            bars_artifact_id="primary-job",
+            informative_bars_artifact_ids={"daily": "daily-job"},
+            symbol="AAPL",
+            interval="1h",
+        )
+    )
+
+    assert result.valid is True
+    assert result.result is not None
+    assert result.result.error is None
+
+
+def test_backtest_rejects_incomplete_artifact_id():
+    """Artifact-backed backtests require completed enrichment jobs."""
+    provider = FakeArtifactProvider(
+        {"primary-job": _primary_hourly_bars()},
+        statuses={"primary-job": "running"},
+    )
+    use_case = _make_artifact_use_case(provider)
+
+    result = use_case.execute(
+        BacktestStrategyDefinitionRequest(
+            definition=_single_timeframe_strategy(),
+            bars_artifact_id="primary-job",
+        )
+    )
+
+    assert result.valid is False
+    assert any(error.code == "artifact_error" for error in result.errors)
+
+
+def _make_artifact_use_case(provider) -> BacktestStrategyDefinitionUseCase:
+    return BacktestStrategyDefinitionUseCase(
+        engine=BacktestRunner(),
+        converter=PandasBarFrameConverter(),
+        strategy_factory=StrategyDefinitionFactory(),
+        parser=StrategyDefinitionParser(),
+        timeframe_merger=PandasTimeframeBarMerger(),
+        artifact_provider=provider,
+    )
+
+
+def _single_timeframe_strategy() -> dict:
+    return {
+        "schema_version": "2.0",
+        "name": "single_tf_vwap",
+        "indicators": [{"name": "primary_vwap", "type": "vwap"}],
+        "sides": {
+            "long": {
+                "entry": {
+                    "condition": {
+                        "all": [
+                            {"left": "close", "operator": ">", "right": "primary_vwap"}
+                        ]
+                    }
+                },
+                "exit": {
+                    "condition": {
+                        "any": [
+                            {"left": "close", "operator": "<", "right": "primary_vwap"}
+                        ]
+                    }
+                },
+            }
+        },
+    }

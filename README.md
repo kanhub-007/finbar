@@ -71,7 +71,7 @@ testing.
 | `get_strategy_schema` | JSON Schema for strategy definitions |
 | `validate_strategy_json` | Validate + return required indicators/columns |
 | `explain_strategy_json` | Human-readable explanation of a strategy |
-| `backtest_strategy_json` | Backtest unsaved JSON against enriched bars |
+| `backtest_strategy_json` | Backtest unsaved JSON against enriched bars or enrichment artifacts |
 | `apply_strategy_features` | Calculate derived features before backtesting |
 | `start_enrichment_job` | Async server-side indicator/feature enrichment from cached bars |
 | `get_enrichment_job_progress` | Poll enrichment job status/stage/progress |

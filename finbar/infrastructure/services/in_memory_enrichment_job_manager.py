@@ -10,10 +10,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from finbar.core.domain.entities.enrichment_job import EnrichmentJob
+from finbar.core.domain.interfaces.enrichment_artifact_provider import (
+    EnrichmentArtifactProvider,
+)
 from finbar.core.domain.interfaces.enrichment_job_manager import EnrichmentJobManager
 
 
-class InMemoryEnrichmentJobManager(EnrichmentJobManager):
+class InMemoryEnrichmentJobManager(EnrichmentJobManager, EnrichmentArtifactProvider):
     """Thread-safe in-memory enrichment job and artifact store."""
 
     def __init__(self, max_jobs: int = 50, ttl_seconds: int = 3600):
@@ -66,6 +69,16 @@ class InMemoryEnrichmentJobManager(EnrichmentJobManager):
         with self._lock:
             self._results[job.job_id] = list(bars)
             job.total_bar_count = len(bars)
+
+    def get_artifact_job(self, job_id: str) -> EnrichmentJob | None:
+        """Return metadata for an enrichment artifact job."""
+        return self.get(job_id)
+
+    def get_artifact_bars(self, job_id: str) -> list[dict] | None:
+        """Return all bars for an enrichment artifact, or None if missing."""
+        with self._lock:
+            bars = self._results.get(job_id)
+            return list(bars) if bars is not None else None
 
     def get_result_page(
         self,

@@ -1,6 +1,7 @@
 """BacktestStrategyDefinitionUseCase — run unsaved JSON strategies."""
 
 import logging
+from dataclasses import replace
 from typing import Any
 
 from finbar.core.application.backtest_result_mapper import result_dto_from_raw
@@ -17,6 +18,9 @@ from finbar.core.domain.entities.strategy_validation_error import (
 )
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar.core.domain.interfaces.enrichment_artifact_provider import (
+    EnrichmentArtifactProvider,
+)
 from finbar.core.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
@@ -42,6 +46,7 @@ class BacktestStrategyDefinitionUseCase:
         strategy_factory: StrategyDefinitionStrategyFactory,
         parser: StrategyDefinitionParser,
         timeframe_merger: TimeframeBarMerger | None = None,
+        artifact_provider: EnrichmentArtifactProvider | None = None,
     ):
         """Create the use case with injected engine/converter/factory."""
         self._engine = engine
@@ -49,12 +54,20 @@ class BacktestStrategyDefinitionUseCase:
         self._strategy_factory = strategy_factory
         self._parser = parser
         self._timeframe_merger = timeframe_merger
+        self._artifact_provider = artifact_provider
 
     def execute(
         self,
         request: BacktestStrategyDefinitionRequest,
     ) -> BacktestStrategyDefinitionResult:
         """Validate, verify columns, and run the supplied JSON strategy."""
+        try:
+            request = _resolve_artifact_bars(request, self._artifact_provider)
+        except ValueError as exc:
+            return BacktestStrategyDefinitionResult(
+                valid=False,
+                errors=[_err("$.bars_artifact_id", str(exc), "artifact_error")],
+            )
         if not request.bars:
             return BacktestStrategyDefinitionResult(
                 valid=False,
@@ -148,6 +161,41 @@ class BacktestStrategyDefinitionUseCase:
             info_frame = self._converter.bars_to_frame(bars)
             frame = self._timeframe_merger.merge(frame, info_frame, item.interval)
         return frame
+
+
+def _resolve_artifact_bars(
+    request: BacktestStrategyDefinitionRequest,
+    provider: EnrichmentArtifactProvider | None,
+) -> BacktestStrategyDefinitionRequest:
+    bars = request.bars
+    informative_bars = request.informative_bars
+    if request.bars_artifact_id:
+        bars = _artifact_bars(request.bars_artifact_id, provider)
+    if request.informative_bars_artifact_ids:
+        informative_bars = {
+            alias: _artifact_bars(job_id, provider)
+            for alias, job_id in request.informative_bars_artifact_ids.items()
+        }
+    if bars is request.bars and informative_bars is request.informative_bars:
+        return request
+    return replace(request, bars=bars, informative_bars=informative_bars)
+
+
+def _artifact_bars(
+    job_id: str,
+    provider: EnrichmentArtifactProvider | None,
+) -> list[dict]:
+    if provider is None:
+        raise ValueError("Artifact-backed backtesting is not wired")
+    job = provider.get_artifact_job(job_id)
+    if job is None:
+        raise ValueError(f"Artifact job not found: {job_id}")
+    if job.status != "completed":
+        raise ValueError(f"Artifact job {job_id} is not complete: {job.status}")
+    bars = provider.get_artifact_bars(job_id)
+    if bars is None:
+        raise ValueError(f"Artifact bars not found: {job_id}")
+    return bars
 
 
 def _run_backtest(

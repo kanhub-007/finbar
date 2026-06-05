@@ -338,6 +338,7 @@ def _make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionU
         _get_json_strategy_factory(),
         parser=_get_parser(),
         timeframe_merger=_get_timeframe_bar_merger(),
+        artifact_provider=_get_enrichment_job_manager(),
     )
 
 

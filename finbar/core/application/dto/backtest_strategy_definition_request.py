@@ -4,20 +4,27 @@ from dataclasses import dataclass, field
 from typing import Any
 
 InformativeBars = list[dict] | dict[str, list[dict]]
+InformativeArtifactIds = dict[str, str]
 
 
 @dataclass(frozen=True)
 class BacktestStrategyDefinitionRequest:
-    """Input for backtesting an already-enriched bar set with a JSON strategy."""
+    """Input for backtesting an enriched bar set with a JSON strategy."""
 
     definition: str | dict
     """Strategy JSON string or parsed dictionary."""
 
-    bars: list[dict]
+    bars: list[dict] = field(default_factory=list)
     """Already-enriched primary OHLCV bars supplied by the agent."""
+
+    bars_artifact_id: str = ""
+    """Completed enrichment job ID containing primary bars."""
 
     informative_bars: InformativeBars | None = None
     """Already-enriched informative OHLCV bars, if the strategy declares one."""
+
+    informative_bars_artifact_ids: InformativeArtifactIds = field(default_factory=dict)
+    """Completed enrichment job IDs keyed by informative timeframe alias."""
 
     symbol: str = ""
     """Ticker symbol for result metadata."""
