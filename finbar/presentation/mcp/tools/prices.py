@@ -48,13 +48,12 @@ def register_price_tools(mcp: FastMCP) -> None:
         name="get_cached_prices",
         description=(
             "Query the local SQLite cache for OHLCV bars. "
+            "Supports pagination via page/page_size for large datasets. "
+            "Default page_size is 500 (max 1000). Use start_date/end_date "
+            "to narrow by date. Returns metadata: page, total_pages, "
+            "total_bar_count so agents can iterate through all pages. "
             "Fast, no rate limits — only returns previously-fetched data. "
-            "Use fetch_price_history() first to populate the cache. "
-            "Returns at most 500 bars by default to avoid oversized "
-            "responses. Use start_date/end_date to narrow the range, "
-            "or set a higher max_bars if you need more data. When "
-            "truncated, the response includes total_bar_count so the "
-            "agent knows how much data exists."
+            "Use fetch_price_history() first to populate the cache."
         ),
     )
     def get_cached_prices(
@@ -63,7 +62,8 @@ def register_price_tools(mcp: FastMCP) -> None:
         start_date: str | None = None,
         end_date: str | None = None,
         source: str = "yfinance",
-        max_bars: int = 500,
+        page: int = 0,
+        page_size: int = 500,
     ) -> str:
         db = _get_db()
         try:
@@ -84,21 +84,31 @@ def register_price_tools(mcp: FastMCP) -> None:
                 )
             bars = result.bars
             total = len(bars)
-            truncated = total > max_bars
-            if truncated:
-                bars = bars[-max_bars:]
-            bars_json = [_bar_to_dict(b) for b in bars]
-            payload = {
-                "symbol": result.symbol,
-                "source": result.source,
-                "interval": result.interval,
-                "bar_count": len(bars_json),
-                "bars": bars_json,
-            }
-            if truncated:
-                payload["truncated"] = True
-                payload["total_bar_count"] = total
-            return json.dumps(payload, indent=2)
+
+            # Clamp page_size
+            page_size = max(1, min(page_size, 1000))
+            total_pages = (total + page_size - 1) // page_size
+            page = max(0, min(page, total_pages - 1)) if total_pages > 0 else 0
+
+            start_idx = page * page_size
+            end_idx = min(start_idx + page_size, total)
+            page_bars = bars[start_idx:end_idx]
+
+            bars_json = [_bar_to_dict(b) for b in page_bars]
+            return json.dumps(
+                {
+                    "symbol": result.symbol,
+                    "source": result.source,
+                    "interval": result.interval,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": total_pages,
+                    "total_bar_count": total,
+                    "bar_count": len(bars_json),
+                    "bars": bars_json,
+                },
+                indent=2,
+            )
         finally:
             db.close()
 
