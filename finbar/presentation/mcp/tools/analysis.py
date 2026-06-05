@@ -45,27 +45,23 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "proxy_typical_price, etc.)."
         ),
     )
-    def apply_indicators(bars_json: str, indicators: str | list[str]) -> str:
+    def apply_indicators(bars_json: str, indicators: str) -> str:
         """Apply indicators to bars and return enriched JSON.
 
         Args:
             bars_json: JSON string with OHLCV bars (from get_cached_prices).
-                       Must include keys: timestamp, open, high, low, close,
-                       volume.
-            indicators: List of indicator names to compute (also accepts
-                        a JSON-encoded string like '["sma_20","rsi_14"]').
+            indicators: JSON-encoded list like '["sma_20","rsi_14"]'.
 
         Returns:
             JSON string with bars plus indicator columns.
         """
-        # Accept both list and JSON-encoded string for indicators
-        if isinstance(indicators, str):
-            try:
-                indicators = json.loads(indicators)
-            except json.JSONDecodeError:
-                return json.dumps(
-                    {"error": "indicators must be a list or JSON-encoded string"}
-                )
+        try:
+            indicator_list = json.loads(indicators)
+            if not isinstance(indicator_list, list):
+                return json.dumps({"error": "indicators must be a JSON list"})
+        except json.JSONDecodeError:
+            return json.dumps({"error": "indicators must be a JSON-encoded list"})
+
         try:
             bars = json.loads(bars_json)
             if not isinstance(bars, list):
@@ -77,7 +73,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
 
         use_case = _make_apply_indicators_use_case()
         result = use_case.execute(
-            ApplyIndicatorsRequest(bars=bars, indicators=indicators)
+            ApplyIndicatorsRequest(bars=bars, indicators=indicator_list)
         )
 
         return json.dumps(
