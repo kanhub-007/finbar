@@ -1,0 +1,41 @@
+{
+  "schema_version": "2.0",
+  "name": "agent_sma_cross",
+  "description": "Long SMA crossover strategy.",
+  "parameters": {
+    "fast_period": {
+      "type": "int",
+      "default": 20,
+      "minimum": 2,
+      "maximum": 200
+    },
+    "slow_period": {
+      "type": "int",
+      "default": 50,
+      "minimum": 2,
+      "maximum": 200
+    }
+  },
+  "indicators": [
+    { "name": "fast_sma", "type": "sma", "period": "{{ fast_period }}" },
+    { "name": "slow_sma", "type": "sma", "period": "{{ slow_period }}" }
+  ],
+  "sides": {
+    "long": {
+      "entry": {
+        "condition": {
+          "all": [
+            { "left": "fast_sma", "operator": "crosses_above", "right": "slow_sma" }
+          ]
+        }
+      },
+      "exit": {
+        "condition": {
+          "any": [
+            { "left": "fast_sma", "operator": "crosses_below", "right": "slow_sma" }
+          ]
+        }
+      }
+    }
+  }
+}

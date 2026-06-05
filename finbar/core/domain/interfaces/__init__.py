@@ -4,14 +4,24 @@ implementations live in infrastructure/services/."""
 
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar.core.domain.interfaces.condition_tree_visitor import ConditionTreeVisitor
 from finbar.core.domain.interfaces.indicator_calculator import IndicatorCalculator
+from finbar.core.domain.interfaces.indicator_capability_provider import (
+    IndicatorCapabilityProvider,
+)
+from finbar.core.domain.interfaces.strategy_definition_strategy_factory import (
+    StrategyDefinitionStrategyFactory,
+)
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 
 __all__ = [
     "BacktestEngine",
     "BarFrameConverter",
+    "ConditionTreeVisitor",
     "IndicatorCalculator",
+    "IndicatorCapabilityProvider",
+    "StrategyDefinitionStrategyFactory",
     "StrategyProvider",
     "TradingStrategy",
 ]

@@ -6,6 +6,9 @@ keeps concrete infrastructure construction out of presentation modules.
 
 from sqlalchemy.orm import Session
 
+from finbar.core.application.use_cases.backtest_strategy_definition import (
+    BacktestStrategyDefinitionUseCase,
+)
 from finbar.core.application.use_cases.delete_cached_prices import (
     DeleteCachedPricesUseCase,
 )
@@ -42,6 +45,9 @@ from finbar.infrastructure.services.database_strategy_provider import (
     DatabaseStrategyProvider,
 )
 from finbar.infrastructure.services.fetch_job_manager import FetchJobManager
+from finbar.infrastructure.services.json_strategy_definition_strategy_factory import (
+    JsonStrategyDefinitionStrategyFactory,
+)
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
 )
@@ -60,6 +66,7 @@ _indicator_calc: PandasTaIndicatorCalculator | None = None
 _bar_frame_converter: PandasBarFrameConverter | None = None
 _bt_runner: BacktestRunner | None = None
 _builtin_strategy_provider: BuiltinStrategyProvider | None = None
+_json_strategy_factory: JsonStrategyDefinitionStrategyFactory | None = None
 
 
 def _get_db() -> Session:
@@ -215,14 +222,36 @@ def _get_bar_frame_converter() -> PandasBarFrameConverter:
 
 def _make_run_backtest_use_case(db: Session | None = None) -> RunBacktestUseCase:
     """Create a RunBacktestUseCase with built-in and optional DB strategies."""
-    global _bt_runner
-    if _bt_runner is None:
-        _bt_runner = BacktestRunner()
     return RunBacktestUseCase(
-        _bt_runner,
+        _get_backtest_runner(),
         _make_strategy_provider(db),
         _get_bar_frame_converter(),
     )
+
+
+def _make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionUseCase:
+    """Create a use case for unsaved v2 JSON strategy backtests."""
+    return BacktestStrategyDefinitionUseCase(
+        _get_backtest_runner(),
+        _get_bar_frame_converter(),
+        _get_json_strategy_factory(),
+    )
+
+
+def _get_backtest_runner() -> BacktestRunner:
+    """Return the shared backtest runner instance."""
+    global _bt_runner
+    if _bt_runner is None:
+        _bt_runner = BacktestRunner()
+    return _bt_runner
+
+
+def _get_json_strategy_factory() -> JsonStrategyDefinitionStrategyFactory:
+    """Return the v2 JSON strategy factory."""
+    global _json_strategy_factory
+    if _json_strategy_factory is None:
+        _json_strategy_factory = JsonStrategyDefinitionStrategyFactory()
+    return _json_strategy_factory
 
 
 def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvider:
