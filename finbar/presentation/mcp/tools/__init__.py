@@ -8,6 +8,7 @@ a register_*_tools(mcp) function called by register_tools.
 from fastmcp import FastMCP
 
 from .analysis import register_analysis_tools
+from .enrichment import register_enrichment_tools
 from .jobs import register_job_tools
 from .prices import register_price_tools
 from .strategy_json import register_strategy_json_tools
@@ -20,4 +21,5 @@ def register_tools(mcp: FastMCP) -> None:
     register_price_tools(mcp)
     register_job_tools(mcp)
     register_analysis_tools(mcp)
+    register_enrichment_tools(mcp)
     register_strategy_json_tools(mcp)

@@ -21,6 +21,9 @@ from finbar.core.application.use_cases.apply_strategy_features import (
 from finbar.core.application.use_cases.backtest_strategy_definition import (
     BacktestStrategyDefinitionUseCase,
 )
+from finbar.core.application.use_cases.cancel_enrichment_job import (
+    CancelEnrichmentJobUseCase,
+)
 from finbar.core.application.use_cases.delete_cached_prices import (
     DeleteCachedPricesUseCase,
 )
@@ -31,6 +34,12 @@ from finbar.core.application.use_cases.explain_strategy_definition import (
     ExplainStrategyDefinitionUseCase,
 )
 from finbar.core.application.use_cases.fetch_prices import FetchPricesUseCase
+from finbar.core.application.use_cases.get_enrichment_job_progress import (
+    GetEnrichmentJobProgressUseCase,
+)
+from finbar.core.application.use_cases.get_enrichment_job_results import (
+    GetEnrichmentJobResultsUseCase,
+)
 from finbar.core.application.use_cases.get_latest_quote import GetLatestQuoteUseCase
 from finbar.core.application.use_cases.get_symbol_info import GetSymbolInfoUseCase
 from finbar.core.application.use_cases.list_cached_symbols import (
@@ -42,6 +51,9 @@ from finbar.core.application.use_cases.query_cached_prices import (
 from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
 from finbar.core.application.use_cases.save_strategy_definition import (
     SaveStrategyDefinitionUseCase,
+)
+from finbar.core.application.use_cases.start_enrichment_job import (
+    StartEnrichmentJobUseCase,
 )
 from finbar.core.application.use_cases.validate_strategy_definition import (
     ValidateStrategyDefinitionUseCase,
@@ -62,6 +74,9 @@ from finbar.infrastructure.services.backtest_runner import BacktestRunner
 from finbar.infrastructure.services.builtin_strategy_provider import (
     BuiltinStrategyProvider,
 )
+from finbar.infrastructure.services.cached_price_enrichment_job_runner import (
+    CachedPriceEnrichmentJobRunner,
+)
 from finbar.infrastructure.services.composite_strategy_provider import (
     CompositeStrategyProvider,
 )
@@ -69,6 +84,9 @@ from finbar.infrastructure.services.database_strategy_provider import (
     DatabaseStrategyProvider,
 )
 from finbar.infrastructure.services.fetch_job_manager import FetchJobManager
+from finbar.infrastructure.services.in_memory_enrichment_job_manager import (
+    InMemoryEnrichmentJobManager,
+)
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
 )
@@ -92,6 +110,8 @@ from finbar.infrastructure.services.yfinance_stock_fetcher import (
 _fetcher: YFinanceStockFetcher | None = None
 _hl_fetcher: object | None = None
 _job_manager: FetchJobManager | None = None
+_enrichment_job_manager: InMemoryEnrichmentJobManager | None = None
+_enrichment_job_runner: CachedPriceEnrichmentJobRunner | None = None
 _indicator_calc: PandasTaIndicatorCalculator | None = None
 _bar_frame_converter: PandasBarFrameConverter | None = None
 _bt_runner: BacktestRunner | None = None
@@ -168,6 +188,14 @@ def _get_job_manager() -> FetchJobManager:
     return _job_manager
 
 
+def _get_enrichment_job_manager() -> InMemoryEnrichmentJobManager:
+    """Lazy-init the enrichment job manager."""
+    global _enrichment_job_manager
+    if _enrichment_job_manager is None:
+        _enrichment_job_manager = InMemoryEnrichmentJobManager()
+    return _enrichment_job_manager
+
+
 def _make_fetch_prices_use_case(
     db: Session,
     source: str = "yfinance",
@@ -225,6 +253,44 @@ def _get_hl_tickers(market_type: str = "all") -> list[dict]:
     perp = fetcher.fetch_perp_tickers()
     hip3 = fetcher.fetch_hip3_tickers()
     return spot + perp + hip3
+
+
+def _make_start_enrichment_job_use_case() -> StartEnrichmentJobUseCase:
+    """Create a use case for starting enrichment jobs."""
+    return StartEnrichmentJobUseCase(
+        _get_enrichment_job_manager(),
+        _get_enrichment_job_runner(),
+    )
+
+
+def _get_enrichment_job_runner() -> CachedPriceEnrichmentJobRunner:
+    """Return the shared enrichment job runner."""
+    global _enrichment_job_runner
+    if _enrichment_job_runner is None:
+        _enrichment_job_runner = CachedPriceEnrichmentJobRunner(
+            session_factory=SessionLocal,
+            manager=_get_enrichment_job_manager(),
+            indicator_calculator=_get_indicator_calculator(),
+            converter=_get_bar_frame_converter(),
+            feature_calculator=_get_strategy_feature_calculator(),
+            parser=_get_parser(),
+        )
+    return _enrichment_job_runner
+
+
+def _make_get_enrichment_job_progress_use_case() -> GetEnrichmentJobProgressUseCase:
+    """Create a use case for enrichment job progress."""
+    return GetEnrichmentJobProgressUseCase(_get_enrichment_job_manager())
+
+
+def _make_get_enrichment_job_results_use_case() -> GetEnrichmentJobResultsUseCase:
+    """Create a use case for paginated enrichment job results."""
+    return GetEnrichmentJobResultsUseCase(_get_enrichment_job_manager())
+
+
+def _make_cancel_enrichment_job_use_case() -> CancelEnrichmentJobUseCase:
+    """Create a use case for cancelling enrichment jobs."""
+    return CancelEnrichmentJobUseCase(_get_enrichment_job_manager())
 
 
 def _make_apply_indicators_use_case():

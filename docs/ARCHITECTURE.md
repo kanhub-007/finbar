@@ -1,7 +1,7 @@
 # Finbar Architecture
 
 Strict clean architecture per AGENTS.md — four layers plus a composition root.
-Dependencies flow inward. One class per file enforced mechanically (139 classes,
+Dependencies flow inward. One class per file enforced mechanically (151 classes,
 zero multi-class files).
 
 ## Layer Map
@@ -221,6 +221,17 @@ Agent
   → apply_strategy_features          (calculate rolling_max, body_pct, etc.)
   → backtest_strategy_json           (run against enriched primary bars)
   → save_strategy_json               (persist if happy)
+```
+
+For large datasets, agents can avoid huge enrichment payloads by using async
+enrichment jobs:
+
+```
+Agent
+  → start_enrichment_job            (server-side cached bars → indicators/features)
+  → get_enrichment_job_progress     (poll status/stage/progress)
+  → get_enrichment_job_results      (page enriched bars)
+  → backtest_strategy_json          (run against enriched bars)
 ```
 
 For multi-timeframe strategies, agents fetch and enrich each timeframe

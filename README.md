@@ -62,7 +62,7 @@ backtest → save
 available as behavioral targets for JSON-authoring and for signal-level parity
 testing.
 
-### MCP tools (20+ tools)
+### MCP tools (25+ tools)
 
 #### Strategy SDK tools
 | Tool | Description |
@@ -73,6 +73,10 @@ testing.
 | `explain_strategy_json` | Human-readable explanation of a strategy |
 | `backtest_strategy_json` | Backtest unsaved JSON against enriched bars |
 | `apply_strategy_features` | Calculate derived features before backtesting |
+| `start_enrichment_job` | Async server-side indicator/feature enrichment from cached bars |
+| `get_enrichment_job_progress` | Poll enrichment job status/stage/progress |
+| `get_enrichment_job_results` | Page enriched bars from a completed job |
+| `cancel_enrichment_job` | Cancel a queued/running enrichment job |
 | `save_strategy_json` | Validate and persist a strategy |
 | `delete_strategy_json` | Delete a saved strategy |
 
