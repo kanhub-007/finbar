@@ -44,18 +44,27 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "proxy_typical_price, etc.)."
         ),
     )
-    def apply_indicators(bars_json: str, indicators: list[str]) -> str:
+    def apply_indicators(bars_json: str, indicators: str | list[str]) -> str:
         """Apply indicators to bars and return enriched JSON.
 
         Args:
             bars_json: JSON string with OHLCV bars (from get_cached_prices).
                        Must include keys: timestamp, open, high, low, close,
                        volume.
-            indicators: List of indicator names to compute.
+            indicators: List of indicator names to compute (also accepts
+                        a JSON-encoded string like '["sma_20","rsi_14"]').
 
         Returns:
             JSON string with bars plus indicator columns.
         """
+        # Accept both list and JSON-encoded string for indicators
+        if isinstance(indicators, str):
+            try:
+                indicators = json.loads(indicators)
+            except json.JSONDecodeError:
+                return json.dumps(
+                    {"error": "indicators must be a list or JSON-encoded string"}
+                )
         try:
             bars = json.loads(bars_json)
             if not isinstance(bars, list):
