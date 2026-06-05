@@ -19,6 +19,12 @@ class StartOptimizationJobRequest:
     metric: str = "sharpe_ratio"
     """Metric used to rank results."""
 
+    search_method: str = "grid"
+    """Search method: grid or random."""
+
+    random_count: int = 20
+    """Number of random samples for random search."""
+
     informative_bars_artifact_ids: dict[str, str] = field(default_factory=dict)
     """Completed enrichment job IDs keyed by informative timeframe alias."""
 

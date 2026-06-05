@@ -35,6 +35,8 @@ def _params(request: StartOptimizationJobRequest) -> dict:
         "bars_artifact_id": request.bars_artifact_id,
         "param_ranges": dict(request.param_ranges),
         "metric": request.metric,
+        "search_method": request.search_method,
+        "random_count": request.random_count,
         "informative_bars_artifact_ids": dict(request.informative_bars_artifact_ids),
         "initial_cash": request.initial_cash,
     }

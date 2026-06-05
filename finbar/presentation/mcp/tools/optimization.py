@@ -34,10 +34,12 @@ def register_optimization_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="start_optimization_job",
         description=(
-            "Start a BACKGROUND grid search optimization job. Given a "
-            "strategy JSON with declared parameters, try every combination "
+            "Start a BACKGROUND optimization job. Given a "
+            "strategy JSON with declared parameters, try combinations "
             "of the specified parameter ranges and rank by a metric. "
-            "Requires a completed enrichment job artifact ID for the bars. "
+            "Use search_method='grid' (default) with min/max/step, "
+            "or search_method='random' with min/max/random_count. "
+            "Requires a completed enrichment job artifact ID. "
             "Max 100 combinations. Poll with "
             "get_optimization_job_progress(job_id), retrieve ranked results "
             "with get_optimization_job_results(job_id)."
@@ -50,6 +52,8 @@ def register_optimization_tools(mcp: FastMCP) -> None:
         metric: str = "sharpe_ratio",
         informative_bars_artifact_ids_json: str = "{}",
         initial_cash: float = 10000.0,
+        search_method: str = "grid",
+        random_count: int = 20,
     ) -> str:
         """Start a grid search optimization job and return its job id."""
         parsed = _parse_optimization_inputs(
@@ -64,6 +68,8 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             metric=parsed["metric"],
             informative_bars_artifact_ids=parsed["informative_artifact_ids"],
             initial_cash=initial_cash,
+            search_method=search_method,
+            random_count=random_count,
         )
         job = _make_start_optimization_job_use_case().execute(request)
         return json.dumps(

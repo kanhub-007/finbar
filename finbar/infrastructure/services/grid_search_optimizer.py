@@ -74,7 +74,12 @@ class GridSearchOptimizer(OptimizationJobRunner):
 
     def _sync_run(self, job: OptimizationJob) -> None:
         ranges = _parse_ranges(job.metadata.get("param_ranges", {}))
-        combinations = _generate_combinations(ranges)
+        method = job.metadata.get("search_method", "grid")
+        if method == "random":
+            count = job.metadata.get("random_count", 20)
+            combinations = _generate_random_combinations(ranges, count)
+        else:
+            combinations = _generate_combinations(ranges)
         if len(combinations) > _MAX_COMBINATIONS:
             self._manager.update(
                 job,
@@ -220,6 +225,35 @@ def _generate_combinations(
                 else value
             )
         combinations.append(params)
+    return combinations
+
+
+def _generate_random_combinations(
+    ranges: dict[str, ParamRange],
+    count: int,
+) -> list[dict[str, float]]:
+    """Generate random parameter combinations."""
+    if not ranges:
+        return [{}]
+    count = min(count, _MAX_COMBINATIONS)
+    names = list(ranges)
+    combinations: list[dict[str, float]] = []
+    seen: set[tuple] = set()
+    while len(combinations) < count and len(seen) < count * 10:
+        params = {}
+        key_parts = []
+        for name in names:
+            rng = ranges[name]
+            vals = rng.random_values(1)
+            value = vals[0]
+            if rng.step == int(rng.step) and value == int(value):
+                value = int(value)
+            params[name] = value
+            key_parts.append(value)
+        key = tuple(key_parts)
+        if key not in seen:
+            seen.add(key)
+            combinations.append(params)
     return combinations
 
 

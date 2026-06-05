@@ -32,3 +32,13 @@ class ParamRange:
     def count(self) -> int:
         """Return the number of grid values."""
         return len(self.values())
+
+    def random_values(self, n: int) -> list[float]:
+        """Generate n random values within this range."""
+        import random
+
+        if self.step == int(self.step):
+            return [
+                float(random.randint(int(self.min), int(self.max))) for _ in range(n)
+            ]
+        return [round(random.uniform(self.min, self.max), 2) for _ in range(n)]
