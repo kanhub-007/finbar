@@ -31,3 +31,9 @@ class StrategyMeta:
 
     params: dict = field(default_factory=dict)
     """Default parameter values, e.g. {"fast_period": 20, "slow_period": 50}."""
+
+    required_features: list[str] = field(default_factory=list)
+    """Feature names this strategy needs, e.g. ["prior_swing_high"]."""
+
+    type: str = ""
+    """Strategy type: builtin, user_defined, or user_defined_v2."""

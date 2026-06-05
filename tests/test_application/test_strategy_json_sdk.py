@@ -1,10 +1,19 @@
 """Tests for the v2 strategy JSON SDK application slice."""
 
+import json
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
 from finbar.core.application.dto.apply_strategy_features_request import (
     ApplyStrategyFeaturesRequest,
 )
 from finbar.core.application.dto.backtest_strategy_definition_request import (
     BacktestStrategyDefinitionRequest,
+)
+from finbar.core.application.dto.save_strategy_definition_request import (
+    SaveStrategyDefinitionRequest,
 )
 from finbar.core.application.services.strategy_definition_v2_parser import (
     StrategyDefinitionV2Parser,
@@ -14,6 +23,13 @@ from finbar.core.application.use_cases.apply_strategy_features import (
 )
 from finbar.core.application.use_cases.backtest_strategy_definition import (
     BacktestStrategyDefinitionUseCase,
+)
+from finbar.core.application.use_cases.save_strategy_definition import (
+    SaveStrategyDefinitionUseCase,
+)
+from finbar.infrastructure.data.connection import Base
+from finbar.infrastructure.repositories.sql_strategy_document_repository import (
+    SqlStrategyDocumentRepository,
 )
 from finbar.infrastructure.services.backtest_runner import BacktestRunner
 from finbar.infrastructure.services.json_strategy_definition_strategy_factory import (
@@ -25,6 +41,66 @@ from finbar.infrastructure.services.pandas_bar_frame_converter import (
 from finbar.infrastructure.services.pandas_strategy_feature_calculator import (
     PandasStrategyFeatureCalculator,
 )
+from finbar.infrastructure.tables.strategy_document import (
+    StrategyDocument as OrmStrategyDoc,
+)
+
+
+@pytest.fixture
+def mem_db():
+    """Create an in-memory SQLite database for v2 strategy document tests."""
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine, tables=[OrmStrategyDoc.__table__])
+    session = Session(engine)
+    yield session
+    session.close()
+    engine.dispose()
+
+
+def _make_save_use_case(db) -> SaveStrategyDefinitionUseCase:
+    return SaveStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))
+
+
+def _sma_json_str() -> str:
+    return json.dumps(
+        {
+            "schema_version": "2.0",
+            "name": "persisted_sma_cross",
+            "parameters": {
+                "fast_period": {
+                    "type": "int",
+                    "default": 20,
+                    "minimum": 2,
+                    "maximum": 200,
+                },
+                "slow_period": {
+                    "type": "int",
+                    "default": 50,
+                    "minimum": 2,
+                    "maximum": 200,
+                },
+            },
+            "indicators": [
+                {"name": "fast_sma", "type": "sma", "period": "{{ fast_period }}"},
+                {"name": "slow_sma", "type": "sma", "period": "{{ slow_period }}"},
+            ],
+            "sides": {
+                "long": {
+                    "entry": {
+                        "condition": {
+                            "all": [
+                                {
+                                    "left": "fast_sma",
+                                    "operator": "crosses_above",
+                                    "right": "slow_sma",
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+        }
+    )
 
 
 def _sma_strategy() -> dict:
@@ -581,3 +657,153 @@ def _make_use_case() -> BacktestStrategyDefinitionUseCase:
         converter=PandasBarFrameConverter(),
         strategy_factory=JsonStrategyDefinitionStrategyFactory(),
     )
+
+
+# ---------------------------------------------------------------------------
+# Persistence helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_save_use_case(db) -> SaveStrategyDefinitionUseCase:
+    return SaveStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))
+
+
+def _sma_json_str() -> str:
+    return json.dumps(
+        {
+            "schema_version": "2.0",
+            "name": "persisted_sma_cross",
+            "parameters": {
+                "fast_period": {
+                    "type": "int",
+                    "default": 20,
+                    "minimum": 2,
+                    "maximum": 200,
+                },
+                "slow_period": {
+                    "type": "int",
+                    "default": 50,
+                    "minimum": 2,
+                    "maximum": 200,
+                },
+            },
+            "indicators": [
+                {"name": "fast_sma", "type": "sma", "period": "{{ fast_period }}"},
+                {"name": "slow_sma", "type": "sma", "period": "{{ slow_period }}"},
+            ],
+            "sides": {
+                "long": {
+                    "entry": {
+                        "condition": {
+                            "all": [
+                                {
+                                    "left": "fast_sma",
+                                    "operator": "crosses_above",
+                                    "right": "slow_sma",
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+        }
+    )
+
+
+def _summary_bar(**overrides) -> dict:
+    bar = {
+        "timestamp": "2024-01-01",
+        "open": 100,
+        "high": 101,
+        "low": 99,
+        "close": 100,
+        "volume": 1000,
+        "sma_20": 101,
+        "sma_50": 100,
+    }
+    bar.update(overrides)
+    return bar
+
+
+class TestStrategyPersistence:
+    def test_save_valid_strategy(self, mem_db):
+        result = _make_save_use_case(mem_db).execute(
+            SaveStrategyDefinitionRequest(definition_json=_sma_json_str())
+        )
+        assert result.saved is True
+        assert result.name == "persisted_sma_cross"
+        assert result.schema_version == "2.0"
+        assert result.error == ""
+
+    def test_save_invalid_strategy_returns_errors(self, mem_db):
+        bad_json = json.dumps({"schema_version": "2.0", "name": "bad"})
+        result = _make_save_use_case(mem_db).execute(
+            SaveStrategyDefinitionRequest(definition_json=bad_json)
+        )
+        assert result.saved is False
+        assert len(result.validation_errors) > 0
+
+    def test_save_duplicate_name_updates(self, mem_db):
+        use_case = _make_save_use_case(mem_db)
+        first = use_case.execute(
+            SaveStrategyDefinitionRequest(definition_json=_sma_json_str())
+        )
+        assert first.saved is True
+
+        second = use_case.execute(
+            SaveStrategyDefinitionRequest(definition_json=_sma_json_str())
+        )
+        assert second.saved is True
+        assert second.name == "persisted_sma_cross"
+
+    def test_retrieve_after_save(self, mem_db):
+        use_case = _make_save_use_case(mem_db)
+        use_case.execute(SaveStrategyDefinitionRequest(definition_json=_sma_json_str()))
+        doc = SqlStrategyDocumentRepository(mem_db).find_by_name("persisted_sma_cross")
+        assert doc is not None
+        assert doc.schema_version == "2.0"
+        assert "fast_sma" in doc.definition_json
+
+    def test_delete_after_save(self, mem_db):
+        use_case = _make_save_use_case(mem_db)
+        use_case.execute(SaveStrategyDefinitionRequest(definition_json=_sma_json_str()))
+        repo = SqlStrategyDocumentRepository(mem_db)
+        assert repo.delete("persisted_sma_cross") is True
+        assert repo.find_by_name("persisted_sma_cross") is None
+
+    def test_backtest_by_name_after_save(self, mem_db):
+        use_case = _make_save_use_case(mem_db)
+        use_case.execute(SaveStrategyDefinitionRequest(definition_json=_sma_json_str()))
+
+        from finbar.core.domain.entities.strategy_meta import DataMode
+        from finbar.infrastructure.services.database_v2_strategy_provider import (
+            DatabaseV2StrategyProvider,
+        )
+
+        provider = DatabaseV2StrategyProvider(SqlStrategyDocumentRepository(mem_db))
+        strategy = provider.create("persisted_sma_cross")
+        assert strategy is not None
+
+        meta = strategy.meta()
+        assert meta.name == "persisted_sma_cross"
+        assert meta.variant == DataMode.REAL
+        assert "sma_20" in meta.required_indicators
+        assert "sma_50" in meta.required_indicators
+
+        strategy.on_reset()
+
+        bar_before = _summary_bar(sma_20=99, sma_50=100)
+        assert strategy.on_bar(bar_before, {}).action == "hold"
+
+        bar_cross = _summary_bar(sma_20=101, sma_50=100)
+        signal = strategy.on_bar(bar_cross, {})
+        assert signal.action == "buy"
+        assert signal.direction == "long"
+
+    def test_list_includes_v2_entries(self, mem_db):
+        use_case = _make_save_use_case(mem_db)
+        use_case.execute(SaveStrategyDefinitionRequest(definition_json=_sma_json_str()))
+        docs = SqlStrategyDocumentRepository(mem_db).list_all()
+        assert len(docs) == 1
+        assert docs[0].name == "persisted_sma_cross"
+        assert docs[0].schema_version == "2.0"

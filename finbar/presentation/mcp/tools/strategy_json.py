@@ -10,6 +10,9 @@ from finbar.core.application.dto.apply_strategy_features_request import (
 from finbar.core.application.dto.backtest_strategy_definition_request import (
     BacktestStrategyDefinitionRequest,
 )
+from finbar.core.application.dto.save_strategy_definition_request import (
+    SaveStrategyDefinitionRequest,
+)
 from finbar.core.application.services.strategy_capability_service import (
     StrategyCapabilityService,
 )
@@ -32,8 +35,10 @@ from finbar.presentation.mcp.presenters.strategy_json_presenter import (
     StrategyJsonPresenter,
 )
 from finbar.startup.service_factory import (
+    _get_db,
     _make_apply_strategy_features_use_case,
     _make_backtest_strategy_definition_use_case,
+    _make_save_strategy_definition_use_case,
 )
 
 
@@ -159,6 +164,69 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             )
         )
         return json.dumps(StrategyJsonPresenter().backtest_result(result), indent=2)
+
+    @mcp.tool(
+        name="save_strategy_json",
+        description=(
+            "Validate and persist a v2 strategy JSON definition. "
+            "Returns validation errors if the definition is invalid. "
+            "On success, the strategy can be backtested by name."
+        ),
+    )
+    def save_strategy_json(
+        definition_json: str,
+        name_override: str = "",
+    ) -> str:
+        """Validate and save a v2 strategy definition to the database."""
+        db = _get_db()
+        try:
+            use_case = _make_save_strategy_definition_use_case(db)
+            result = use_case.execute(
+                SaveStrategyDefinitionRequest(
+                    definition_json=definition_json,
+                    name_override=name_override or None,
+                )
+            )
+            return json.dumps(
+                {
+                    "saved": result.saved,
+                    "name": result.name,
+                    "schema_version": result.schema_version,
+                    "error": result.error,
+                    "validation_errors": [
+                        {
+                            "path": e.path,
+                            "message": e.message,
+                            "code": e.code,
+                        }
+                        for e in result.validation_errors
+                    ],
+                },
+                indent=2,
+            )
+        finally:
+            db.close()
+
+    @mcp.tool(
+        name="delete_strategy_json",
+        description="Delete a saved v2 strategy document by name.",
+    )
+    def delete_strategy_json(name: str) -> str:
+        """Delete a saved v2 strategy document."""
+        db = _get_db()
+        try:
+            from finbar.infrastructure.repositories import (
+                sql_strategy_document_repository as sdd,
+            )
+
+            repo = sdd.SqlStrategyDocumentRepository(db)
+            if repo.delete(name):
+                return json.dumps({"deleted": True, "name": name}, indent=2)
+            return json.dumps(
+                {"deleted": False, "name": name, "error": "not found"}, indent=2
+            )
+        finally:
+            db.close()
 
 
 def _loads_object(raw: str, name: str) -> dict:

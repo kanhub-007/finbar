@@ -32,3 +32,6 @@ class StrategyValidationResult:
 
     missing_columns: list[str] = field(default_factory=list)
     """Required bar columns missing from a supplied enriched dataset."""
+
+    normalized: dict = field(default_factory=dict)
+    """Canonical normalized v2 JSON representation of the parsed definition."""

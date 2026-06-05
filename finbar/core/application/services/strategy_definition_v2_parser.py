@@ -103,6 +103,7 @@ class StrategyDefinitionV2Parser:
         return StrategyValidationResult(
             valid=True,
             definition=definition,
+            normalized=_serialize_definition(definition),
             required_indicators=[item.concrete_name for item in indicators],
             required_columns=RequiredColumnCollector().collect(definition),
         )
@@ -146,3 +147,89 @@ def _err(
     path: str, message: str, code: str = "validation_error"
 ) -> StrategyValidationError:
     return StrategyValidationError(path=path, message=message, code=code)
+
+
+def _serialize_definition(definition: StrategyDefinitionV2) -> dict:
+    """Serialize a canonical v2 definition to a JSON-serializable dict."""
+    result: dict = {
+        "schema_version": definition.schema_version,
+        "name": definition.name,
+    }
+    if definition.description:
+        result["description"] = definition.description
+
+    if definition.parameters:
+        result["parameters"] = {
+            name: _serialize_parameter(p) for name, p in definition.parameters.items()
+        }
+
+    if definition.indicators:
+        result["indicators"] = [
+            {
+                "name": i.name,
+                "type": i.type,
+                "concrete_name": i.concrete_name,
+                "period": i.period,
+                "source": i.source,
+            }
+            for i in definition.indicators
+        ]
+
+    if definition.features:
+        result["features"] = [
+            {
+                "name": f.name,
+                "type": f.type,
+                "source": f.source,
+                "window": f.window,
+                "shift": f.shift,
+            }
+            for f in definition.features
+        ]
+
+    if definition.risk is not None:
+        result["risk"] = {
+            "stop_loss": {
+                "type": definition.risk.stop_loss_type,
+                "indicator": definition.risk.stop_indicator,
+                "multiplier": definition.risk.stop_multiplier,
+            },
+            "take_profit": {
+                "type": definition.risk.take_profit_type,
+                "indicator": definition.risk.take_profit_indicator,
+                "multiplier": definition.risk.take_profit_multiplier,
+            },
+        }
+
+    if definition.sides:
+        result["sides"] = {}
+        for side, s in definition.sides.items():
+            side_obj: dict = {"entry": {"condition": _serialize_group(s.entry)}}
+            if s.exit is not None:
+                side_obj["exit"] = {"condition": _serialize_group(s.exit)}
+            result["sides"][side] = side_obj
+
+    if definition.metadata:
+        result["metadata"] = definition.metadata
+
+    return result
+
+
+def _serialize_parameter(param) -> dict:
+    p: dict = {"type": param.type, "default": param.default}
+    if param.minimum is not None:
+        p["minimum"] = param.minimum
+    if param.maximum is not None:
+        p["maximum"] = param.maximum
+    return p
+
+
+def _serialize_group(group) -> dict:
+    if group.kind == "condition" and group.condition is not None:
+        c = group.condition
+        entry: dict = {"left": c.left.value, "operator": c.operator}
+        if c.right is not None:
+            entry["right"] = c.right.value
+        return entry
+    result: dict = {group.kind: [_serialize_group(child) for child in group.children]}
+    return result

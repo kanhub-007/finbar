@@ -25,6 +25,9 @@ from finbar.core.application.use_cases.query_cached_prices import (
     QueryCachedPricesUseCase,
 )
 from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
+from finbar.core.application.use_cases.save_strategy_definition import (
+    SaveStrategyDefinitionUseCase,
+)
 from finbar.core.domain.entities.data_source import DataSource
 from finbar.core.domain.entities.interval import Interval
 from finbar.infrastructure.data.connection import SessionLocal
@@ -33,6 +36,9 @@ from finbar.infrastructure.repositories.sql_price_cache_repository import (
 )
 from finbar.infrastructure.repositories.sql_strategy_definition_repository import (
     SqlStrategyDefinitionRepository,
+)
+from finbar.infrastructure.repositories.sql_strategy_document_repository import (
+    SqlStrategyDocumentRepository,
 )
 from finbar.infrastructure.repositories.sql_symbol_info_repository import (
     SqlSymbolInfoRepository,
@@ -46,6 +52,9 @@ from finbar.infrastructure.services.composite_strategy_provider import (
 )
 from finbar.infrastructure.services.database_strategy_provider import (
     DatabaseStrategyProvider,
+)
+from finbar.infrastructure.services.database_v2_strategy_provider import (
+    DatabaseV2StrategyProvider,
 )
 from finbar.infrastructure.services.fetch_job_manager import FetchJobManager
 from finbar.infrastructure.services.json_strategy_definition_strategy_factory import (
@@ -287,6 +296,8 @@ def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvi
     if db is not None:
         repo = SqlStrategyDefinitionRepository(db)
         providers.append(DatabaseStrategyProvider(repo))
+        v2_repo = SqlStrategyDocumentRepository(db)
+        providers.append(DatabaseV2StrategyProvider(v2_repo))
     return CompositeStrategyProvider(providers)
 
 
@@ -298,3 +309,10 @@ def _resolve_strategy(name: str, params: dict | None = None) -> object | None:
         return provider.create(name, params or {})
     finally:
         db.close()
+
+
+def _make_save_strategy_definition_use_case(
+    db: Session,
+) -> SaveStrategyDefinitionUseCase:
+    """Create a use case for validating and saving v2 strategy documents."""
+    return SaveStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))

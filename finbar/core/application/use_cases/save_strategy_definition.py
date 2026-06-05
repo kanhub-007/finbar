@@ -1,0 +1,103 @@
+"""SaveStrategyDefinitionUseCase — validate then persist a v2 strategy document."""
+
+import json
+import logging
+from datetime import UTC, datetime
+
+from finbar.core.application.dto.save_strategy_definition_request import (
+    SaveStrategyDefinitionRequest,
+)
+from finbar.core.application.dto.save_strategy_definition_result import (
+    SaveStrategyDefinitionResult,
+)
+from finbar.core.application.services.strategy_definition_v2_parser import (
+    StrategyDefinitionV2Parser,
+)
+from finbar.core.domain.entities.strategy_document import StrategyDocument
+from finbar.core.domain.interfaces.strategy_document_repository import (
+    StrategyDocumentRepository,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class SaveStrategyDefinitionUseCase:
+    """Validate a v2 JSON strategy definition and persist it if valid."""
+
+    def __init__(self, repository: StrategyDocumentRepository):
+        """Create the use case with a document repository.
+
+        Args:
+            repository: StrategyDocumentRepository for persistence.
+        """
+        self._repository = repository
+
+    def execute(
+        self, request: SaveStrategyDefinitionRequest
+    ) -> SaveStrategyDefinitionResult:
+        """Validate and save a v2 strategy definition.
+
+        Args:
+            request: SaveStrategyDefinitionRequest with the JSON definition.
+
+        Returns:
+            SaveStrategyDefinitionResult indicating success or structured errors.
+        """
+        try:
+            raw = json.loads(request.definition_json)
+        except json.JSONDecodeError as exc:
+            return SaveStrategyDefinitionResult(
+                saved=False, error=f"Invalid JSON: {exc}"
+            )
+
+        parser = StrategyDefinitionV2Parser()
+        validation = parser.parse(raw)
+
+        if not validation.valid:
+            return SaveStrategyDefinitionResult(
+                saved=False,
+                validation_errors=validation.errors,
+                error="Validation failed — see validation_errors for details",
+            )
+
+        if validation.definition is None:
+            return SaveStrategyDefinitionResult(
+                saved=False,
+                error="Parsed definition is None despite passing validation",
+            )
+
+        name = request.name_override or validation.definition.name
+        if not name:
+            return SaveStrategyDefinitionResult(
+                saved=False, error="Strategy name is required"
+            )
+
+        now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+        normalized = json.dumps(validation.normalized, indent=2, sort_keys=True)
+
+        document = StrategyDocument(
+            name=name,
+            schema_version=validation.definition.schema_version,
+            description=validation.definition.description,
+            definition_json=request.definition_json,
+            normalized_json=normalized,
+            created_at=now,
+            updated_at=now,
+        )
+
+        try:
+            self._repository.save(document)
+        except Exception as exc:
+            logger.exception("Failed to save strategy document '%s'", name)
+            return SaveStrategyDefinitionResult(
+                saved=False,
+                name=name,
+                error=f"Database error: {exc}",
+            )
+
+        logger.info("Saved strategy document '%s' (v%s)", name, document.schema_version)
+        return SaveStrategyDefinitionResult(
+            saved=True,
+            name=name,
+            schema_version=document.schema_version,
+        )

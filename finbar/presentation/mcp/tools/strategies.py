@@ -119,6 +119,9 @@ def register_strategy_tools(mcp: FastMCP) -> None:
             from finbar.infrastructure.repositories import (
                 sql_strategy_definition_repository as sdr,
             )
+            from finbar.infrastructure.repositories import (
+                sql_strategy_document_repository as sdd,
+            )
 
             repo = sdr.SqlStrategyDefinitionRepository(db)
             for sdef in repo.list_all():
@@ -134,6 +137,20 @@ def register_strategy_tools(mcp: FastMCP) -> None:
                         "required_indicators": indicators,
                         "stop_loss_atr_mult": sdef.stop_loss_atr_mult,
                         "take_profit_atr_mult": sdef.take_profit_atr_mult,
+                    }
+                )
+
+            # v2 strategy documents
+            v2_repo = sdd.SqlStrategyDocumentRepository(db)
+            for doc in v2_repo.list_all():
+                strategies.append(
+                    {
+                        "name": doc.name,
+                        "type": "user_defined_v2",
+                        "schema_version": doc.schema_version,
+                        "description": doc.description,
+                        "created_at": doc.created_at,
+                        "updated_at": doc.updated_at,
                     }
                 )
         finally:
@@ -179,41 +196,63 @@ def register_strategy_tools(mcp: FastMCP) -> None:
             from finbar.infrastructure.repositories import (
                 sql_strategy_definition_repository as sdr,
             )
+            from finbar.infrastructure.repositories import (
+                sql_strategy_document_repository as sdd,
+            )
 
             repo = sdr.SqlStrategyDefinitionRepository(db)
             sdef = repo.find_by_name(name)
-            if sdef is None:
-                return f"Strategy '{name}' not found."
-            return json.dumps(
-                {
-                    "name": sdef.name,
-                    "type": "user_defined",
-                    "direction": sdef.direction,
-                    "description": sdef.description,
-                    "entry_rules": [
-                        {
-                            "indicator": r.indicator,
-                            "operator": r.operator,
-                            "value": r.value,
-                        }
-                        for r in sdef.entry_rules
-                    ],
-                    "exit_rules": [
-                        {
-                            "indicator": r.indicator,
-                            "operator": r.operator,
-                            "value": r.value,
-                        }
-                        for r in sdef.exit_rules
-                    ],
-                    "stop_loss_atr_mult": sdef.stop_loss_atr_mult,
-                    "take_profit_atr_mult": sdef.take_profit_atr_mult,
-                    "require_all_entry_rules": sdef.require_all_entry_rules,
-                    "created_at": sdef.created_at,
-                    "updated_at": sdef.updated_at,
-                },
-                indent=2,
-            )
+            if sdef is not None:
+                return json.dumps(
+                    {
+                        "name": sdef.name,
+                        "type": "user_defined",
+                        "direction": sdef.direction,
+                        "description": sdef.description,
+                        "entry_rules": [
+                            {
+                                "indicator": r.indicator,
+                                "operator": r.operator,
+                                "value": r.value,
+                            }
+                            for r in sdef.entry_rules
+                        ],
+                        "exit_rules": [
+                            {
+                                "indicator": r.indicator,
+                                "operator": r.operator,
+                                "value": r.value,
+                            }
+                            for r in sdef.exit_rules
+                        ],
+                        "stop_loss_atr_mult": sdef.stop_loss_atr_mult,
+                        "take_profit_atr_mult": sdef.take_profit_atr_mult,
+                        "require_all_entry_rules": sdef.require_all_entry_rules,
+                        "created_at": sdef.created_at,
+                        "updated_at": sdef.updated_at,
+                    },
+                    indent=2,
+                )
+
+            # Check v2 documents
+            v2_repo = sdd.SqlStrategyDocumentRepository(db)
+            doc = v2_repo.find_by_name(name)
+            if doc is not None:
+                return json.dumps(
+                    {
+                        "name": doc.name,
+                        "type": "user_defined_v2",
+                        "schema_version": doc.schema_version,
+                        "description": doc.description,
+                        "definition_json": doc.definition_json,
+                        "normalized_json": doc.normalized_json,
+                        "created_at": doc.created_at,
+                        "updated_at": doc.updated_at,
+                    },
+                    indent=2,
+                )
+
+            return f"Strategy '{name}' not found."
         finally:
             db.close()
 
