@@ -1,4 +1,4 @@
-"""StrategyRiskResolver — parse v2 structured risk blocks."""
+"""StrategyRiskResolver — parse structured risk blocks."""
 
 from typing import Any
 

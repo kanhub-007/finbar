@@ -1,4 +1,4 @@
-"""RequiredColumnCollector — collect bar columns needed by v2 strategies."""
+"""RequiredColumnCollector — collect bar columns needed by strategies."""
 
 from finbar.core.domain.entities.condition import Condition
 from finbar.core.domain.entities.operand import Operand

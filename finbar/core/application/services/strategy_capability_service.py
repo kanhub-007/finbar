@@ -44,7 +44,7 @@ class StrategyCapabilityService:
         self._catalog = catalog or StrategyIndicatorCatalog()
 
     def get_capabilities(self) -> dict:
-        """Return the current v2 strategy SDK capabilities."""
+        """Return the current strategy SDK capabilities."""
         return {
             "schema_version": "2.0",
             "orchestration": [

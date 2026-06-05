@@ -9,7 +9,7 @@ from finbar.core.domain.entities.strategy_validation_error import (
 
 
 class StrategyLimitRule(ABC):
-    """Enforce a specific limit on v2 strategy definitions."""
+    """Enforce a specific limit on strategy definitions."""
 
     @abstractmethod
     def check(

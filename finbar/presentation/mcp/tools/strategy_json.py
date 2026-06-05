@@ -49,7 +49,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         description="Return a compact JSON Schema for strategy definitions.",
     )
     def get_strategy_schema() -> str:
-        """Return a compact JSON Schema for v2 strategy JSON."""
+        """Return a compact JSON Schema for strategy JSON."""
         return json.dumps(_get_schema_provider().get_schema(), indent=2)
 
     @mcp.tool(
@@ -95,7 +95,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         bars_json: str,
         params_json: str = "{}",
     ) -> str:
-        """Apply v2 feature declarations to supplied bars."""
+        """Apply feature declarations to supplied bars."""
         bars = _loads_array(bars_json, "bars_json")
         if isinstance(bars, dict) and "error" in bars:
             return json.dumps(bars)

@@ -12,7 +12,7 @@ from finbar.core.domain.entities.strategy_parameter import StrategyParameter
 
 @dataclass(frozen=True)
 class StrategyDefinition:
-    """Canonical v2 strategy definition after parsing and parameter resolution.
+    """Canonical strategy definition after parsing and parameter resolution.
 
     This entity is independent from persistence and presentation. It represents
     a validated strategy that can be explained or compiled to a TradingStrategy.

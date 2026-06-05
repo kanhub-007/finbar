@@ -1,4 +1,4 @@
-"""Warning rule defaults for v2 strategy validation."""
+"""Warning rule defaults for strategy validation."""
 
 from finbar.core.application.services.no_exit_warning_rule import NoExitWarningRule
 from finbar.core.application.services.no_stop_warning_rule import NoStopWarningRule

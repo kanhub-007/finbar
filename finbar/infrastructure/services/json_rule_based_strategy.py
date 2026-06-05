@@ -1,4 +1,4 @@
-"""JsonRuleBasedStrategy — execute validated v2 JSON strategies."""
+"""JsonRuleBasedStrategy — execute validated JSON strategies."""
 
 from finbar.core.domain.entities.signal_result import SignalResult
 from finbar.core.domain.entities.strategy_definition import StrategyDefinition

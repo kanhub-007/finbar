@@ -1,4 +1,4 @@
-"""StrategyFeatureResolver — parse v2 derived feature declarations."""
+"""StrategyFeatureResolver — parse derived feature declarations."""
 
 from typing import Any
 

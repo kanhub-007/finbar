@@ -1,4 +1,4 @@
-"""Limit rule defaults for v2 strategy validation."""
+"""Limit rule defaults for strategy validation."""
 
 from finbar.core.application.services.max_condition_depth_limit_rule import (
     MaxConditionDepthLimitRule,

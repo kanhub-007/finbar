@@ -287,7 +287,7 @@ def _get_backtest_runner() -> BacktestRunner:
 
 
 def _get_json_strategy_factory() -> StrategyDefinitionFactory:
-    """Return the v2 JSON strategy factory."""
+    """Return the JSON strategy factory."""
     global _json_strategy_factory
     if _json_strategy_factory is None:
         _json_strategy_factory = StrategyDefinitionFactory()
@@ -303,7 +303,7 @@ def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:
 
 
 def _get_parser() -> StrategyDefinitionParser:
-    """Return the shared v2 strategy JSON parser."""
+    """Return the shared strategy JSON parser."""
     global _parser
     if _parser is None:
         _parser = StrategyDefinitionParser()
@@ -367,10 +367,10 @@ def _make_delete_strategy_definition_use_case(
 
 
 def _make_explain_strategy_definition_use_case() -> ExplainStrategyDefinitionUseCase:
-    """Create a use case for explaining v2 strategy JSON."""
+    """Create a use case for explaining strategy JSON."""
     return ExplainStrategyDefinitionUseCase(parser=_get_parser())
 
 
 def _make_validate_strategy_definition_use_case() -> ValidateStrategyDefinitionUseCase:
-    """Create a use case for validating v2 strategy JSON."""
+    """Create a use case for validating strategy JSON."""
     return ValidateStrategyDefinitionUseCase(_get_parser())

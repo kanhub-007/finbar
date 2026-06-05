@@ -1,4 +1,4 @@
-"""StrategyIndicatorResolver — resolve v2 indicator aliases."""
+"""StrategyIndicatorResolver — resolve indicator aliases."""
 
 from typing import Any
 

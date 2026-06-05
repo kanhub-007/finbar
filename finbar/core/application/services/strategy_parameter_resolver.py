@@ -1,4 +1,4 @@
-"""StrategyParameterResolver — parse and resolve v2 parameters."""
+"""StrategyParameterResolver — parse and resolve parameters."""
 
 from typing import Any
 

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class StrategyDocument:
-    """A saved v2 JSON strategy definition with metadata."""
+    """A saved JSON strategy definition with metadata."""
 
     name: str
     schema_version: str

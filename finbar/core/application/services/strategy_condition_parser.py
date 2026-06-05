@@ -1,4 +1,4 @@
-"""StrategyConditionParser — parse v2 side rule condition trees."""
+"""StrategyConditionParser — parse side rule condition trees."""
 
 from typing import Any
 

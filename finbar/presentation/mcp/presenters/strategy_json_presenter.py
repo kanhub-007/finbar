@@ -1,4 +1,4 @@
-"""StrategyJsonPresenter — format v2 strategy SDK MCP responses."""
+"""StrategyJsonPresenter — format strategy SDK MCP responses."""
 
 from dataclasses import asdict
 

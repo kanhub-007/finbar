@@ -1,4 +1,4 @@
-"""StrategyOperandParser — parse v2 condition operands."""
+"""StrategyOperandParser — parse condition operands."""
 
 from typing import Any
 
