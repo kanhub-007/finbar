@@ -222,9 +222,7 @@ class TestStrategyJsonSdk:
                 "long": {
                     "entry": {
                         "condition": {
-                            "all": [
-                                {"left": "fast", "operator": ">", "right": "close"}
-                            ]
+                            "all": [{"left": "fast", "operator": ">", "right": "close"}]
                         }
                     }
                 }

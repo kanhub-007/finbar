@@ -24,6 +24,9 @@ from finbar.core.application.use_cases.backtest_strategy_definition import (
 from finbar.core.application.use_cases.cancel_enrichment_job import (
     CancelEnrichmentJobUseCase,
 )
+from finbar.core.application.use_cases.cancel_optimization_job import (
+    CancelOptimizationJobUseCase,
+)
 from finbar.core.application.use_cases.delete_cached_prices import (
     DeleteCachedPricesUseCase,
 )
@@ -41,6 +44,12 @@ from finbar.core.application.use_cases.get_enrichment_job_results import (
     GetEnrichmentJobResultsUseCase,
 )
 from finbar.core.application.use_cases.get_latest_quote import GetLatestQuoteUseCase
+from finbar.core.application.use_cases.get_optimization_job_progress import (
+    GetOptimizationJobProgressUseCase,
+)
+from finbar.core.application.use_cases.get_optimization_job_results import (
+    GetOptimizationJobResultsUseCase,
+)
 from finbar.core.application.use_cases.get_symbol_info import GetSymbolInfoUseCase
 from finbar.core.application.use_cases.list_cached_symbols import (
     ListCachedSymbolsUseCase,
@@ -54,6 +63,9 @@ from finbar.core.application.use_cases.save_strategy_definition import (
 )
 from finbar.core.application.use_cases.start_enrichment_job import (
     StartEnrichmentJobUseCase,
+)
+from finbar.core.application.use_cases.start_optimization_job import (
+    StartOptimizationJobUseCase,
 )
 from finbar.core.application.use_cases.validate_strategy_definition import (
     ValidateStrategyDefinitionUseCase,
@@ -84,8 +96,14 @@ from finbar.infrastructure.services.database_strategy_provider import (
     DatabaseStrategyProvider,
 )
 from finbar.infrastructure.services.fetch_job_manager import FetchJobManager
+from finbar.infrastructure.services.grid_search_optimizer import (
+    GridSearchOptimizer,
+)
 from finbar.infrastructure.services.in_memory_enrichment_job_manager import (
     InMemoryEnrichmentJobManager,
+)
+from finbar.infrastructure.services.in_memory_optimization_job_manager import (
+    InMemoryOptimizationJobManager,
 )
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
@@ -112,6 +130,8 @@ _hl_fetcher: object | None = None
 _job_manager: FetchJobManager | None = None
 _enrichment_job_manager: InMemoryEnrichmentJobManager | None = None
 _enrichment_job_runner: CachedPriceEnrichmentJobRunner | None = None
+_optimization_job_manager: InMemoryOptimizationJobManager | None = None
+_optimizer: GridSearchOptimizer | None = None
 _indicator_calc: PandasTaIndicatorCalculator | None = None
 _bar_frame_converter: PandasBarFrameConverter | None = None
 _bt_runner: BacktestRunner | None = None
@@ -291,6 +311,53 @@ def _make_get_enrichment_job_results_use_case() -> GetEnrichmentJobResultsUseCas
 def _make_cancel_enrichment_job_use_case() -> CancelEnrichmentJobUseCase:
     """Create a use case for cancelling enrichment jobs."""
     return CancelEnrichmentJobUseCase(_get_enrichment_job_manager())
+
+
+def _get_optimization_job_manager() -> InMemoryOptimizationJobManager:
+    """Lazy-init the optimization job manager."""
+    global _optimization_job_manager
+    if _optimization_job_manager is None:
+        _optimization_job_manager = InMemoryOptimizationJobManager()
+    return _optimization_job_manager
+
+
+def _get_optimizer() -> GridSearchOptimizer:
+    """Return the shared grid search optimizer."""
+    global _optimizer
+    if _optimizer is None:
+        _optimizer = GridSearchOptimizer(
+            parser=_get_parser(),
+            engine=_get_backtest_runner(),
+            converter=_get_bar_frame_converter(),
+            strategy_factory=_get_json_strategy_factory(),
+            manager=_get_optimization_job_manager(),
+            artifact_provider=_get_enrichment_job_manager(),
+            timeframe_merger=_get_timeframe_bar_merger(),
+        )
+    return _optimizer
+
+
+def _make_start_optimization_job_use_case() -> StartOptimizationJobUseCase:
+    """Create a use case for starting optimization jobs."""
+    return StartOptimizationJobUseCase(
+        _get_optimization_job_manager(),
+        _get_optimizer(),
+    )
+
+
+def _make_get_optimization_job_progress_use_case() -> GetOptimizationJobProgressUseCase:
+    """Create a use case for optimization job progress."""
+    return GetOptimizationJobProgressUseCase(_get_optimization_job_manager())
+
+
+def _make_get_optimization_job_results_use_case() -> GetOptimizationJobResultsUseCase:
+    """Create a use case for optimization job results."""
+    return GetOptimizationJobResultsUseCase(_get_optimization_job_manager())
+
+
+def _make_cancel_optimization_job_use_case() -> CancelOptimizationJobUseCase:
+    """Create a use case for cancelling optimization jobs."""
+    return CancelOptimizationJobUseCase(_get_optimization_job_manager())
 
 
 def _make_apply_indicators_use_case():
