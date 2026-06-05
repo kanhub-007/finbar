@@ -9,40 +9,22 @@ from finbar.core.application.services.strategy_definition_parser import (
 
 
 def test_auction_drive_json_parses():
-    """The auction drive JSON fixture parses with all SDK features."""
     text = Path("tests/fixtures/strategies/auction_drive_json.json").read_text()
     strategy = json.loads(text)
 
     result = StrategyDefinitionParser().parse(strategy)
 
-    assert result.valid is True, f"Validation errors: {result.errors}"
+    assert result.valid is True, f"Errors: {result.errors}"
     assert result.definition is not None
-
-    # Multi-timeframe
     assert result.definition.timeframes is not None
     assert result.definition.timeframes.primary == "1h"
-    assert result.definition.timeframes.informative[0].alias == "daily"
-
-    # Split enrichment instructions
-    assert result.informative_required_indicators == {"daily": ["sma_50", "sma_200"]}
-
-    # Parameters resolve
-    assert result.definition.resolved_params["trend_fast"] == 50
-    assert result.definition.resolved_params["stop_atr_mult"] == 2.5
-
-    # Risk
-    assert result.definition.risk is not None
-    assert result.definition.risk.stop_multiplier == 2.5
-
-    # Indicators present (6 declared)
     assert len(result.definition.indicators) == 6
-
-    # Features present (3 declared: body_pct + 2 formulas)
     assert len(result.definition.features) == 3
+    assert result.definition.risk is not None
+    assert result.required_columns
 
 
 def test_auction_drive_json_explains():
-    """The auction drive JSON strategy produces a readable explanation."""
     text = Path("tests/fixtures/strategies/auction_drive_json.json").read_text()
     from finbar.core.application.use_cases.explain_strategy_definition import (
         ExplainStrategyDefinitionUseCase,

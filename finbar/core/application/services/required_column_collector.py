@@ -29,6 +29,7 @@ class RequiredColumnCollector(ConditionTreeVisitor):
             self.visit_group(rules.entry)
             self.visit_group(rules.exit)
         self._add_risk_columns(definition)
+        self._add_formula_columns(definition)
         return list(self._columns)
 
     def visit_condition(self, condition: Condition) -> None:
@@ -53,3 +54,27 @@ class RequiredColumnCollector(ConditionTreeVisitor):
     def _add(self, column: str) -> None:
         if column not in self._columns:
             self._columns.append(column)
+
+    def _add_formula_columns(self, definition: StrategyDefinition) -> None:
+        """Collect indicator columns referenced inside formula features."""
+        for feature in definition.features:
+            if feature.type != "formula" or feature.raw_expr is None:
+                continue
+            _collect_formula_expr_columns(feature.raw_expr, self._add)
+
+
+def _collect_formula_expr_columns(expr: dict, add) -> None:
+    """Walk formula expression tree and collect indicator column names."""
+    if not isinstance(expr, dict):
+        return
+    for key in ("left", "right", "operand"):
+        val = expr.get(key)
+        if isinstance(val, str) and not val.lstrip("-").replace(".", "").isdigit():
+            add(val)
+        elif isinstance(val, dict):
+            _collect_formula_expr_columns(val, add)
+    for child in expr.get("children", []):
+        if isinstance(child, dict):
+            _collect_formula_expr_columns(child, add)
+        elif isinstance(child, str):
+            add(child)

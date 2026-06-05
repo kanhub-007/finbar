@@ -17,10 +17,10 @@
     "target_atr_mult": { "type": "float", "default": 1.5, "minimum": 0.5, "maximum": 5.0 }
   },
   "indicators": [
-    { "name": "trend_sma_fast",  "type": "sma",  "period": "{{ trend_fast }}", "timeframe": "daily" },
-    { "name": "trend_sma_slow",  "type": "sma",  "period": "{{ trend_slow }}", "timeframe": "daily" },
-    { "name": "primary_atr",     "type": "atr" },
-    { "name": "primary_vwap",    "type": "vwap" },
+    { "name": "trend_sma_fast",  "type": "fallback", "sources": ["sma_50_1d", "sma_50", "proxy_sma_50"] },
+    { "name": "trend_sma_slow",  "type": "fallback", "sources": ["sma_200_1d", "sma_200", "proxy_sma_200"] },
+    { "name": "primary_atr",     "type": "fallback", "sources": ["atr_1d", "atr", "proxy_atr"] },
+    { "name": "primary_vwap",    "type": "fallback", "sources": ["vwap", "proxy_vwap"] },
     { "name": "primary_ibs",     "type": "ibs" },
     { "name": "primary_rvol",    "type": "rvol" }
   ],

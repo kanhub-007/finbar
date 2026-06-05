@@ -35,6 +35,10 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "bb_middle": "bb_middle",
         "bb_lower": "bb_lower",
         "fallback": "fallback",
+        "proxy_atr": "proxy_atr",
+        "proxy_sma_50": "proxy_sma_50",
+        "proxy_sma_200": "proxy_sma_200",
+        "proxy_vwap": "proxy_vwap",
     }
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
