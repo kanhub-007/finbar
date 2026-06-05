@@ -1,4 +1,4 @@
-"""DeleteStrategyDefinitionUseCase — delete a persisted v2 strategy document."""
+"""DeleteStrategyDefinitionUseCase — delete a persisted strategy document."""
 
 import logging
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class DeleteStrategyDefinitionUseCase:
-    """Delete a v2 JSON strategy document by name."""
+    """Delete a JSON strategy document by name."""
 
     def __init__(self, repository: StrategyDocumentRepository):
         """Create the use case with a document repository.
@@ -29,7 +29,7 @@ class DeleteStrategyDefinitionUseCase:
     def execute(
         self, request: DeleteStrategyDefinitionRequest
     ) -> DeleteStrategyDefinitionResult:
-        """Delete a v2 strategy document.
+        """Delete a strategy document.
 
         Args:
             request: DeleteStrategyDefinitionRequest with the strategy name.

@@ -6,8 +6,14 @@ keeps concrete infrastructure construction out of presentation modules.
 
 from sqlalchemy.orm import Session
 
+from finbar.core.application.services.strategy_capability_service import (
+    StrategyCapabilityService,
+)
 from finbar.core.application.services.strategy_definition_parser import (
     StrategyDefinitionParser,
+)
+from finbar.core.application.services.strategy_schema_provider import (
+    StrategySchemaProvider,
 )
 from finbar.core.application.use_cases.apply_strategy_features import (
     ApplyStrategyFeaturesUseCase,
@@ -89,7 +95,9 @@ _bt_runner: BacktestRunner | None = None
 _builtin_strategy_provider: BuiltinStrategyProvider | None = None
 _json_strategy_factory: StrategyDefinitionFactory | None = None
 _strategy_feature_calculator: PandasStrategyFeatureCalculator | None = None
-_v2_parser: StrategyDefinitionParser | None = None
+_parser: StrategyDefinitionParser | None = None
+_capability_service: StrategyCapabilityService | None = None
+_schema_provider: StrategySchemaProvider | None = None
 
 
 def _get_db() -> Session:
@@ -253,7 +261,7 @@ def _make_run_backtest_use_case(db: Session | None = None) -> RunBacktestUseCase
 
 
 def _make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionUseCase:
-    """Create a use case for unsaved v2 JSON strategy backtests."""
+    """Create a use case for unsaved JSON strategy backtests."""
     return BacktestStrategyDefinitionUseCase(
         _get_backtest_runner(),
         _get_bar_frame_converter(),
@@ -262,11 +270,11 @@ def _make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionU
 
 
 def _make_apply_strategy_features_use_case() -> ApplyStrategyFeaturesUseCase:
-    """Create a use case for applying v2 strategy feature declarations."""
+    """Create a use case for applying strategy feature declarations."""
     return ApplyStrategyFeaturesUseCase(
         _get_bar_frame_converter(),
         _get_strategy_feature_calculator(),
-        parser=_get_v2_parser(),
+        parser=_get_parser(),
     )
 
 
@@ -294,12 +302,28 @@ def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:
     return _strategy_feature_calculator
 
 
-def _get_v2_parser() -> StrategyDefinitionParser:
+def _get_parser() -> StrategyDefinitionParser:
     """Return the shared v2 strategy JSON parser."""
-    global _v2_parser
-    if _v2_parser is None:
-        _v2_parser = StrategyDefinitionParser()
-    return _v2_parser
+    global _parser
+    if _parser is None:
+        _parser = StrategyDefinitionParser()
+    return _parser
+
+
+def _get_capability_service() -> StrategyCapabilityService:
+    """Return the shared strategy capability service."""
+    global _capability_service
+    if _capability_service is None:
+        _capability_service = StrategyCapabilityService()
+    return _capability_service
+
+
+def _get_schema_provider() -> StrategySchemaProvider:
+    """Return the shared strategy schema provider."""
+    global _schema_provider
+    if _schema_provider is None:
+        _schema_provider = StrategySchemaProvider()
+    return _schema_provider
 
 
 def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvider:
@@ -310,8 +334,8 @@ def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvi
 
     providers = [_builtin_strategy_provider]
     if db is not None:
-        v2_repo = SqlStrategyDocumentRepository(db)
-        providers.append(DatabaseStrategyProvider(v2_repo, _get_v2_parser()))
+        doc_repo = SqlStrategyDocumentRepository(db)
+        providers.append(DatabaseStrategyProvider(doc_repo, _get_parser()))
     return CompositeStrategyProvider(providers)
 
 
@@ -328,25 +352,25 @@ def _resolve_strategy(name: str, params: dict | None = None) -> object | None:
 def _make_save_strategy_definition_use_case(
     db: Session,
 ) -> SaveStrategyDefinitionUseCase:
-    """Create a use case for validating and saving v2 strategy documents."""
+    """Create a use case for validating and saving strategy documents."""
     return SaveStrategyDefinitionUseCase(
         SqlStrategyDocumentRepository(db),
-        parser=_get_v2_parser(),
+        parser=_get_parser(),
     )
 
 
 def _make_delete_strategy_definition_use_case(
     db: Session,
 ) -> DeleteStrategyDefinitionUseCase:
-    """Create a use case for deleting v2 strategy documents."""
+    """Create a use case for deleting strategy documents."""
     return DeleteStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))
 
 
 def _make_explain_strategy_definition_use_case() -> ExplainStrategyDefinitionUseCase:
     """Create a use case for explaining v2 strategy JSON."""
-    return ExplainStrategyDefinitionUseCase(parser=_get_v2_parser())
+    return ExplainStrategyDefinitionUseCase(parser=_get_parser())
 
 
 def _make_validate_strategy_definition_use_case() -> ValidateStrategyDefinitionUseCase:
     """Create a use case for validating v2 strategy JSON."""
-    return ValidateStrategyDefinitionUseCase(_get_v2_parser())
+    return ValidateStrategyDefinitionUseCase(_get_parser())

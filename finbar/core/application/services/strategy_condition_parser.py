@@ -44,7 +44,7 @@ class StrategyConditionParser:
         resolved_params: dict[str, Any],
         errors: list[StrategyValidationError],
     ) -> dict[str, SideRules]:
-        """Parse the sides object from a v2 strategy definition."""
+        """Parse the sides object from a strategy definition."""
         if not isinstance(raw, dict) or not raw:
             errors.append(
                 make_error("$.sides", "sides must define at least one of long or short")

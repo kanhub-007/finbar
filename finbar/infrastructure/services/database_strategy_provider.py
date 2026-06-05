@@ -1,4 +1,4 @@
-"""Provider that resolves saved v2 strategy documents into executable strategies."""
+"""Provider that resolves saved strategy documents into executable strategies."""
 
 import json
 
@@ -38,25 +38,25 @@ def _flat_features(definition: dict) -> list[str]:
 
 
 class DatabaseStrategyProvider(StrategyProvider):
-    """Resolves saved v2 strategy documents into executable strategies."""
+    """Resolves saved strategy documents into executable strategies."""
 
     def __init__(
         self,
         repository: StrategyDocumentRepository,
         parser: StrategyDefinitionParser,
     ):
-        """Initialize with a v2 strategy document repository.
+        """Initialize with a strategy document repository.
 
         Args:
             repository: StrategyDocumentRepository for persistence lookups.
-            parser: Parser for v2 JSON definitions (injected from composition root).
+            parser: Parser for JSON definitions (injected from composition root).
         """
         self._repository = repository
         self._factory = StrategyDefinitionFactory()
         self._parser = parser
 
     def create(self, name: str, params: dict | None = None) -> TradingStrategy | None:
-        """Create a JsonRuleBasedStrategy from a saved v2 document.
+        """Create a JsonRuleBasedStrategy from a saved document.
 
         Args:
             name: Strategy name.
@@ -73,7 +73,7 @@ class DatabaseStrategyProvider(StrategyProvider):
         return self._factory.create(validation.definition)
 
     def list_metadata(self) -> list[StrategyMeta]:
-        """List metadata for all saved v2 strategy documents."""
+        """List metadata for all saved strategy documents."""
         result: list[StrategyMeta] = []
         for doc in self._repository.list_all():
             try:
@@ -94,5 +94,5 @@ class DatabaseStrategyProvider(StrategyProvider):
         return result
 
     def exists(self, name: str) -> bool:
-        """Return True if a v2 strategy document exists with this name."""
+        """Return True if a strategy document exists with this name."""
         return self._repository.find_by_name(name) is not None

@@ -1,4 +1,4 @@
-"""ApplyStrategyFeaturesUseCase — calculate v2 derived feature columns."""
+"""ApplyStrategyFeaturesUseCase — calculate derived feature columns."""
 
 import logging
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class ApplyStrategyFeaturesUseCase:
-    """Apply features declared in a v2 strategy definition to supplied bars."""
+    """Apply features declared in a strategy definition to supplied bars."""
 
     def __init__(
         self,

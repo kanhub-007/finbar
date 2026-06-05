@@ -1,4 +1,4 @@
-"""Tests for the v2 strategy JSON SDK application slice."""
+"""Tests for the strategy JSON SDK application slice."""
 
 import json
 
@@ -51,7 +51,7 @@ from finbar.infrastructure.tables.strategy_document import (
 
 @pytest.fixture
 def mem_db():
-    """Create an in-memory SQLite database for v2 strategy document tests."""
+    """Create an in-memory SQLite database for strategy document tests."""
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine, tables=[OrmStrategyDoc.__table__])
     session = Session(engine)

@@ -1,4 +1,4 @@
-"""Strategy JSON SDK MCP tools for unsaved v2 strategies."""
+"""Strategy JSON SDK MCP tools for strategies."""
 
 import json
 
@@ -13,17 +13,13 @@ from finbar.core.application.dto.backtest_strategy_definition_request import (
 from finbar.core.application.dto.save_strategy_definition_request import (
     SaveStrategyDefinitionRequest,
 )
-from finbar.core.application.services.strategy_capability_service import (
-    StrategyCapabilityService,
-)
-from finbar.core.application.services.strategy_schema_provider import (
-    StrategySchemaProvider,
-)
 from finbar.presentation.mcp.presenters.strategy_json_presenter import (
     StrategyJsonPresenter,
 )
 from finbar.startup.service_factory import (
+    _get_capability_service,
     _get_db,
+    _get_schema_provider,
     _make_apply_strategy_features_use_case,
     _make_backtest_strategy_definition_use_case,
     _make_delete_strategy_definition_use_case,
@@ -34,37 +30,37 @@ from finbar.startup.service_factory import (
 
 
 def register_strategy_json_tools(mcp: FastMCP) -> None:
-    """Register v2 strategy JSON SDK tools."""
+    """Register strategy JSON SDK tools."""
 
     @mcp.tool(
         name="get_strategy_capabilities",
         description=(
-            "Return supported v2 strategy JSON capabilities. Includes operators, "
+            "Return supported strategy JSON capabilities. Includes operators, "
             "OHLCV fields, supported concrete indicators, and notes that "
             "backtest_strategy_json expects already-enriched bars."
         ),
     )
     def get_strategy_capabilities() -> str:
         """Return machine-readable capabilities for agent strategy authoring."""
-        return json.dumps(StrategyCapabilityService().get_capabilities(), indent=2)
+        return json.dumps(_get_capability_service().get_capabilities(), indent=2)
 
     @mcp.tool(
         name="get_strategy_schema",
-        description="Return a compact JSON Schema for v2 strategy definitions.",
+        description="Return a compact JSON Schema for strategy definitions.",
     )
     def get_strategy_schema() -> str:
         """Return a compact JSON Schema for v2 strategy JSON."""
-        return json.dumps(StrategySchemaProvider().get_schema(), indent=2)
+        return json.dumps(_get_schema_provider().get_schema(), indent=2)
 
     @mcp.tool(
         name="validate_strategy_json",
         description=(
-            "Validate a v2 strategy JSON definition. Returns required indicator "
+            "Validate a strategy JSON definition. Returns required indicator "
             "columns but does not fetch bars or calculate indicators."
         ),
     )
     def validate_strategy_json(definition_json: str, params_json: str = "{}") -> str:
-        """Validate a v2 strategy JSON string and optional param overrides."""
+        """Validate a strategy JSON string and optional param overrides."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
             return json.dumps(params)
@@ -75,10 +71,10 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(
         name="explain_strategy_json",
-        description="Explain a v2 strategy JSON definition in plain language.",
+        description="Explain a strategy JSON definition in plain language.",
     )
     def explain_strategy_json(definition_json: str, params_json: str = "{}") -> str:
-        """Explain a v2 strategy JSON string and optional param overrides."""
+        """Explain a strategy JSON string and optional param overrides."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
             return json.dumps(params)
@@ -90,7 +86,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="apply_strategy_features",
         description=(
-            "Apply derived features declared in a v2 strategy JSON document. "
+            "Apply derived features declared in a strategy JSON document. "
             "This is a separate enrichment step before backtest_strategy_json."
         ),
     )
@@ -122,7 +118,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="backtest_strategy_json",
         description=(
-            "Backtest an unsaved v2 strategy JSON against already-enriched bars. "
+            "Backtest an unsaved strategy JSON against already-enriched bars. "
             "This tool does not fetch prices and does not calculate indicators; "
             "the AI agent must call apply_indicators first when required."
         ),
@@ -135,7 +131,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         params_json: str = "{}",
         initial_cash: float = 10000.0,
     ) -> str:
-        """Backtest a v2 strategy using bars supplied by the agent."""
+        """Backtest a strategy using bars supplied by the agent."""
         bars = _loads_array(bars_json, "bars_json")
         if isinstance(bars, dict) and "error" in bars:
             return json.dumps(bars)
@@ -159,7 +155,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="save_strategy_json",
         description=(
-            "Validate and persist a v2 strategy JSON definition. "
+            "Validate and persist a strategy JSON definition. "
             "Returns validation errors if the definition is invalid. "
             "On success, the strategy can be backtested by name."
         ),
@@ -168,7 +164,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         definition_json: str,
         name_override: str = "",
     ) -> str:
-        """Validate and save a v2 strategy definition to the database."""
+        """Validate and save a strategy definition to the database."""
         db = _get_db()
         try:
             use_case = _make_save_strategy_definition_use_case(db)
@@ -200,10 +196,10 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(
         name="delete_strategy_json",
-        description="Delete a saved v2 strategy document by name.",
+        description="Delete a saved strategy document by name.",
     )
     def delete_strategy_json(name: str) -> str:
-        """Delete a saved v2 strategy document."""
+        """Delete a saved strategy document."""
         db = _get_db()
         try:
             from finbar.core.application.dto.delete_strategy_definition_request import (

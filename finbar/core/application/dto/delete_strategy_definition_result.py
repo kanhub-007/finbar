@@ -1,11 +1,11 @@
-"""DeleteStrategyDefinitionResult — result DTO for deleting a v2 strategy document."""
+"""DeleteStrategyDefinitionResult — result DTO for deleting a strategy document."""
 
 from dataclasses import dataclass
 
 
 @dataclass
 class DeleteStrategyDefinitionResult:
-    """Result of attempting to delete a v2 strategy document."""
+    """Result of attempting to delete a strategy document."""
 
     deleted: bool
     """True if the document was found and deleted."""

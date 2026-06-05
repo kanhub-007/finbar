@@ -1,4 +1,4 @@
-"""Operand entity for v2 JSON strategy conditions."""
+"""Operand entity for JSON strategy conditions."""
 
 from dataclasses import dataclass
 from typing import Any

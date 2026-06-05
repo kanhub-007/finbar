@@ -1,4 +1,4 @@
-"""Request DTO for backtesting an unsaved v2 JSON strategy."""
+"""Request DTO for backtesting an unsaved JSON strategy."""
 
 from dataclasses import dataclass, field
 from typing import Any

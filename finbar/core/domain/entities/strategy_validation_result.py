@@ -1,4 +1,4 @@
-"""StrategyValidationResult entity for v2 JSON validation."""
+"""StrategyValidationResult entity for JSON validation."""
 
 from dataclasses import dataclass, field
 

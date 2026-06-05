@@ -1,4 +1,4 @@
-"""SideRules entity for v2 JSON strategies."""
+"""SideRules entity for JSON strategies."""
 
 from dataclasses import dataclass
 

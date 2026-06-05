@@ -1,4 +1,4 @@
-"""Request DTO for applying v2 strategy derived features."""
+"""Request DTO for applying strategy derived features."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -6,7 +6,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ApplyStrategyFeaturesRequest:
-    """Input for calculating features declared by a v2 strategy JSON document."""
+    """Input for calculating features declared by a strategy JSON document."""
 
     definition: str | dict
     """Strategy JSON string or parsed dictionary."""

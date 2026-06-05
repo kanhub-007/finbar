@@ -1,4 +1,4 @@
-"""Result DTO for applying v2 strategy derived features."""
+"""Result DTO for applying strategy derived features."""
 
 from dataclasses import dataclass, field
 

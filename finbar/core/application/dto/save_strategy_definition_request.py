@@ -1,4 +1,4 @@
-"""SaveStrategyDefinitionRequest — DTO for saving a v2 strategy document."""
+"""SaveStrategyDefinitionRequest — DTO for saving a strategy document."""
 
 from dataclasses import dataclass
 

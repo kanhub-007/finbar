@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM table for v2 strategy documents."""
+"""SQLAlchemy ORM table for strategy documents."""
 
 from sqlalchemy import Column, Integer, String, Text
 
@@ -6,7 +6,7 @@ from finbar.infrastructure.data.connection import Base
 
 
 class StrategyDocument(Base):
-    """Persisted v2 JSON strategy document."""
+    """Persisted JSON strategy document."""
 
     __tablename__ = "strategy_documents"
 

@@ -1,4 +1,4 @@
-"""StrategyFeatureCalculator interface for v2 derived features."""
+"""StrategyFeatureCalculator interface for derived features."""
 
 from abc import ABC, abstractmethod
 from typing import Any

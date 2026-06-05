@@ -1,4 +1,4 @@
-"""ExplainStrategyDefinitionUseCase — explain v2 strategy JSON."""
+"""ExplainStrategyDefinitionUseCase — explain strategy JSON."""
 
 from finbar.core.application.services.description_visitor import DescriptionVisitor
 from finbar.core.application.services.strategy_definition_parser import (
@@ -22,7 +22,7 @@ class ExplainStrategyDefinitionUseCase:
         self._parser = parser or StrategyDefinitionParser()
 
     def execute(self, definition: str | dict, params: dict | None = None) -> dict:
-        """Validate and explain a v2 strategy definition."""
+        """Validate and explain a strategy definition."""
         result = self._parser.parse(definition, params or {})
         if not result.valid or result.definition is None:
             return {
@@ -31,18 +31,18 @@ class ExplainStrategyDefinitionUseCase:
                 "explanation": "Strategy definition is invalid.",
             }
 
-        definition_v2 = result.definition
+        definition = result.definition
         lines: list[str] = []
 
-        lines.append(f"# {definition_v2.name}")
-        if definition_v2.description:
-            lines.append(definition_v2.description)
+        lines.append(f"# {definition.name}")
+        if definition.description:
+            lines.append(definition.description)
 
-        _append_parameters(definition_v2, lines)
-        _append_indicators(definition_v2, lines)
-        _append_features(definition_v2, lines)
-        _append_risk(definition_v2, lines)
-        _append_sides(definition_v2, lines)
+        _append_parameters(definition, lines)
+        _append_indicators(definition, lines)
+        _append_features(definition, lines)
+        _append_risk(definition, lines)
+        _append_sides(definition, lines)
 
         if result.required_indicators:
             lines.append("")
@@ -57,8 +57,8 @@ class ExplainStrategyDefinitionUseCase:
 
         return {
             "valid": True,
-            "schema_version": definition_v2.schema_version,
-            "name": definition_v2.name,
+            "schema_version": definition.schema_version,
+            "name": definition.name,
             "required_indicators": result.required_indicators,
             "explanation": "\n".join(lines),
             "errors": [],

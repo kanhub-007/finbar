@@ -7,7 +7,7 @@ from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 
 
 class StrategyDefinitionSerializer:
-    """Serialize a canonical v2 strategy definition to a JSON-serializable dict."""
+    """Serialize a canonical strategy definition to a JSON-serializable dict."""
 
     def serialize(self, definition: StrategyDefinition) -> dict:
         """Return a canonical dict representation of the definition."""

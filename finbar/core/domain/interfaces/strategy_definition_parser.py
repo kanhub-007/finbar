@@ -1,4 +1,4 @@
-"""StrategyDefinitionParser interface for v2 JSON strategy parsing."""
+"""StrategyDefinitionParser interface for JSON strategy parsing."""
 
 from abc import ABC, abstractmethod
 from typing import Any
@@ -9,7 +9,7 @@ from finbar.core.domain.entities.strategy_validation_result import (
 
 
 class StrategyDefinitionParser(ABC):
-    """Parse raw v2 strategy JSON into canonical domain entities.
+    """Parse raw strategy JSON into canonical domain entities.
 
     This interface lives in the domain so both application use cases
     and infrastructure providers can depend on it without layer violations.
@@ -21,7 +21,7 @@ class StrategyDefinitionParser(ABC):
         raw_definition: str | dict,
         param_overrides: dict | None = None,
     ) -> StrategyValidationResult:
-        """Parse, normalize, and validate a v2 strategy definition.
+        """Parse, normalize, and validate a strategy definition.
 
         Args:
             raw_definition: Raw JSON string or dict from the agent.

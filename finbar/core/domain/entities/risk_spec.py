@@ -1,11 +1,11 @@
-"""RiskSpec entity for v2 JSON strategy risk settings."""
+"""RiskSpec entity for JSON strategy risk settings."""
 
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class RiskSpec:
-    """Structured risk settings for a v2 JSON strategy."""
+    """Structured risk settings for a JSON strategy."""
 
     stop_loss_type: str = "none"
     """Stop-loss model type: none, atr, or fixed_pct for MVP."""

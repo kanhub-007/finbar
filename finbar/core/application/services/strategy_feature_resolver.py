@@ -38,7 +38,7 @@ class StrategyFeatureResolver:
         resolved_params: dict[str, Any],
         errors: list[StrategyValidationError],
     ) -> list[FeatureSpec]:
-        """Parse feature declarations from a v2 strategy JSON object."""
+        """Parse feature declarations from a strategy JSON object."""
         if raw is None:
             return []
         if not isinstance(raw, list):

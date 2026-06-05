@@ -1,4 +1,4 @@
-"""ConditionGroup entity for nested v2 strategy conditions."""
+"""ConditionGroup entity for nested strategy conditions."""
 
 from dataclasses import dataclass, field
 

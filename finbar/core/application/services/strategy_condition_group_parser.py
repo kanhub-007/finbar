@@ -1,4 +1,4 @@
-"""StrategyConditionGroupParser — parse nested v2 condition groups."""
+"""StrategyConditionGroupParser — parse nested condition groups."""
 
 from typing import Any
 

@@ -1,11 +1,11 @@
-"""StrategySchemaProvider — canonical v2 strategy JSON schema."""
+"""StrategySchemaProvider — canonical strategy JSON schema."""
 
 
 class StrategySchemaProvider:
-    """Provide the canonical JSON Schema for v2 strategy definitions."""
+    """Provide the canonical JSON Schema for strategy definitions."""
 
     def get_schema(self) -> dict:
-        """Return the v2 strategy definition JSON Schema."""
+        """Return the strategy definition JSON Schema."""
         return {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
             "$id": "https://finbar.local/schemas/strategy-definition-v2.schema.json",

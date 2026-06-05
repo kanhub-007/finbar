@@ -1,4 +1,4 @@
-"""BacktestStrategyDefinitionUseCase — run unsaved v2 JSON strategies."""
+"""BacktestStrategyDefinitionUseCase — run unsaved JSON strategies."""
 
 import logging
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class BacktestStrategyDefinitionUseCase:
-    """Backtest a v2 JSON strategy against already-enriched bars.
+    """Backtest a JSON strategy against already-enriched bars.
 
     This use case intentionally does not fetch prices or calculate indicators.
     The MCP agent orchestrates those separate calls before invoking backtest.

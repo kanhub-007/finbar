@@ -1,4 +1,4 @@
-"""Result DTO for backtesting an unsaved v2 JSON strategy."""
+"""Result DTO for backtesting an unsaved JSON strategy."""
 
 from dataclasses import dataclass, field
 

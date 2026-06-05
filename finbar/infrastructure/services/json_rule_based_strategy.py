@@ -5,9 +5,9 @@ from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
 from finbar.core.domain.interfaces.risk_price_calculator import RiskPriceCalculator
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
-from finbar.infrastructure.services.json_condition_evaluator import (
+from finbar.infrastructure.services.condition_evaluator import (
+    ConditionEvaluator,
     PrevValues,
-    evaluate_condition_group,
 )
 from finbar.infrastructure.services.json_risk_price_calculator import (
     JsonRiskPriceCalculator,
@@ -15,7 +15,7 @@ from finbar.infrastructure.services.json_risk_price_calculator import (
 
 
 class JsonRuleBasedStrategy(TradingStrategy):
-    """TradingStrategy implementation for canonical v2 JSON definitions."""
+    """TradingStrategy implementation for canonical JSON definitions."""
 
     def __init__(
         self,
@@ -25,6 +25,7 @@ class JsonRuleBasedStrategy(TradingStrategy):
         """Create a fresh executable strategy from a validated definition."""
         self._definition = definition
         self._risk_calculator = risk_calculator or JsonRiskPriceCalculator()
+        self._evaluator = ConditionEvaluator()
         self._previous_values: PrevValues = {}
 
     def meta(self) -> StrategyMeta:
@@ -57,7 +58,7 @@ class JsonRuleBasedStrategy(TradingStrategy):
             rules = self._definition.sides.get(side)
             if rules is None:
                 continue
-            if evaluate_condition_group(rules.entry, bar, self._previous_values):
+            if self._evaluator.evaluate(rules.entry, bar, self._previous_values):
                 stop, target = self._risk_calculator.calculate(
                     self._definition.risk,
                     bar,
@@ -76,7 +77,7 @@ class JsonRuleBasedStrategy(TradingStrategy):
         rules = self._definition.sides.get(direction)
         if rules is None or rules.exit is None:
             return SignalResult(action="hold")
-        if not evaluate_condition_group(rules.exit, bar, self._previous_values):
+        if not self._evaluator.evaluate(rules.exit, bar, self._previous_values):
             return SignalResult(action="hold")
         return SignalResult(
             action="sell" if direction == "long" else "buy",

@@ -1,4 +1,4 @@
-"""StrategyCapabilityService — compose v2 SDK capability metadata."""
+"""StrategyCapabilityService — compose SDK capability metadata."""
 
 from finbar.core.application.services.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
@@ -37,7 +37,7 @@ _OPERATORS = [
 
 
 class StrategyCapabilityService:
-    """Return machine-readable capabilities for v2 strategy authoring."""
+    """Return machine-readable capabilities for strategy authoring."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create the service with injectable indicator capabilities."""

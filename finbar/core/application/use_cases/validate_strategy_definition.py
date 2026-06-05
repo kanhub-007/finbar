@@ -1,4 +1,4 @@
-"""ValidateStrategyDefinitionUseCase — validate v2 strategy JSON."""
+"""ValidateStrategyDefinitionUseCase — validate strategy JSON."""
 
 from finbar.core.application.services.strategy_definition_parser import (
     StrategyDefinitionParser,

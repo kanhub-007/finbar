@@ -1,4 +1,4 @@
-"""JsonRiskPriceCalculator — calculate risk prices for v2 JSON strategies."""
+"""JsonRiskPriceCalculator — calculate risk prices for JSON strategies."""
 
 from finbar.core.domain.entities.risk_spec import RiskSpec
 from finbar.core.domain.interfaces.risk_price_calculator import RiskPriceCalculator

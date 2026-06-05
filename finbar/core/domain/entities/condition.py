@@ -1,4 +1,4 @@
-"""Condition entity for v2 JSON strategy rules."""
+"""Condition entity for JSON strategy rules."""
 
 from dataclasses import dataclass
 

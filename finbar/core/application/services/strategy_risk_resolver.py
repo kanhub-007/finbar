@@ -22,7 +22,7 @@ _TAKE_PROFIT_TYPES = {"none", "atr", "fixed_pct", "risk_reward"}
 
 
 class StrategyRiskResolver:
-    """Parse structured risk settings for v2 JSON strategies."""
+    """Parse structured risk settings for JSON strategies."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create a resolver backed by indicator capabilities."""

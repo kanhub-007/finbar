@@ -1,4 +1,4 @@
-"""StrategyValidationError entity for v2 JSON diagnostics."""
+"""StrategyValidationError entity for JSON diagnostics."""
 
 from dataclasses import dataclass
 

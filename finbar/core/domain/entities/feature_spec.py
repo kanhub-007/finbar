@@ -1,4 +1,4 @@
-"""FeatureSpec entity for v2 JSON strategy derived features."""
+"""FeatureSpec entity for JSON strategy derived features."""
 
 from dataclasses import dataclass
 from typing import Any

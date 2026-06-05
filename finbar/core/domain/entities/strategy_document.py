@@ -1,4 +1,4 @@
-"""StrategyDocument — domain entity for a persisted v2 JSON strategy."""
+"""StrategyDocument — domain entity for a persisted JSON strategy."""
 
 from dataclasses import dataclass, field
 

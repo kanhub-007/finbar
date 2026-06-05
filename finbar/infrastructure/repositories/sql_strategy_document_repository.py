@@ -1,4 +1,4 @@
-"""SQLite repository for v2 strategy documents."""
+"""SQLite repository for strategy documents."""
 
 import json
 import logging
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class SqlStrategyDocumentRepository(StrategyDocumentRepository):
-    """SQLite-backed CRUD for v2 strategy documents."""
+    """SQLite-backed CRUD for strategy documents."""
 
     def __init__(self, db: Session):
         """Constructor injection — receives a database session.
@@ -29,7 +29,7 @@ class SqlStrategyDocumentRepository(StrategyDocumentRepository):
         self._db = db
 
     def save(self, document: StrategyDocument) -> None:
-        """Insert or update a v2 strategy document."""
+        """Insert or update a strategy document."""
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
 
         existing = (
@@ -56,7 +56,7 @@ class SqlStrategyDocumentRepository(StrategyDocumentRepository):
         self._db.commit()
 
     def find_by_name(self, name: str) -> StrategyDocument | None:
-        """Retrieve a v2 strategy document by name."""
+        """Retrieve a strategy document by name."""
         orm = (
             self._db.query(OrmStrategyDocument)
             .filter(OrmStrategyDocument.name == name)
@@ -67,14 +67,14 @@ class SqlStrategyDocumentRepository(StrategyDocumentRepository):
         return _orm_to_domain(orm)
 
     def list_all(self) -> list[StrategyDocument]:
-        """List all v2 strategy documents."""
+        """List all strategy documents."""
         orms = (
             self._db.query(OrmStrategyDocument).order_by(OrmStrategyDocument.name).all()
         )
         return [_orm_to_domain(o) for o in orms]
 
     def delete(self, name: str) -> bool:
-        """Delete a v2 strategy document by name."""
+        """Delete a strategy document by name."""
         orm = (
             self._db.query(OrmStrategyDocument)
             .filter(OrmStrategyDocument.name == name)

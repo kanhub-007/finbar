@@ -1,4 +1,4 @@
-"""SaveStrategyDefinitionUseCase — validate then persist a v2 strategy document."""
+"""SaveStrategyDefinitionUseCase — validate then persist a strategy document."""
 
 import json
 import logging
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class SaveStrategyDefinitionUseCase:
-    """Validate a v2 JSON strategy definition and persist it if valid."""
+    """Validate a JSON strategy definition and persist it if valid."""
 
     def __init__(
         self,
@@ -49,7 +49,7 @@ class SaveStrategyDefinitionUseCase:
     def execute(
         self, request: SaveStrategyDefinitionRequest
     ) -> SaveStrategyDefinitionResult:
-        """Validate and save a v2 strategy definition.
+        """Validate and save a strategy definition.
 
         Args:
             request: SaveStrategyDefinitionRequest with the JSON definition.

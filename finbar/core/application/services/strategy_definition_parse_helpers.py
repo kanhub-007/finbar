@@ -1,4 +1,4 @@
-"""Shared helpers for v2 strategy definition parsing."""
+"""Shared helpers for strategy definition parsing."""
 
 import re
 from typing import Any

@@ -1,4 +1,4 @@
-"""IndicatorSpec entity for v2 JSON strategies."""
+"""IndicatorSpec entity for JSON strategies."""
 
 from dataclasses import dataclass
 from typing import Any

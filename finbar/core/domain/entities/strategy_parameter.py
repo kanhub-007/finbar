@@ -1,4 +1,4 @@
-"""StrategyParameter entity for v2 JSON strategies."""
+"""StrategyParameter entity for JSON strategies."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -6,7 +6,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class StrategyParameter:
-    """A typed runtime parameter for a v2 JSON strategy.
+    """A typed runtime parameter for a JSON strategy.
 
     Parameters allow agents to author reusable strategies whose concrete
     indicator periods or thresholds are resolved before validation/backtesting.

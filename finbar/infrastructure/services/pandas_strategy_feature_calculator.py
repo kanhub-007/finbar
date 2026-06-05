@@ -1,4 +1,4 @@
-"""PandasStrategyFeatureCalculator — calculate v2 strategy derived features."""
+"""PandasStrategyFeatureCalculator — calculate strategy derived features."""
 
 from collections.abc import Callable
 

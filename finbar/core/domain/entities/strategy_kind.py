@@ -9,5 +9,5 @@ class StrategyKind(Enum):
     BUILTIN = "builtin"
     """Strategy implemented as a Python class in the codebase."""
 
-    USER_DEFINED = "user_defined_v2"
-    """v2 JSON strategy document stored in strategy_documents table."""
+    USER_DEFINED = "user_defined"
+    """JSON strategy document stored in strategy_documents table."""

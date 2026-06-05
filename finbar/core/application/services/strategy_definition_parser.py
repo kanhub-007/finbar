@@ -52,7 +52,7 @@ from finbar.core.domain.interfaces.strategy_definition_parser import (
 
 
 class StrategyDefinitionParser(ParserInterface):
-    """Parse agent-authored JSON into canonical v2 strategy definitions.
+    """Parse agent-authored JSON into canonical strategy definitions.
 
     Warning rules, limit rules, and serializer are injectable for OCP compliance.
     """
@@ -87,7 +87,7 @@ class StrategyDefinitionParser(ParserInterface):
         raw_definition: str | dict,
         param_overrides: dict | None = None,
     ) -> StrategyValidationResult:
-        """Parse, normalize, and validate a v2 strategy definition."""
+        """Parse, normalize, and validate a strategy definition."""
         errors: list[StrategyValidationError] = []
         data = self._load(raw_definition, errors)
         if data is None:

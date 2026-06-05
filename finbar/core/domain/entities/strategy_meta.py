@@ -37,4 +37,4 @@ class StrategyMeta:
     """Feature names this strategy needs, e.g. ["prior_swing_high"]."""
 
     kind: StrategyKind = StrategyKind.BUILTIN
-    """Strategy provenance: builtin, user_defined, or user_defined_v2."""
+    """Strategy provenance: builtin or user_defined."""

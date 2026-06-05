@@ -1,4 +1,4 @@
-"""StrategyDocumentRepository — persistence interface for v2 strategy documents."""
+"""StrategyDocumentRepository — persistence interface for strategy documents."""
 
 from abc import ABC, abstractmethod
 
@@ -6,11 +6,11 @@ from finbar.core.domain.entities.strategy_document import StrategyDocument
 
 
 class StrategyDocumentRepository(ABC):
-    """Repository for persisted v2 JSON strategy documents."""
+    """Repository for persisted JSON strategy documents."""
 
     @abstractmethod
     def save(self, document: StrategyDocument) -> None:
-        """Insert or update a v2 strategy document.
+        """Insert or update a strategy document.
 
         Args:
             document: The StrategyDocument to persist.
@@ -19,7 +19,7 @@ class StrategyDocumentRepository(ABC):
 
     @abstractmethod
     def find_by_name(self, name: str) -> StrategyDocument | None:
-        """Retrieve a v2 strategy document by name.
+        """Retrieve a strategy document by name.
 
         Args:
             name: Strategy name.
@@ -31,7 +31,7 @@ class StrategyDocumentRepository(ABC):
 
     @abstractmethod
     def list_all(self) -> list[StrategyDocument]:
-        """List all v2 strategy documents.
+        """List all strategy documents.
 
         Returns:
             List of StrategyDocument objects, sorted by name.
@@ -40,7 +40,7 @@ class StrategyDocumentRepository(ABC):
 
     @abstractmethod
     def delete(self, name: str) -> bool:
-        """Delete a v2 strategy document by name.
+        """Delete a strategy document by name.
 
         Args:
             name: Strategy name.

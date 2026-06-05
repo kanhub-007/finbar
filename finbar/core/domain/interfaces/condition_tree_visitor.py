@@ -1,4 +1,4 @@
-"""ConditionTreeVisitor interface for traversing v2 condition trees."""
+"""ConditionTreeVisitor interface for traversing condition trees."""
 
 from abc import ABC, abstractmethod
 
@@ -7,7 +7,7 @@ from finbar.core.domain.entities.condition_group import ConditionGroup
 
 
 class ConditionTreeVisitor(ABC):
-    """Base visitor for v2 strategy condition trees.
+    """Base visitor for strategy condition trees.
 
     Subclasses override visit_condition for atomic conditions and
     may override visit_group_enter / visit_group_leave for group

@@ -1,4 +1,4 @@
-"""DeleteStrategyDefinitionRequest — DTO for deleting a v2 strategy document."""
+"""DeleteStrategyDefinitionRequest — DTO for deleting a strategy document."""
 
 from dataclasses import dataclass
 

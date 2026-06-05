@@ -1,4 +1,4 @@
-"""Integration tests for v2 strategy document CRUD with in-memory SQLite."""
+"""Integration tests for strategy document CRUD with in-memory SQLite."""
 
 import json
 
