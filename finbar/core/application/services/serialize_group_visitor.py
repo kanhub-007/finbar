@@ -1,6 +1,6 @@
 """SerializeGroupVisitor — build JSON dict tree from condition groups.
 
-Internal visitor used by StrategyDefinitionV2Serializer.
+Internal visitor used by StrategyDefinitionSerializer.
 """
 
 from finbar.core.domain.entities.condition import Condition

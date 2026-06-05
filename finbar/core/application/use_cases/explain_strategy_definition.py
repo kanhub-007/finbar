@@ -1,12 +1,12 @@
 """ExplainStrategyDefinitionUseCase — explain v2 strategy JSON."""
 
 from finbar.core.application.services.description_visitor import DescriptionVisitor
-from finbar.core.application.services.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser,
+from finbar.core.application.services.strategy_definition_parser import (
+    StrategyDefinitionParser,
 )
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
-from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser as ParserInterface,
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
+from finbar.core.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser as ParserInterface,
 )
 
 
@@ -19,7 +19,7 @@ class ExplainStrategyDefinitionUseCase:
         Args:
             parser: V2 strategy JSON parser (domain interface).
         """
-        self._parser = parser or StrategyDefinitionV2Parser()
+        self._parser = parser or StrategyDefinitionParser()
 
     def execute(self, definition: str | dict, params: dict | None = None) -> dict:
         """Validate and explain a v2 strategy definition."""
@@ -71,7 +71,7 @@ class ExplainStrategyDefinitionUseCase:
 # ---------------------------------------------------------------------------
 
 
-def _append_parameters(definition: StrategyDefinitionV2, lines: list[str]) -> None:
+def _append_parameters(definition: StrategyDefinition, lines: list[str]) -> None:
     if not definition.parameters:
         return
     lines.append("")
@@ -85,7 +85,7 @@ def _append_parameters(definition: StrategyDefinitionV2, lines: list[str]) -> No
         lines.append(f"- {name} ({param.type}): {param.default}{bounds}")
 
 
-def _append_indicators(definition: StrategyDefinitionV2, lines: list[str]) -> None:
+def _append_indicators(definition: StrategyDefinition, lines: list[str]) -> None:
     if not definition.indicators:
         return
     lines.append("")
@@ -95,7 +95,7 @@ def _append_indicators(definition: StrategyDefinitionV2, lines: list[str]) -> No
         lines.append(f"- {ind.name} \u2248 {ind.concrete_name} ({ind.type}{period})")
 
 
-def _append_features(definition: StrategyDefinitionV2, lines: list[str]) -> None:
+def _append_features(definition: StrategyDefinition, lines: list[str]) -> None:
     if not definition.features:
         return
     lines.append("")
@@ -109,7 +109,7 @@ def _append_features(definition: StrategyDefinitionV2, lines: list[str]) -> None
         lines.append(f"- {feat.name} ({feat.type}): {detail}")
 
 
-def _append_risk(definition: StrategyDefinitionV2, lines: list[str]) -> None:
+def _append_risk(definition: StrategyDefinition, lines: list[str]) -> None:
     if definition.risk is None:
         return
     risk = definition.risk
@@ -125,7 +125,7 @@ def _append_risk(definition: StrategyDefinitionV2, lines: list[str]) -> None:
         lines.append(f"- Risk/Reward ratio: {risk.risk_reward_ratio}")
 
 
-def _append_sides(definition: StrategyDefinitionV2, lines: list[str]) -> None:
+def _append_sides(definition: StrategyDefinition, lines: list[str]) -> None:
     lines.append("")
     lines.append("## Sides")
     for side, rules in definition.sides.items():

@@ -1,4 +1,4 @@
-"""StrategyDefinitionV2Parser interface for v2 JSON strategy parsing."""
+"""StrategyDefinitionParser interface for v2 JSON strategy parsing."""
 
 from abc import ABC, abstractmethod
 from typing import Any
@@ -8,7 +8,7 @@ from finbar.core.domain.entities.strategy_validation_result import (
 )
 
 
-class StrategyDefinitionV2Parser(ABC):
+class StrategyDefinitionParser(ABC):
     """Parse raw v2 strategy JSON into canonical domain entities.
 
     This interface lives in the domain so both application use cases

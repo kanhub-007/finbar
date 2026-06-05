@@ -15,8 +15,8 @@ from finbar.core.application.dto.backtest_strategy_definition_request import (
 from finbar.core.application.dto.save_strategy_definition_request import (
     SaveStrategyDefinitionRequest,
 )
-from finbar.core.application.services.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser,
+from finbar.core.application.services.strategy_definition_parser import (
+    StrategyDefinitionParser,
 )
 from finbar.core.application.use_cases.apply_strategy_features import (
     ApplyStrategyFeaturesUseCase,
@@ -35,14 +35,14 @@ from finbar.infrastructure.repositories.sql_strategy_document_repository import 
     SqlStrategyDocumentRepository,
 )
 from finbar.infrastructure.services.backtest_runner import BacktestRunner
-from finbar.infrastructure.services.json_strategy_definition_strategy_factory import (
-    JsonStrategyDefinitionStrategyFactory,
-)
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
 )
 from finbar.infrastructure.services.pandas_strategy_feature_calculator import (
     PandasStrategyFeatureCalculator,
+)
+from finbar.infrastructure.services.strategy_definition_factory import (
+    StrategyDefinitionFactory,
 )
 from finbar.infrastructure.tables.strategy_document import (
     StrategyDocument as OrmStrategyDoc,
@@ -195,7 +195,7 @@ def _bars_with_sma() -> list[dict]:
 
 class TestStrategyJsonSdk:
     def test_parser_resolves_aliases_to_supported_concrete_indicators(self):
-        result = StrategyDefinitionV2Parser().parse(_sma_strategy())
+        result = StrategyDefinitionParser().parse(_sma_strategy())
 
         assert result.valid is True
         assert result.required_indicators == ["sma_20", "sma_50"]
@@ -212,7 +212,7 @@ class TestStrategyJsonSdk:
         assert result.definition.indicators[0].concrete_name == "sma_20"
 
     def test_parser_rejects_unsupported_period_until_enrichment_supports_it(self):
-        result = StrategyDefinitionV2Parser().parse(
+        result = StrategyDefinitionParser().parse(
             _sma_strategy(),
             {"fast_period": 37},
         )
@@ -311,7 +311,7 @@ class TestStrategyJsonSdk:
         assert result.missing_columns == ["volume"]
 
     def test_fixed_indicator_rejects_custom_period_until_enrichment_supports_it(self):
-        result = StrategyDefinitionV2Parser().parse(_atr_period_strategy())
+        result = StrategyDefinitionParser().parse(_atr_period_strategy())
 
         assert result.valid is False
         assert any(
@@ -322,7 +322,7 @@ class TestStrategyJsonSdk:
         strategy = _sma_strategy()
         strategy["parameters"]["fast_period"]["minimum"] = "two"
 
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
 
         assert result.valid is False
         assert any(error.code == "invalid_parameter_bound" for error in result.errors)
@@ -385,7 +385,7 @@ class TestStrategyJsonSdk:
         strategy = _momentum_breakout_strategy()
         strategy["risk"]["stop_loss"]["multiplier"] = "two"
 
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
 
         assert result.valid is False
         assert any(error.code == "invalid_risk_parameter" for error in result.errors)
@@ -394,7 +394,7 @@ class TestStrategyJsonSdk:
         strategy = _momentum_breakout_strategy()
         strategy["risk"]["stop_loss"]["multiplier"] = -1
 
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
 
         assert result.valid is False
         assert any(error.code == "invalid_risk_parameter" for error in result.errors)
@@ -403,7 +403,7 @@ class TestStrategyJsonSdk:
         strategy = _momentum_breakout_strategy()
         strategy["risk"]["stop_loss"]["indicator"] = "atr_999"
 
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
 
         assert result.valid is False
         assert any(error.code == "unknown_risk_indicator" for error in result.errors)
@@ -661,7 +661,7 @@ def _make_use_case() -> BacktestStrategyDefinitionUseCase:
     return BacktestStrategyDefinitionUseCase(
         engine=BacktestRunner(),
         converter=PandasBarFrameConverter(),
-        strategy_factory=JsonStrategyDefinitionStrategyFactory(),
+        strategy_factory=StrategyDefinitionFactory(),
     )
 
 
@@ -735,17 +735,17 @@ class TestStrategyPersistence:
         use_case = _make_save_use_case(mem_db)
         use_case.execute(SaveStrategyDefinitionRequest(definition_json=_sma_json_str()))
 
-        from finbar.core.application.services.strategy_definition_v2_parser import (
-            StrategyDefinitionV2Parser,
+        from finbar.core.application.services.strategy_definition_parser import (
+            StrategyDefinitionParser,
         )
         from finbar.core.domain.entities.strategy_meta import DataMode
-        from finbar.infrastructure.services.database_v2_strategy_provider import (
-            DatabaseV2StrategyProvider,
+        from finbar.infrastructure.services.database_strategy_provider import (
+            DatabaseStrategyProvider,
         )
 
-        provider = DatabaseV2StrategyProvider(
+        provider = DatabaseStrategyProvider(
             SqlStrategyDocumentRepository(mem_db),
-            parser=StrategyDefinitionV2Parser(),
+            parser=StrategyDefinitionParser(),
         )
         strategy = provider.create("persisted_sma_cross")
         assert strategy is not None
@@ -777,8 +777,8 @@ class TestStrategyPersistence:
 
 class TestSignalParity:
     def _make_json_strategy(self, definition: dict):
-        factory = JsonStrategyDefinitionStrategyFactory()
-        parser = StrategyDefinitionV2Parser()
+        factory = StrategyDefinitionFactory()
+        parser = StrategyDefinitionParser()
         result = parser.parse(definition)
         assert result.valid and result.definition is not None
         return factory.create(result.definition)
@@ -1069,19 +1069,19 @@ class TestValidationWarningsAndLimits:
     def test_warns_when_no_exit_defined(self):
         strategy = _sma_strategy()
         strategy["sides"]["long"].pop("exit", None)
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
         assert result.valid is True
         assert any(w.code == "no_exit" for w in result.warnings)
 
     def test_warns_when_no_stop_defined(self):
-        result = StrategyDefinitionV2Parser().parse(_sma_strategy())
+        result = StrategyDefinitionParser().parse(_sma_strategy())
         assert result.valid is True
         assert any(w.code == "no_stop" for w in result.warnings)
 
     def test_warns_on_both_no_exit_and_no_stop(self):
         strategy = _sma_strategy()
         strategy["sides"]["long"].pop("exit", None)
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
         codes = {w.code for w in result.warnings}
         assert "no_exit" in codes
         assert "no_stop" in codes
@@ -1098,7 +1098,7 @@ class TestValidationWarningsAndLimits:
         strategy["sides"]["long"]["entry"]["condition"] = {
             "all": [{"left": "fast_sma", "operator": ">", "right": "slow_sma"}]
         }
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
         assert result.valid is False
         assert any(
             "max" in e.message.lower() and "20" in e.message for e in result.errors
@@ -1110,7 +1110,7 @@ class TestValidationWarningsAndLimits:
         for _ in range(6):
             nested = {"all": [nested]}
         strategy["sides"]["long"]["entry"]["condition"] = nested
-        result = StrategyDefinitionV2Parser().parse(strategy)
+        result = StrategyDefinitionParser().parse(strategy)
         assert result.valid is False
         assert any("max depth" in e.message.lower() for e in result.errors)
 

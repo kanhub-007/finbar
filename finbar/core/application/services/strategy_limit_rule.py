@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
@@ -14,7 +14,7 @@ class StrategyLimitRule(ABC):
     @abstractmethod
     def check(
         self,
-        definition: StrategyDefinitionV2,
+        definition: StrategyDefinition,
         params: dict,
         indicators: list,
         features: list,

@@ -1,15 +1,15 @@
-"""StrategyDefinitionV2Serializer — serialize canonical definitions to dict."""
+"""StrategyDefinitionSerializer — serialize canonical definitions to dict."""
 
 from finbar.core.application.services.serialize_group_visitor import (
     SerializeGroupVisitor,
 )
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 
 
-class StrategyDefinitionV2Serializer:
+class StrategyDefinitionSerializer:
     """Serialize a canonical v2 strategy definition to a JSON-serializable dict."""
 
-    def serialize(self, definition: StrategyDefinitionV2) -> dict:
+    def serialize(self, definition: StrategyDefinition) -> dict:
         """Return a canonical dict representation of the definition."""
         result: dict = {
             "schema_version": definition.schema_version,

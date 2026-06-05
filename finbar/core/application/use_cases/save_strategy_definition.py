@@ -11,8 +11,8 @@ from finbar.core.application.dto.save_strategy_definition_result import (
     SaveStrategyDefinitionResult,
 )
 from finbar.core.domain.entities.strategy_document import StrategyDocument
-from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser,
+from finbar.core.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser,
 )
 from finbar.core.domain.interfaces.strategy_document_repository import (
     StrategyDocumentRepository,
@@ -27,7 +27,7 @@ class SaveStrategyDefinitionUseCase:
     def __init__(
         self,
         repository: StrategyDocumentRepository,
-        parser: StrategyDefinitionV2Parser | None = None,
+        parser: StrategyDefinitionParser | None = None,
     ):
         """Create the use case with a document repository and optional parser.
 
@@ -40,8 +40,8 @@ class SaveStrategyDefinitionUseCase:
         if parser is not None:
             self._parser = parser
         else:
-            from finbar.core.application.services.strategy_definition_v2_parser import (
-                StrategyDefinitionV2Parser as ConcreteParser,
+            from finbar.core.application.services.strategy_definition_parser import (
+                StrategyDefinitionParser as ConcreteParser,
             )
 
             self._parser = ConcreteParser()

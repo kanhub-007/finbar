@@ -2,7 +2,7 @@
 
 from finbar.core.domain.entities.condition import Condition
 from finbar.core.domain.entities.operand import Operand
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.interfaces.condition_tree_visitor import ConditionTreeVisitor
 
 _ENGINE_REQUIRED_COLUMNS = ("open", "high", "low", "close")
@@ -20,7 +20,7 @@ class RequiredColumnCollector(ConditionTreeVisitor):
         """Initialize an empty collector."""
         self._columns: list[str] = []
 
-    def collect(self, definition: StrategyDefinitionV2) -> list[str]:
+    def collect(self, definition: StrategyDefinition) -> list[str]:
         """Return required concrete bar columns for a strategy definition."""
         self._columns = []
         for column in _ENGINE_REQUIRED_COLUMNS:
@@ -41,7 +41,7 @@ class RequiredColumnCollector(ConditionTreeVisitor):
         if operand.kind in _COLUMN_OPERAND_KINDS:
             self._add(str(operand.value))
 
-    def _add_risk_columns(self, definition: StrategyDefinitionV2) -> None:
+    def _add_risk_columns(self, definition: StrategyDefinition) -> None:
         risk = definition.risk
         if risk is None:
             return

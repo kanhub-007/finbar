@@ -6,8 +6,8 @@ keeps concrete infrastructure construction out of presentation modules.
 
 from sqlalchemy.orm import Session
 
-from finbar.core.application.services.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser,
+from finbar.core.application.services.strategy_definition_parser import (
+    StrategyDefinitionParser,
 )
 from finbar.core.application.use_cases.apply_strategy_features import (
     ApplyStrategyFeaturesUseCase,
@@ -59,13 +59,10 @@ from finbar.infrastructure.services.builtin_strategy_provider import (
 from finbar.infrastructure.services.composite_strategy_provider import (
     CompositeStrategyProvider,
 )
-from finbar.infrastructure.services.database_v2_strategy_provider import (
-    DatabaseV2StrategyProvider,
+from finbar.infrastructure.services.database_strategy_provider import (
+    DatabaseStrategyProvider,
 )
 from finbar.infrastructure.services.fetch_job_manager import FetchJobManager
-from finbar.infrastructure.services.json_strategy_definition_strategy_factory import (
-    JsonStrategyDefinitionStrategyFactory,
-)
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
 )
@@ -76,6 +73,9 @@ from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
 from finbar.infrastructure.services.rate_limiter import YahooFinanceRateLimiter
+from finbar.infrastructure.services.strategy_definition_factory import (
+    StrategyDefinitionFactory,
+)
 from finbar.infrastructure.services.yfinance_stock_fetcher import (
     YFinanceStockFetcher,
 )
@@ -87,9 +87,9 @@ _indicator_calc: PandasTaIndicatorCalculator | None = None
 _bar_frame_converter: PandasBarFrameConverter | None = None
 _bt_runner: BacktestRunner | None = None
 _builtin_strategy_provider: BuiltinStrategyProvider | None = None
-_json_strategy_factory: JsonStrategyDefinitionStrategyFactory | None = None
+_json_strategy_factory: StrategyDefinitionFactory | None = None
 _strategy_feature_calculator: PandasStrategyFeatureCalculator | None = None
-_v2_parser: StrategyDefinitionV2Parser | None = None
+_v2_parser: StrategyDefinitionParser | None = None
 
 
 def _get_db() -> Session:
@@ -278,11 +278,11 @@ def _get_backtest_runner() -> BacktestRunner:
     return _bt_runner
 
 
-def _get_json_strategy_factory() -> JsonStrategyDefinitionStrategyFactory:
+def _get_json_strategy_factory() -> StrategyDefinitionFactory:
     """Return the v2 JSON strategy factory."""
     global _json_strategy_factory
     if _json_strategy_factory is None:
-        _json_strategy_factory = JsonStrategyDefinitionStrategyFactory()
+        _json_strategy_factory = StrategyDefinitionFactory()
     return _json_strategy_factory
 
 
@@ -294,11 +294,11 @@ def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:
     return _strategy_feature_calculator
 
 
-def _get_v2_parser() -> StrategyDefinitionV2Parser:
+def _get_v2_parser() -> StrategyDefinitionParser:
     """Return the shared v2 strategy JSON parser."""
     global _v2_parser
     if _v2_parser is None:
-        _v2_parser = StrategyDefinitionV2Parser()
+        _v2_parser = StrategyDefinitionParser()
     return _v2_parser
 
 
@@ -311,7 +311,7 @@ def _make_strategy_provider(db: Session | None = None) -> CompositeStrategyProvi
     providers = [_builtin_strategy_provider]
     if db is not None:
         v2_repo = SqlStrategyDocumentRepository(db)
-        providers.append(DatabaseV2StrategyProvider(v2_repo, _get_v2_parser()))
+        providers.append(DatabaseStrategyProvider(v2_repo, _get_v2_parser()))
     return CompositeStrategyProvider(providers)
 
 

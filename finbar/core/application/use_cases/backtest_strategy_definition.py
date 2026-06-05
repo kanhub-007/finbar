@@ -10,8 +10,8 @@ from finbar.core.application.dto.backtest_strategy_definition_request import (
 from finbar.core.application.dto.backtest_strategy_definition_result import (
     BacktestStrategyDefinitionResult,
 )
-from finbar.core.application.services.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser,
+from finbar.core.application.services.strategy_definition_parser import (
+    StrategyDefinitionParser,
 )
 from finbar.core.domain.entities.strategy_validation_error import (
     StrategyValidationError,
@@ -37,13 +37,13 @@ class BacktestStrategyDefinitionUseCase:
         engine: BacktestEngine,
         converter: BarFrameConverter,
         strategy_factory: StrategyDefinitionStrategyFactory,
-        parser: StrategyDefinitionV2Parser | None = None,
+        parser: StrategyDefinitionParser | None = None,
     ):
         """Create the use case with injected engine/converter/factory."""
         self._engine = engine
         self._converter = converter
         self._strategy_factory = strategy_factory
-        self._parser = parser or StrategyDefinitionV2Parser()
+        self._parser = parser or StrategyDefinitionParser()
 
     def execute(
         self,

@@ -1,7 +1,7 @@
 """NoStopWarningRule — warn when no stop-loss is configured."""
 
 from finbar.core.application.services.strategy_warning_rule import StrategyWarningRule
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
@@ -10,7 +10,7 @@ from finbar.core.domain.entities.strategy_validation_error import (
 class NoStopWarningRule(StrategyWarningRule):
     """Warn when no stop-loss is configured for a strategy."""
 
-    def check(self, definition: StrategyDefinitionV2) -> StrategyValidationError | None:
+    def check(self, definition: StrategyDefinition) -> StrategyValidationError | None:
         if definition.risk is None or definition.risk.stop_loss_type == "none":
             return StrategyValidationError(
                 path="$.risk",

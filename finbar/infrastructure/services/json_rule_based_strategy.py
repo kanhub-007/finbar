@@ -1,7 +1,7 @@
 """JsonRuleBasedStrategy — execute validated v2 JSON strategies."""
 
 from finbar.core.domain.entities.signal_result import SignalResult
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
 from finbar.core.domain.interfaces.risk_price_calculator import RiskPriceCalculator
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
@@ -19,7 +19,7 @@ class JsonRuleBasedStrategy(TradingStrategy):
 
     def __init__(
         self,
-        definition: StrategyDefinitionV2,
+        definition: StrategyDefinition,
         risk_calculator: RiskPriceCalculator | None = None,
     ):
         """Create a fresh executable strategy from a validated definition."""

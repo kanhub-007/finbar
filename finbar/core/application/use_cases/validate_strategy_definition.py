@@ -1,7 +1,7 @@
 """ValidateStrategyDefinitionUseCase — validate v2 strategy JSON."""
 
-from finbar.core.application.services.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser,
+from finbar.core.application.services.strategy_definition_parser import (
+    StrategyDefinitionParser,
 )
 from finbar.core.domain.entities.strategy_validation_result import (
     StrategyValidationResult,
@@ -11,9 +11,9 @@ from finbar.core.domain.entities.strategy_validation_result import (
 class ValidateStrategyDefinitionUseCase:
     """Validate and normalize an agent-authored strategy definition."""
 
-    def __init__(self, parser: StrategyDefinitionV2Parser | None = None):
+    def __init__(self, parser: StrategyDefinitionParser | None = None):
         """Create the use case with an injectable parser."""
-        self._parser = parser or StrategyDefinitionV2Parser()
+        self._parser = parser or StrategyDefinitionParser()
 
     def execute(
         self,

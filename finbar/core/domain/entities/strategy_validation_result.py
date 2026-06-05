@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
@@ -21,7 +21,7 @@ class StrategyValidationResult:
     warnings: list[StrategyValidationError] = field(default_factory=list)
     """Path-specific non-fatal warnings."""
 
-    definition: StrategyDefinitionV2 | None = None
+    definition: StrategyDefinition | None = None
     """Canonical strategy definition when valid."""
 
     required_indicators: list[str] = field(default_factory=list)

@@ -1,4 +1,4 @@
-"""StrategyDefinitionV2 entity for agent-authored JSON strategies."""
+"""StrategyDefinition entity for agent-authored JSON strategies."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -11,7 +11,7 @@ from finbar.core.domain.entities.strategy_parameter import StrategyParameter
 
 
 @dataclass(frozen=True)
-class StrategyDefinitionV2:
+class StrategyDefinition:
     """Canonical v2 strategy definition after parsing and parameter resolution.
 
     This entity is independent from persistence and presentation. It represents

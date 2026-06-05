@@ -1,4 +1,4 @@
-"""StrategyDefinitionV2Parser — parse and validate agent JSON strategies."""
+"""StrategyDefinitionParser — parse and validate agent JSON strategies."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from finbar.core.application.services.required_column_collector import (
 from finbar.core.application.services.strategy_condition_parser import (
     StrategyConditionParser,
 )
-from finbar.core.application.services.strategy_definition_v2_serializer import (
-    StrategyDefinitionV2Serializer,
+from finbar.core.application.services.strategy_definition_serializer import (
+    StrategyDefinitionSerializer,
 )
 from finbar.core.application.services.strategy_feature_resolver import (
     StrategyFeatureResolver,
@@ -36,7 +36,7 @@ from finbar.core.application.services.strategy_warning_rules import (
     DEFAULT_WARNING_RULES,
     StrategyWarningRule,
 )
-from finbar.core.domain.entities.strategy_definition_v2 import StrategyDefinitionV2
+from finbar.core.domain.entities.strategy_definition import StrategyDefinition
 from finbar.core.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
@@ -46,12 +46,12 @@ from finbar.core.domain.entities.strategy_validation_result import (
 from finbar.core.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
-from finbar.core.domain.interfaces.strategy_definition_v2_parser import (
-    StrategyDefinitionV2Parser as V2ParserInterface,
+from finbar.core.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser as ParserInterface,
 )
 
 
-class StrategyDefinitionV2Parser(V2ParserInterface):
+class StrategyDefinitionParser(ParserInterface):
     """Parse agent-authored JSON into canonical v2 strategy definitions.
 
     Warning rules, limit rules, and serializer are injectable for OCP compliance.
@@ -62,7 +62,7 @@ class StrategyDefinitionV2Parser(V2ParserInterface):
         catalog: IndicatorCapabilityProvider | None = None,
         warning_rules: list[StrategyWarningRule] | None = None,
         limit_rules: list[StrategyLimitRule] | None = None,
-        serializer: StrategyDefinitionV2Serializer | None = None,
+        serializer: StrategyDefinitionSerializer | None = None,
     ):
         """Create a parser with injectable parsing collaborators.
 
@@ -75,7 +75,7 @@ class StrategyDefinitionV2Parser(V2ParserInterface):
         self._catalog = catalog or StrategyIndicatorCatalog()
         self._warning_rules = warning_rules or DEFAULT_WARNING_RULES
         self._limit_rules = limit_rules or DEFAULT_LIMIT_RULES
-        self._serializer = serializer or StrategyDefinitionV2Serializer()
+        self._serializer = serializer or StrategyDefinitionSerializer()
         self._parameter_resolver = StrategyParameterResolver()
         self._indicator_resolver = StrategyIndicatorResolver(self._catalog)
         self._feature_resolver = StrategyFeatureResolver(self._catalog)
@@ -122,7 +122,7 @@ class StrategyDefinitionV2Parser(V2ParserInterface):
         if errors:
             return StrategyValidationResult(valid=False, errors=errors)
 
-        definition = StrategyDefinitionV2(
+        definition = StrategyDefinition(
             name=name,
             description=str(data.get("description", "")),
             parameters=params,
@@ -202,7 +202,7 @@ def _err(
 
 
 def _collect_warnings(
-    definition: StrategyDefinitionV2,
+    definition: StrategyDefinition,
     rules: list[StrategyWarningRule],
 ) -> list[StrategyValidationError]:
     warnings: list[StrategyValidationError] = []
@@ -214,7 +214,7 @@ def _collect_warnings(
 
 
 def _collect_limit_errors(
-    definition: StrategyDefinitionV2,
+    definition: StrategyDefinition,
     params: dict,
     indicators: list,
     features: list,
