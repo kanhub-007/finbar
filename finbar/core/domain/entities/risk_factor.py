@@ -35,3 +35,9 @@ class RiskFactor(StrEnum):
 
     STALE_DATA = "STALE_DATA"
     """Most recent bar is older than the expected interval."""
+
+    FAKEOUT_CRITICAL = "FAKEOUT_CRITICAL"
+    """Breakout with critical fakeout probability."""
+
+    FAKEOUT_HIGH = "FAKEOUT_HIGH"
+    """Breakout with elevated fakeout probability."""

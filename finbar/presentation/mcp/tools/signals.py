@@ -5,9 +5,8 @@ import json
 from fastmcp import FastMCP
 
 from finbar.core.application.dto.compute_signals_request import ComputeSignalsRequest
-from finbar.presentation.mcp.tools._shared import (
-    _make_compute_signals_use_case,
-)
+from finbar.presentation.mcp.presenters.signal_presenter import SignalPresenter
+from finbar.presentation.mcp.tools._shared import _make_compute_signals_use_case
 
 
 def register_signal_tools(mcp: FastMCP) -> None:
@@ -30,16 +29,7 @@ def register_signal_tools(mcp: FastMCP) -> None:
         symbol: str = "",
         interval: str = "",
     ) -> str:
-        """Compute signal interpretation columns from enriched bars.
-
-        Args:
-            bars_json: JSON array of enriched OHLCV bars with indicator columns.
-            symbol: Ticker symbol for metadata.
-            interval: Bar interval for metadata.
-
-        Returns:
-            JSON with enriched bars including signal columns.
-        """
+        """Compute signal interpretation columns from enriched bars."""
         try:
             bars = json.loads(bars_json)
         except json.JSONDecodeError as exc:
@@ -47,12 +37,9 @@ def register_signal_tools(mcp: FastMCP) -> None:
         if not isinstance(bars, list):
             return json.dumps({"error": "bars_json must be a JSON array"})
 
-        use_case = _make_compute_signals_use_case()
-        result = use_case.execute(
-            ComputeSignalsRequest(
-                bars=bars,
-                symbol=symbol,
-                interval=interval,
-            )
+        result = _make_compute_signals_use_case().execute(
+            ComputeSignalsRequest(bars=bars, symbol=symbol, interval=interval)
         )
-        return json.dumps(result, indent=2, default=str)
+        return json.dumps(
+            SignalPresenter.compute_result(result), indent=2, default=str
+        )

@@ -1,9 +1,9 @@
 """ComputeSignalsUseCase — apply signal interpretation to enriched bars."""
 
 import logging
-from typing import Any
 
 from finbar.core.application.dto.compute_signals_request import ComputeSignalsRequest
+from finbar.core.application.dto.compute_signals_result import ComputeSignalsResult
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.signal_calculator import SignalCalculator
 
@@ -27,35 +27,15 @@ class ComputeSignalsUseCase:
         self._calculator = calculator
         self._converter = converter
 
-    def execute(self, request: ComputeSignalsRequest) -> dict[str, Any]:
-        """Apply signal interpretation and return enriched bar dicts.
-
-        Args:
-            request: Contains the enriched bars to process.
-
-        Returns:
-            Dict with enriched bars, bar_count, and signal columns applied.
-        """
+    def execute(self, request: ComputeSignalsRequest) -> ComputeSignalsResult:
+        """Apply signal interpretation and return enriched bar dicts."""
         frame = self._converter.bars_to_frame(request.bars)
         enriched = self._calculator.calculate(frame)
         bars = self._converter.frame_to_bars(enriched)
 
-        signal_columns = [
-            "rsi_zone",
-            "adx_conviction",
-            "is_squeeze",
-            "is_overextended",
-            "is_weak_trend",
-            "is_low_volume",
-            "near_resistance",
-            "near_support",
-            "confidence_score",
-        ]
-
-        return {
-            "symbol": request.symbol,
-            "interval": request.interval,
-            "bar_count": len(bars),
-            "signal_columns": signal_columns,
-            "bars": bars,
-        }
+        return ComputeSignalsResult(
+            bars=bars,
+            symbol=request.symbol,
+            interval=request.interval,
+            bar_count=len(bars),
+        )
