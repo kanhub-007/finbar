@@ -14,6 +14,7 @@ import logging
 import pandas as pd
 
 from finbar.core.domain.entities.pending_entry import PendingEntry
+from finbar.core.domain.entities.pending_exit import PendingExit
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.core.domain.services.backtest_metrics import (
@@ -161,7 +162,18 @@ def _execute_pending(
     commission_pct: float = 0.0,
     slippage_pct: float = 0.0,
 ) -> None:
-    """Execute a pending entry signal at next bar's open."""
+    """Execute pending exit/entry signals at next bar's open."""
+    if state.pending_exit is not None and state.position.size != 0:
+        _exit_position(
+            state,
+            price,
+            date,
+            exit_reason="signal_exit_next_open",
+            commission_pct=commission_pct,
+            slippage_pct=slippage_pct,
+        )
+        state.pending_exit = None
+
     if state.pending_entry is None or state.position.size != 0:
         return
     entry = state.pending_entry
@@ -188,13 +200,15 @@ def _process_signal(
         and signal.action in ("buy", "sell")
         and state.position.size != 0
     ):
-        _exit_position(
-            state,
-            close,
+        state.pending_exit = PendingExit(
+            direction=state.position.direction,
+            confidence=signal.confidence,
+        )
+        logger.info(
+            "[EXIT-SIGNAL] %s | %s | bar_close=%.2f | queued for next open",
             date,
-            exit_reason="signal_exit",
-            commission_pct=commission_pct,
-            slippage_pct=slippage_pct,
+            state.position.direction.upper(),
+            close,
         )
         return
 

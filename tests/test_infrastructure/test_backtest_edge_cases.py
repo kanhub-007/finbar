@@ -516,3 +516,80 @@ class TestTransactionCosts:
         assert result["total_slippage"] == 0.0
         assert result["commission_pct"] == 0.0
         assert result["slippage_pct"] == 0.0
+
+
+class TestPendingExit:
+    def test_signal_exit_executes_next_bar_open(self):
+        """Signal exits should defer to next bar open, same as entries."""
+        from finbar.infrastructure.services.backtest_runner import BacktestRunner
+
+        class _BuyThenExit(TradingStrategy):
+            def __init__(self):
+                self._entered = False
+                self._bar = 0
+
+            def meta(self):
+                return StrategyMeta(
+                    name="buy_then_exit",
+                    variant=DataMode.REAL,
+                    description="Test",
+                    required_indicators=[],
+                )
+
+            def on_reset(self):
+                self._entered = False
+                self._bar = 0
+
+            def on_bar(self, bar, position):
+                self._bar += 1
+                pos_size = position.get("size", 0)
+                if pos_size == 0 and not self._entered:
+                    self._entered = True
+                    return SignalResult(
+                        action="buy", direction="long", position_size=10
+                    )
+                if pos_size > 0 and self._bar >= 3:
+                    return SignalResult(action="sell", direction="exit")
+                return SignalResult(action="hold")
+
+        df = pd.DataFrame(
+            {
+                "open": [100, 105, 110, 115],
+                "high": [101, 106, 111, 116],
+                "low": [99, 104, 109, 114],
+                "close": [100, 105, 110, 115],
+                "volume": [1000000] * 4,
+            },
+            index=pd.date_range("2024-01-01", periods=4),
+        )
+
+        result = BacktestRunner().run(df, _BuyThenExit(), 10000)
+
+        assert result["total_trades"] == 1
+        trade = result["trades"][0]
+        assert trade["entry_price"] == 105.0  # next bar open after signal
+        assert trade["exit_price"] == 115.0  # next bar open after exit signal
+        assert trade["metadata"]["exit_reason"] == "signal_exit_next_open"
+
+    def test_stop_loss_still_fires_intrabar(self):
+        """Only signal exits are deferred. Stops/targets remain intrabar."""
+        sig = SignalResult(
+            action="buy", direction="long", stop_price=95.0, position_size=10
+        )
+        dates = pd.date_range("2024-01-01", periods=2, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 98.0],
+                "high": [101.0, 99.0],
+                "low": [99.0, 93.0],
+                "close": [100.0, 94.0],
+                "volume": [1000000] * 2,
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert result["total_trades"] == 1
+        trade = result["trades"][0]
+        assert trade["metadata"]["exit_reason"] == "stop_loss"
