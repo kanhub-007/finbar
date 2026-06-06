@@ -1,7 +1,7 @@
-"""CoinGlassClient — CoinGlass API implementation of DerivativesDataProvider.
+"""CoinGlassClient — CoinGlass API v4 implementation of DerivativesDataProvider.
 
-Handles HTTP authentication, rate limiting, and response parsing.
-Implements the domain‑layer DerivativesDataProvider interface.
+Uses CoinGlassRateLimiter (sliding‑window, same pattern as YF/HL).
+Supports funding rate, aggregated CVD, and open interest history.
 """
 
 from __future__ import annotations
@@ -18,39 +18,41 @@ from finbar.core.domain.entities.derivatives_metrics import DerivativesMetrics
 from finbar.core.domain.interfaces.derivatives_data_provider import (
     DerivativesDataProvider,
 )
+from finbar.infrastructure.services.coinglass_rate_limiter import (
+    CoinGlassRateLimiter,
+)
 
 logger = logging.getLogger(__name__)
 
-_COINGLASS_BASE = "https://open-api-v3.coinglass.com/api"
+_COINGLASS_BASE = "https://open-api-v4.coinglass.com"
 _MAX_RETRIES = 3
 _BASE_BACKOFF = 2.0
 
 
 class CoinGlassClient(DerivativesDataProvider):
-    """CoinGlass Open API v3 client for derivatives market data.
+    """CoinGlass Open API v4 client for derivatives market data.
 
     Requires ``COINGLASS_API_KEY`` environment variable.
-    Supports perpetual futures data: OI, CVD, funding rate,
-    long/short ratio, and liquidations.
+    Rate limiting matches the existing YahooFinanceRateLimiter pattern
+    (sliding window, thread‑safe), with dynamic limit updates from
+    CoinGlass response headers.
     """
 
-    def __init__(self, api_key: str | None = None):
-        """Create the client.
-
-        Args:
-            api_key: CoinGlass API key. Falls back to
-                ``COINGLASS_API_KEY`` environment variable.
-        """
+    def __init__(
+        self,
+        api_key: str | None = None,
+        rate_limiter: CoinGlassRateLimiter | None = None,
+    ):
         self._api_key = api_key or os.getenv("COINGLASS_API_KEY", "")
         if not self._api_key:
             logger.warning("COINGLASS_API_KEY not set — CoinGlassClient will fail")
         self._session = requests.Session()
         self._session.headers.update(
-            {
-                "accept": "application/json",
-                "coinglassSecret": self._api_key,
-            }
+            {"accept": "application/json", "CG-API-KEY": self._api_key}
         )
+        self._rate_limiter = rate_limiter or CoinGlassRateLimiter()
+
+    # ── Public API ────────────────────────────────────────────────────
 
     def fetch(
         self,
@@ -58,132 +60,168 @@ class CoinGlassClient(DerivativesDataProvider):
         interval: str = "1h",
         start_time: str | None = None,
         end_time: str | None = None,
+        exchange: str = "Binance",
+        limit: int = 500,
     ) -> list[DerivativesMetrics]:
-        """Fetch funding rate history for a symbol.
+        """Fetch funding rate history for a symbol."""
+        self._require_key()
+        full_symbol = _to_full_symbol(symbol)
+        params = _params(full_symbol, interval, exchange, limit, start_time, end_time)
+        raw = self._get("/api/futures/funding-rate/history", params)
+        return _parse_funding(raw, symbol, interval)
 
-        CoinGlass open API provides funding rate, OI, and liquidations
-        through separate endpoints. This implementation fetches funding
-        rate history as the primary time series; other metrics can be
-        added via additional endpoints in future iterations.
+    def fetch_cvd(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        exchange: str = "Binance",
+        limit: int = 500,
+    ) -> list[DerivativesMetrics]:
+        """Fetch aggregated CVD history."""
+        self._require_key()
+        full_symbol = _to_full_symbol(symbol)
+        params = {
+            "exchange_list": exchange,
+            "symbol": full_symbol,
+            "interval": interval,
+            "limit": limit,
+        }
+        raw = self._get("/api/futures/aggregated-cvd/history", params)
+        return _parse_cvd(raw, symbol, interval)
 
-        Args:
-            symbol: Ticker (e.g. "BTC").
-            interval: Bar interval ("1h", "4h", "1d").
-            start_time: Unix milliseconds start.
-            end_time: Unix milliseconds end.
+    def fetch_open_interest(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        exchange: str = "Binance",
+        limit: int = 500,
+    ) -> list[DerivativesMetrics]:
+        """Fetch aggregated open interest history."""
+        self._require_key()
+        full_symbol = _to_full_symbol(symbol)
+        params = {
+            "exchange_list": exchange,
+            "symbol": full_symbol,
+            "interval": interval,
+            "limit": limit,
+        }
+        raw = self._get("/api/futures/open-interest/aggregated-history", params)
+        return _parse_oi(raw, symbol, interval)
 
-        Returns:
-            List of DerivativesMetrics with funding rate, OI, and CVD.
-        """
+    # ── HTTP helpers ──────────────────────────────────────────────────
+
+    def _require_key(self) -> None:
         if not self._api_key:
             raise RuntimeError("COINGLASS_API_KEY not configured")
 
-        params = self._build_params(symbol, interval, start_time, end_time)
-        raw = self._get_with_retry(
-            f"{_COINGLASS_BASE}/futures/fundingRateHistory",
-            params,
-        )
-        return self._parse_response(raw, symbol, interval)
-
-    # ── request helpers ───────────────────────────────────────────────
-
-    def _build_params(
-        self,
-        symbol: str,
-        interval: str,
-        start_time: str | None,
-        end_time: str | None,
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {
-            "symbol": symbol,
-            "interval": interval,
-        }
-        if start_time:
-            params["startTime"] = start_time
-        if end_time:
-            params["endTime"] = end_time
-        return params
-
-    def _get_with_retry(
-        self,
-        url: str,
-        params: dict,
-    ) -> list[dict]:
+    def _get(self, endpoint: str, params: dict[str, Any]) -> list[dict]:
+        self._rate_limiter.wait()
+        url = f"{_COINGLASS_BASE}{endpoint}"
         last_error: Exception | None = None
+
         for attempt in range(_MAX_RETRIES):
             try:
                 resp = self._session.get(url, params=params, timeout=30)
+                self._rate_limiter.update_from_headers(dict(resp.headers))
                 resp.raise_for_status()
                 data = resp.json()
                 if data.get("code") != "0":
-                    raise RuntimeError(
-                        f"CoinGlass API error: {data.get('msg', 'unknown')}"
-                    )
+                    raise RuntimeError(f"CoinGlass API error: {data.get('msg', 'unknown')}")
                 return data.get("data", [])
             except requests.RequestException as exc:
                 last_error = exc
+                if resp is not None and resp.status_code == 429:
+                    self._rate_limiter.on_rate_limit_error(attempt)
                 backoff = _BASE_BACKOFF ** (attempt + 1)
                 logger.warning(
                     "CoinGlass request failed (attempt %d/%d): %s — retrying in %.1fs",
-                    attempt + 1,
-                    _MAX_RETRIES,
-                    exc,
-                    backoff,
+                    attempt + 1, _MAX_RETRIES, exc, backoff,
                 )
                 time.sleep(backoff)
         raise RuntimeError(
             f"CoinGlass request failed after {_MAX_RETRIES} attempts: {last_error}"
         )
 
-    # ── response parsing ──────────────────────────────────────────────
 
-    @staticmethod
-    def _parse_response(
-        raw: list[dict],
-        symbol: str,
-        interval: str,
-    ) -> list[DerivativesMetrics]:
-        return [
-            CoinGlassClient._item_to_metrics(item, symbol, interval)
-            for item in raw
-        ]
+# ── module helpers ──────────────────────────────────────────────────────
 
-    @staticmethod
-    def _item_to_metrics(
-        item: dict,
-        symbol: str,
-        interval: str,
-    ) -> DerivativesMetrics:
-        of = CoinGlassClient._opt_float
-        return DerivativesMetrics(
+
+def _to_full_symbol(symbol: str) -> str:
+    return f"{symbol}USDT" if "USDT" not in symbol else symbol
+
+
+def _params(
+    symbol: str,
+    interval: str,
+    exchange: str,
+    limit: int,
+    start_time: str | None = None,
+    end_time: str | None = None,
+) -> dict[str, Any]:
+    p: dict[str, Any] = {
+        "exchange": exchange,
+        "symbol": symbol,
+        "interval": interval,
+        "limit": limit,
+    }
+    if start_time:
+        p["startTime"] = start_time
+    if end_time:
+        p["endTime"] = end_time
+    return p
+
+
+def _parse_funding(raw: list[dict], symbol: str, interval: str) -> list[DerivativesMetrics]:
+    of = _opt_float
+    return [
+        DerivativesMetrics(
             symbol=symbol,
-            timestamp=CoinGlassClient._parse_timestamp(item),
+            timestamp=_parse_ts(item),
             interval=interval,
-            open_interest=of(item.get("openInterest")),
-            open_interest_delta_1h=of(item.get("h1OIChangePercent")),
-            open_interest_delta_24h=of(item.get("h24OIChangePercent")),
-            funding_rate=of(item.get("fundingRate")),
-            cumulative_volume_delta=of(item.get("cvd")),
-            long_short_ratio=of(item.get("longShortRatio")),
-            liquidations_long_1h=of(item.get("longLiquidationUsd")),
-            liquidations_short_1h=of(item.get("shortLiquidationUsd")),
+            funding_rate=of(item.get("close") or item.get("fundingRate")),
         )
+        for item in raw
+    ]
 
-    @staticmethod
-    def _parse_timestamp(item: dict) -> str:
-        ts = item.get("createTime") or item.get("time") or 0
-        try:
-            return datetime.fromtimestamp(
-                int(ts) / 1000, tz=timezone.utc
-            ).isoformat()
-        except (ValueError, OSError):
-            return str(ts)
 
-    @staticmethod
-    def _opt_float(value: Any) -> float | None:
-        if value is None:
-            return None
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return None
+def _parse_cvd(raw: list[dict], symbol: str, interval: str) -> list[DerivativesMetrics]:
+    of = _opt_float
+    return [
+        DerivativesMetrics(
+            symbol=symbol,
+            timestamp=_parse_ts(item),
+            interval=interval,
+            cumulative_volume_delta=of(item.get("close") or item.get("cvd")),
+        )
+        for item in raw
+    ]
+
+
+def _parse_oi(raw: list[dict], symbol: str, interval: str) -> list[DerivativesMetrics]:
+    of = _opt_float
+    return [
+        DerivativesMetrics(
+            symbol=symbol,
+            timestamp=_parse_ts(item),
+            interval=interval,
+            open_interest=of(item.get("close") or item.get("openInterest")),
+        )
+        for item in raw
+    ]
+
+
+def _parse_ts(item: dict) -> str:
+    ts = item.get("createTime") or item.get("time") or 0
+    try:
+        return datetime.fromtimestamp(int(ts) / 1000, tz=timezone.utc).isoformat()
+    except (ValueError, OSError):
+        return str(ts)
+
+
+def _opt_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
