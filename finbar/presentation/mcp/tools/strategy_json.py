@@ -147,19 +147,16 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         name="backtest_strategy_json",
         description=(
             "Run a backtest with a strategy JSON definition against "
-            "with computed indicators primary bars (including any indicators and "
-            "features the strategy needs), or pass bars_artifact_id from a "
-            "completed indicator job to avoid large JSON round trips. For "
-            "multi-timeframe strategies, also pass informative_bars_json or "
-            "informative_bars_artifact_ids_json after computing indicators on those bars "
-            "separately. Does NOT fetch prices or calculate indicators — "
-            "the agent must call apply_indicators and apply_strategy_features "
-            "BEFORE this tool. Returns full "
-            "backtest results: total_return, sharpe_ratio, max_drawdown, "
-            "win_rate, profit_factor, trades list (with entry/exit "
-            "dates, prices, PnL, direction), and equity_curve (with "
-            "date, close, portfolio value, drawdown, position). The "
-            "equity curve includes close prices for overlay charting."
+            "already-enriched bars. Features declared in the strategy "
+            "are auto-computed — no separate apply_strategy_features call "
+            "needed. Pass bars_artifact_id (preferred, avoids large JSON) "
+            "or bars_json directly. For multi-timeframe strategies, also "
+            "pass informative_bars_json or informative_bars_artifact_ids_json. "
+            "You MUST call compute_indicators (and optionally compute_signals) "
+            "on each timeframe BEFORE this tool. "
+            "Returns: total_return, sharpe_ratio, max_drawdown, win_rate, "
+            "profit_factor, trades (entry/exit dates, prices, PnL, direction), "
+            "and equity_curve (date, close, value, drawdown, position)."
         ),
     )
     def backtest_strategy_json(
