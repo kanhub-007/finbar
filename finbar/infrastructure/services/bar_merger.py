@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from finbar.core.domain.services.indicator_value_mapper import to_numeric
+
 
 def merge_timeframes(
     primary: pd.DataFrame,
@@ -64,7 +66,9 @@ def merge_timeframes(
         for col in columns:
             val = row.get(col)
             if val is not None and pd.notna(val):
-                info_by_date.setdefault(date_str, {})[f"{col}{suffix}"] = float(val)
+                numeric = to_numeric(val)
+                if numeric is not None:
+                    info_by_date.setdefault(date_str, {})[f"{col}{suffix}"] = numeric
 
     # Apply to each primary bar
     primary_dates = pd.to_datetime(primary.index).strftime("%Y-%m-%d")

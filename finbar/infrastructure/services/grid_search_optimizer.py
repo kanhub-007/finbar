@@ -7,6 +7,7 @@ import itertools
 
 from finbar.core.domain.entities.optimization_job import OptimizationJob
 from finbar.core.domain.entities.optimization_result import OptimizationResult
+from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.core.domain.entities.param_range import ParamRange
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
@@ -19,13 +20,6 @@ from finbar.core.domain.interfaces.optimization_job_manager import (
 from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
 )
-from finbar.core.domain.interfaces.strategy_definition_parser import (
-    StrategyDefinitionParser,
-)
-from finbar.core.domain.interfaces.strategy_definition_strategy_factory import (
-    StrategyDefinitionStrategyFactory,
-)
-from finbar.core.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
 
 _MAX_COMBINATIONS = 100
 _RANKING_METRICS = frozenset(
@@ -45,24 +39,16 @@ _METRIC_ASCENDING = frozenset({"max_drawdown"})
 class GridSearchOptimizer(OptimizationJobRunner):
     """Run a grid search over strategy parameters against pre-enriched bars."""
 
-    def __init__(
-        self,
-        parser: StrategyDefinitionParser,
-        engine: BacktestEngine,
-        converter: BarFrameConverter,
-        strategy_factory: StrategyDefinitionStrategyFactory,
-        manager: OptimizationJobManager,
-        artifact_provider: IndicatorArtifactProvider,
-        timeframe_merger: TimeframeBarMerger | None = None,
-    ):
-        """Create the optimizer with injected infrastructure collaborators."""
-        self._parser = parser
-        self._engine = engine
-        self._converter = converter
-        self._strategy_factory = strategy_factory
-        self._manager = manager
-        self._artifact_provider = artifact_provider
-        self._timeframe_merger = timeframe_merger
+    def __init__(self, config: OptimizerConfig):
+        """Create the optimizer from a configuration DTO."""
+        self._parser = config.parser
+        self._engine = config.engine
+        self._converter = config.converter
+        self._strategy_factory = config.strategy_factory
+        self._manager = config.manager
+        self._artifact_provider = config.artifact_provider
+        self._timeframe_merger = config.timeframe_merger
+        self._feature_calculator = config.feature_calculator
 
     async def run(self, job: OptimizationJob) -> None:
         """Run grid search in a thread so backtests don't block asyncio."""
@@ -185,6 +171,10 @@ class GridSearchOptimizer(OptimizationJobRunner):
                     error=f"Missing columns: {', '.join(missing)}",
                 )
             frame = self._converter.bars_to_frame(bars)
+            if self._feature_calculator is not None and validation.definition.features:
+                frame = self._feature_calculator.calculate(
+                    frame, validation.definition.features
+                )
             strategy = self._strategy_factory.create(validation.definition)
             raw = self._engine.run(
                 df=frame,

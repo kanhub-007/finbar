@@ -72,6 +72,9 @@ class BacktestResultDTO:
     calmar_ratio: float = 0.0
     """Annualized return / max drawdown."""
 
+    position_sizing: str = ""
+    """Diagnostic marker for position sizing method in use."""
+
     trades: list[dict] = field(default_factory=list)
     """List of trade records. Each trade has: entry_date, exit_date,
     entry_price, exit_price, size, pnl, pnl_pct, duration_bars, metadata."""

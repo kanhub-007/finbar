@@ -35,5 +35,8 @@ class BacktestStrategyDefinitionRequest:
     initial_cash: float = 10000.0
     """Starting capital for the backtest."""
 
+    risk_per_trade: float = 0.02
+    """Fraction of portfolio to risk per trade (0.0-1.0). Default 2%."""
+
     params: dict[str, Any] = field(default_factory=dict)
     """Runtime strategy parameter overrides."""

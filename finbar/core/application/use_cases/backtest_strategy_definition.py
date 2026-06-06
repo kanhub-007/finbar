@@ -224,6 +224,7 @@ def _run_backtest(
             df=frame,
             strategy=strategy,
             initial_cash=request.initial_cash,
+            risk_per_trade=request.risk_per_trade,
         )
     except Exception as exc:
         logger.exception("JSON strategy backtest failed")

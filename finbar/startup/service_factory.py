@@ -72,6 +72,7 @@ from finbar.core.application.use_cases.validate_strategy_definition import (
 )
 from finbar.core.domain.entities.data_source import DataSource
 from finbar.core.domain.entities.interval import Interval
+from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.infrastructure.data.connection import SessionLocal
 from finbar.infrastructure.repositories.sql_price_cache_repository import (
     SqlPriceCacheRepository,
@@ -330,7 +331,7 @@ def _get_optimizer() -> GridSearchOptimizer:
     """Return the shared grid search optimizer."""
     global _optimizer
     if _optimizer is None:
-        _optimizer = GridSearchOptimizer(
+        config = OptimizerConfig(
             parser=_get_parser(),
             engine=_get_backtest_runner(),
             converter=_get_bar_frame_converter(),
@@ -338,7 +339,9 @@ def _get_optimizer() -> GridSearchOptimizer:
             manager=_get_optimization_job_manager(),
             artifact_provider=_get_indicator_job_manager(),
             timeframe_merger=_get_timeframe_bar_merger(),
+            feature_calculator=_get_strategy_feature_calculator(),
         )
+        _optimizer = GridSearchOptimizer(config)
     return _optimizer
 
 

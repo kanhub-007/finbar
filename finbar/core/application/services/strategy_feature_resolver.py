@@ -77,11 +77,14 @@ class StrategyFeatureResolver:
             )
             return
         if feature_type == "formula":
+            raw_expr = item.get("expr")
+            if raw_expr is not None:
+                raw_expr = _resolve_expr_params(raw_expr, resolved_params, f"{path}.expr", errors)
             features.append(
                 FeatureSpec(
                     name=name,
                     type=feature_type,
-                    raw_expr=item.get("expr"),
+                    raw_expr=raw_expr,
                 )
             )
             used_names.add(name)
@@ -160,3 +163,40 @@ class StrategyFeatureResolver:
             errors.append(make_error(path, "window must resolve to a positive integer"))
             return True
         return False
+
+
+def _resolve_expr_params(
+    expr: Any,
+    resolved_params: dict[str, Any],
+    path: str,
+    errors: list[StrategyValidationError],
+) -> Any:
+    """Recursively resolve {{ param }} references in a formula expression tree."""
+    if isinstance(expr, dict):
+        resolved: dict = {}
+        for key, value in expr.items():
+            if key == "children":
+                resolved[key] = [
+                    _resolve_expr_params(child, resolved_params, path, errors)
+                    for child in (value if isinstance(value, list) else [])
+                ]
+            elif key in ("left", "right"):
+                resolved[key] = _resolve_leaf(value, resolved_params, path, errors)
+            else:
+                resolved[key] = value
+        return resolved
+    return expr
+
+
+def _resolve_leaf(
+    value: Any,
+    resolved_params: dict[str, Any],
+    path: str,
+    errors: list[StrategyValidationError],
+) -> Any:
+    """Resolve a leaf value, handling {{ param }} string references."""
+    if isinstance(value, str):
+        return resolve_expression(value, resolved_params, path, errors)
+    if isinstance(value, dict):
+        return _resolve_expr_params(value, resolved_params, path, errors)
+    return value

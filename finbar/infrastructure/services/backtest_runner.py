@@ -13,6 +13,7 @@ import logging
 
 import pandas as pd
 
+from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.core.domain.services.backtest_metrics import (
@@ -68,7 +69,8 @@ class BacktestRunner(BacktestEngine):
         # Reset strategy state
         strategy.on_reset()
 
-        result = _run_loop(df, strategy, initial_cash)
+        risk_per_trade = float(params.pop("risk_per_trade", _DEFAULT_RISK_PER_TRADE))
+        result = _run_loop(df, strategy, initial_cash, risk_per_trade)
         return _build_result_dict(strategy, result, initial_cash)
 
 
@@ -81,74 +83,98 @@ def _run_loop(
     df: pd.DataFrame,
     strategy: TradingStrategy,
     initial_cash: float,
+    risk_per_trade: float = 0.02,
 ) -> BacktestLoopState:
     """Iterate bars, call strategy, execute signals, track positions."""
     state = BacktestLoopState(initial_cash)
 
     for i in range(len(df)):
         row = df.iloc[i]
-        bar_dict = _row_to_bar(row)
         bar_date = _bar_date(row)
         close = float(row["close"])
         open_price = float(row["open"])
         high = float(row["high"])
         low = float(row["low"])
 
-        # --- Execute pending entry (conservative mode: next-bar open) ---
-        if state.pending_signal is not None and state.position.size == 0:
-            sig = state.pending_signal
-            state.pending_signal = None
-            _enter_position(state, sig, open_price, bar_date)
-
-        # --- Check stop/target for existing position ---
-        if state.position.size != 0:
-            _check_exit_conditions(state, close, high, low, bar_date)
-
-        # --- Generate signal from strategy ---
-        signal = strategy.on_bar(bar_dict, state.position.to_dict())
-
-        # --- Handle signal exit ---
-        if (
-            signal.direction == "exit"
-            and signal.action in ("buy", "sell")
-            and state.position.size != 0
-        ):
-            _exit_position(state, close, bar_date)
-
-        # --- Handle entry signals ---
-        elif (
-            state.position.size == 0
-            and signal.action in ("buy", "sell")
-            and signal.direction in ("long", "short")
-        ):
-            size = _resolve_position_size(signal, open_price, initial_cash)
-            state.pending_signal = {
-                "direction": signal.direction,
-                "stop_price": signal.stop_price,
-                "target_price": signal.target_price,
-                "position_size": size,
-            }
-
-        # --- Track equity ---
-        portfolio_value = _portfolio_value(state, close)
-        if portfolio_value > state.peak_value:
-            state.peak_value = portfolio_value
-        drawdown = (
-            (state.peak_value - portfolio_value) / state.peak_value
-            if state.peak_value > 0
-            else 0
-        )
-        state.equity_curve.append(
-            {
-                "date": bar_date,
-                "close": close,
-                "value": portfolio_value,
-                "drawdown": drawdown,
-                "position": state.position.size,
-            }
-        )
+        bar_dict = _row_to_bar(row)
+        _execute_pending(state, open_price, bar_date)
+        _check_exit_conditions(state, close, high, low, bar_date)
+        _process_signal(state, strategy, bar_dict, open_price, close, bar_date, risk_per_trade)
+        _track_equity(state, close, bar_date)
 
     return state
+
+
+def _execute_pending(
+    state: BacktestLoopState, price: float, date: str
+) -> None:
+    """Execute a pending entry signal at next bar's open."""
+    if state.pending_entry is None or state.position.size != 0:
+        return
+    entry = state.pending_entry
+    state.pending_entry = None
+    _enter_position(state, entry, price, date)
+
+
+def _process_signal(
+    state: BacktestLoopState,
+    strategy: TradingStrategy,
+    bar: dict,
+    open_price: float,
+    close: float,
+    date: str,
+    risk_per_trade: float,
+) -> None:
+    """Generate and handle strategy signals for the current bar."""
+    signal = strategy.on_bar(bar, state.position.to_dict())
+
+    # Exit signal
+    if (
+        signal.direction == "exit"
+        and signal.action in ("buy", "sell")
+        and state.position.size != 0
+    ):
+        _exit_position(state, close, date)
+        return
+
+    # Entry signal
+    if (
+        state.position.size == 0
+        and signal.action in ("buy", "sell")
+        and signal.direction in ("long", "short")
+    ):
+        size = _resolve_position_size(
+            signal, open_price, _portfolio_value(state, open_price), risk_per_trade
+        )
+        state.pending_entry = PendingEntry(
+            direction=signal.direction,
+            stop_price=signal.stop_price,
+            target_price=signal.target_price,
+            position_size=size,
+        )
+
+
+def _track_equity(
+    state: BacktestLoopState, close: float, date: str
+) -> None:
+    """Record portfolio value and drawdown for the equity curve."""
+    portfolio_value = _portfolio_value(state, close)
+    if portfolio_value > state.peak_value:
+        state.peak_value = portfolio_value
+    drawdown = (
+        (state.peak_value - portfolio_value) / state.peak_value
+        if state.peak_value > 0
+        else 0
+    )
+    state.equity_curve.append(
+        {
+            "date": date,
+            "close": close,
+            "value": portfolio_value,
+            "drawdown": drawdown,
+            "position": state.position.size,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -158,26 +184,31 @@ def _run_loop(
 
 def _enter_position(
     state: BacktestLoopState,
-    sig: dict,
+    entry: PendingEntry,
     price: float,
     date: str,
 ) -> None:
-    """Enter a new position from a pending signal."""
-    size = sig["position_size"] or 100
-    if sig["direction"] == "long":
+    """Enter a new position from a pending entry signal."""
+    size = entry.position_size or _DEFAULT_POSITION_SIZE
+    # Cash constraint: never buy more shares than we can afford
+    if price > 0:
+        max_affordable = int(state.cash / price) if state.cash > 0 else 0
+        if max_affordable > 0:
+            size = min(size, max_affordable)
+    if entry.direction == "long":
         state.cash -= size * price
         state.position = BacktestPosition()
         state.position.size = size
         state.position.direction = "long"
-    elif sig["direction"] == "short":
+    elif entry.direction == "short":
         state.cash += size * price
         state.position = BacktestPosition()
         state.position.size = -size
         state.position.direction = "short"
     state.position.entry_price = price
     state.position.entry_date = date
-    state.position.stop_price = sig["stop_price"]
-    state.position.target_price = sig["target_price"]
+    state.position.stop_price = entry.stop_price
+    state.position.target_price = entry.target_price
 
 
 def _exit_position(
@@ -329,6 +360,7 @@ def _build_result_dict(
         "final_value": round(final_value, 2),
         "total_return": round(total_return, 4),
         "annualized_return": round(annualised_return, 4),
+        "position_sizing": "risk-based-v2",  # ← diagnostic marker
         "total_trades": total_trades,
         "winning_trades": winning,
         "losing_trades": losing,
@@ -356,7 +388,7 @@ _DEFAULT_POSITION_SIZE = 100
 _DEFAULT_RISK_PER_TRADE = 0.02
 
 
-def _resolve_position_size(signal, entry_price: float, portfolio_value: float) -> int:
+def _resolve_position_size(signal, entry_price: float, portfolio_value: float, risk_per_trade: float = 0.02) -> int:
     """Compute position size from signal or risk-based fallback.
 
     If the strategy provides position_size > 0, use it directly.
@@ -367,7 +399,7 @@ def _resolve_position_size(signal, entry_price: float, portfolio_value: float) -
         return signal.position_size
 
     if signal.stop_price > 0:
-        risk_amount = portfolio_value * _DEFAULT_RISK_PER_TRADE
+        risk_amount = portfolio_value * risk_per_trade
         risk_per_share = abs(entry_price - signal.stop_price)
         if risk_per_share > 0.001:
             return max(1, int(risk_amount / risk_per_share))

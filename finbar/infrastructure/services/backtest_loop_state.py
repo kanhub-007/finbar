@@ -1,5 +1,8 @@
 """BacktestLoopState — mutable state carried through a backtest run."""
 
+from __future__ import annotations
+
+from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.infrastructure.services.backtest_position import BacktestPosition
 
 
@@ -11,7 +14,7 @@ class BacktestLoopState:
         "position",
         "trades",
         "equity_curve",
-        "pending_signal",
+        "pending_entry",
         "peak_value",
     )
 
@@ -21,5 +24,5 @@ class BacktestLoopState:
         self.position = BacktestPosition()
         self.trades: list[dict] = []
         self.equity_curve: list[dict] = []
-        self.pending_signal: dict | None = None
+        self.pending_entry: PendingEntry | None = None
         self.peak_value = initial_cash
