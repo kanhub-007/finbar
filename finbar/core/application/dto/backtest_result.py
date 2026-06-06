@@ -78,6 +78,12 @@ class BacktestResultDTO:
     position_sizing: str = ""
     """Diagnostic marker for position sizing method in use."""
 
+    warmup_bars: int = 0
+    """Number of bars excluded before indicators became valid."""
+
+    first_tradable: str = ""
+    """Timestamp of the first bar where all required indicators are valid."""
+
     trades: list[dict] = field(default_factory=list)
     """List of trade records. Each trade has: entry_date, exit_date,
     entry_price, exit_price, size, pnl, pnl_pct, duration_bars, metadata."""

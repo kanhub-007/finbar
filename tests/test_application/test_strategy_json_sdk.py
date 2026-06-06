@@ -148,6 +148,23 @@ def _sma_strategy() -> dict:
     }
 
 
+def _sma_20_only_strategy() -> dict:
+    return {
+        "schema_version": "2.0",
+        "name": "sma20_only",
+        "indicators": [{"name": "sma20", "type": "sma", "period": 20}],
+        "sides": {
+            "long": {
+                "entry": {
+                    "condition": {
+                        "all": [{"left": "close", "operator": ">", "right": "sma20"}]
+                    }
+                }
+            }
+        },
+    }
+
+
 def _bars_with_sma() -> list[dict]:
     return [
         {
@@ -1146,3 +1163,57 @@ class TestValidationWarningsAndLimits:
         )
         assert result["valid"] is False
         assert "invalid" in result["explanation"].lower()
+
+
+class TestWarmupAndRequiredData:
+    def test_backtest_reports_warmup_bars(self):
+        use_case = _make_use_case()
+        bars = _bars_with_sma()
+
+        result = use_case.execute(
+            BacktestStrategyDefinitionRequest(
+                definition=_sma_strategy(),
+                bars=bars,
+                symbol="TEST",
+                interval="1d",
+            )
+        )
+
+        assert result.valid is True
+        assert result.result is not None
+        assert result.result.first_tradable != ""
+
+    def test_all_nan_required_columns_are_rejected(self):
+        use_case = _make_use_case()
+        bars = [
+            {
+                "timestamp": "2024-01-01",
+                "open": 100,
+                "high": 101,
+                "low": 99,
+                "close": 100,
+                "volume": 1000,
+                "sma_20": None,
+            },
+            {
+                "timestamp": "2024-01-02",
+                "open": 100,
+                "high": 101,
+                "low": 99,
+                "close": 100,
+                "volume": 1000,
+                "sma_20": None,
+            },
+        ]
+
+        result = use_case.execute(
+            BacktestStrategyDefinitionRequest(
+                definition=_sma_20_only_strategy(),
+                bars=bars,
+            )
+        )
+
+        assert result.valid is True
+        assert result.result is not None
+        assert result.result.total_trades == 0
+        assert result.result.first_tradable == ""

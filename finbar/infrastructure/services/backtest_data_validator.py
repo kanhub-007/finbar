@@ -95,3 +95,79 @@ def _validate_price_consistency(prices: pd.DataFrame) -> str | None:
 def _row_label(frame: pd.DataFrame, mask: pd.Series) -> str:
     """Return the first row label matching a boolean mask."""
     return str(frame.index[mask][0])
+
+
+def validate_required_data(
+    frame: pd.DataFrame,
+    required_columns: list[str],
+) -> dict:
+    """Check that strategy-required indicator and feature columns are valid
+    after each indicator's natural warmup.
+
+    Returns:
+        Dict with warmup_bars, first_tradable, and per-column diagnostics.
+    """
+    bars = len(frame)
+    missing_after_warmup: list[str] = []
+    warmup_bars = 0
+    first_tradable = ""
+
+    if not required_columns or bars == 0:
+        return {
+            "warmup_bars": 0,
+            "first_tradable": "",
+            "skipped_bars_due_to_warmup": 0,
+            "skipped_bars_due_to_missing": 0,
+            "missing_after_warmup": [],
+            "no_tradable_bars": False,
+        }
+
+    unknown = [column for column in required_columns if column not in frame.columns]
+    if unknown:
+        return {
+            "warmup_bars": 0,
+            "first_tradable": "",
+            "skipped_bars_due_to_warmup": 0,
+            "skipped_bars_due_to_missing": bars,
+            "missing_after_warmup": unknown,
+            "no_tradable_bars": True,
+        }
+
+    subset = frame[required_columns].apply(pd.to_numeric, errors="coerce")
+    valid_mask = subset.notna().all(axis=1)
+
+    first_valid_idx = valid_mask.idxmax() if valid_mask.any() else None
+    if first_valid_idx is not None:
+        warmup_bars = frame.index.get_loc(first_valid_idx)
+        if hasattr(frame.index[warmup_bars], "strftime"):
+            first_tradable = str(frame.index[warmup_bars].strftime("%Y-%m-%dT%H:%M:%S"))
+        else:
+            first_tradable = str(frame.index[warmup_bars])
+
+        post_mask = valid_mask.iloc[warmup_bars:]
+        if not post_mask.all():
+            for column in required_columns:
+                col_valid = subset[column].iloc[warmup_bars:].notna()
+                if not col_valid.all():
+                    missing_after_warmup.append(column)
+    else:
+        warmup_bars = bars
+        never_valid = [
+            column for column in required_columns if subset[column].notna().sum() == 0
+        ]
+        missing_after_warmup = never_valid
+
+    no_tradable = warmup_bars >= bars
+    skipped_missing = 0
+    if missing_after_warmup:
+        col_subset = subset[missing_after_warmup]
+        skipped_missing = int(col_subset.iloc[warmup_bars:].isna().any(axis=1).sum())
+
+    return {
+        "warmup_bars": warmup_bars,
+        "first_tradable": first_tradable,
+        "skipped_bars_due_to_warmup": warmup_bars,
+        "skipped_bars_due_to_missing": skipped_missing,
+        "missing_after_warmup": missing_after_warmup,
+        "no_tradable_bars": no_tradable,
+    }

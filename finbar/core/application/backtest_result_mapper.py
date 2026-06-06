@@ -27,6 +27,8 @@ def result_dto_from_raw(raw_result: dict) -> BacktestResultDTO:
         profit_factor=raw_result.get("profit_factor", 0.0),
         calmar_ratio=raw_result.get("calmar_ratio", 0.0),
         position_sizing=raw_result.get("position_sizing", ""),
+        warmup_bars=raw_result.get("warmup_bars", 0),
+        first_tradable=raw_result.get("first_tradable", ""),
         trades=raw_result.get("trades", []),
         equity_curve=raw_result.get("equity_curve", []),
         error=raw_result.get("error"),

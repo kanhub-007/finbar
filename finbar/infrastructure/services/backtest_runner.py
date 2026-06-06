@@ -77,8 +77,12 @@ class BacktestRunner(BacktestEngine):
 
         risk_per_trade = float(params.pop("risk_per_trade", _DEFAULT_RISK_PER_TRADE))
         interval = str(params.pop("interval", "") or "")
+        warmup_bars = int(params.pop("warmup_bars", 0) or 0)
+        first_tradable = str(params.pop("first_tradable", "") or "")
         result = _run_loop(df, strategy, initial_cash, risk_per_trade)
-        return _build_result_dict(strategy, result, initial_cash, interval)
+        return _build_result_dict(
+            strategy, result, initial_cash, interval, warmup_bars, first_tradable
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -469,6 +473,8 @@ def _build_result_dict(
     state: BacktestLoopState,
     initial_cash: float,
     interval: str = "",
+    warmup_bars: int = 0,
+    first_tradable: str = "",
 ) -> dict:
     """Compute metrics and build the result dict from loop state."""
     equity_values = [e["value"] for e in state.equity_curve]
@@ -537,6 +543,8 @@ def _build_result_dict(
             round(profit_factor, 4) if profit_factor != float("inf") else None
         ),
         "calmar_ratio": round(calmar, 4),
+        "warmup_bars": warmup_bars,
+        "first_tradable": first_tradable,
         "trades": state.trades,
         "equity_curve": state.equity_curve,
     }

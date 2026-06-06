@@ -31,6 +31,9 @@ from finbar.core.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
 from finbar.core.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
+from finbar.infrastructure.services.backtest_data_validator import (
+    validate_required_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -138,12 +141,15 @@ class BacktestStrategyDefinitionUseCase:
                 missing_columns=missing,
             )
 
+        warmup = validate_required_data(frame, validation.required_columns)
+
         return _run_backtest(
             request,
             validation,
             frame,
             self._strategy_factory,
             self._engine,
+            warmup,
         )
 
     def _resolve_and_compute_signals(self, frame: Any, definition) -> Any:
@@ -237,6 +243,7 @@ def _run_backtest(
     frame: Any,
     strategy_factory: StrategyDefinitionStrategyFactory,
     engine: BacktestEngine,
+    warmup: dict | None = None,
 ) -> BacktestStrategyDefinitionResult:
     strategy = strategy_factory.create(validation.definition)
     try:
@@ -246,6 +253,8 @@ def _run_backtest(
             initial_cash=request.initial_cash,
             risk_per_trade=request.risk_per_trade,
             interval=request.interval,
+            warmup_bars=warmup.get("warmup_bars", 0) if warmup else 0,
+            first_tradable=warmup.get("first_tradable", "") if warmup else "",
         )
     except Exception as exc:
         logger.exception("JSON strategy backtest failed")
