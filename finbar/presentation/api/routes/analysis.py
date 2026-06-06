@@ -68,7 +68,7 @@ def apply_indicators(request: ApiApplyRequest):
     summary="List backtest strategies",
 )
 def list_strategies():
-    """List available built-in backtest strategies."""
+    """List available saved JSON backtest strategies."""
     db = _get_db()
     try:
         use_case = _make_run_backtest_use_case(db)
@@ -91,7 +91,7 @@ def list_strategies():
     summary="Run backtest",
 )
 def run_backtest(request: ApiBacktestRequest):
-    """Run a named strategy against historical bars.
+    """Run a named saved JSON strategy against historical bars.
 
     Pass optionally-enriched OHLCV bars, a strategy name (from
     GET /api/analysis/strategies), and optional parameters.

@@ -306,3 +306,90 @@ class TestSignalExit:
         result = runner.run(df, _AlternatingSignalStrategy(), 10000)
         # Enter on bar 1 (conservative: bar 2 open), exit on bar 10
         assert result["total_trades"] == 1
+
+
+class TestExecutionCorrectness:
+    def test_long_gap_below_pending_stop_skips_impossible_profitable_fill(self):
+        sig = SignalResult(
+            action="buy",
+            direction="long",
+            stop_price=95.0,
+            position_size=10,
+        )
+        dates = pd.date_range("2024-01-01", periods=2, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 90.0],
+                "high": [101.0, 92.0],
+                "low": [99.0, 89.0],
+                "close": [100.0, 91.0],
+                "volume": [1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert result["total_trades"] == 0
+        assert result["final_value"] == 10000
+
+    def test_risk_based_sizing_uses_actual_next_open_fill(self):
+        sig = SignalResult(action="buy", direction="long", stop_price=90.0)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 200.0, 200.0],
+                "high": [101.0, 205.0, 201.0],
+                "low": [99.0, 195.0, 199.0],
+                "close": [100.0, 200.0, 200.0],
+                "volume": [1000000, 1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert result["total_trades"] == 1
+        assert result["trades"][0]["entry_price"] == 200.0
+        assert result["trades"][0]["size"] == 1
+
+    def test_open_position_is_liquidated_on_final_close(self):
+        sig = SignalResult(action="buy", direction="long", position_size=10)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 100.0],
+                "high": [100.0, 110.0, 120.0],
+                "low": [100.0, 100.0, 100.0],
+                "close": [100.0, 110.0, 120.0],
+                "volume": [1000000, 1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert result["total_trades"] == 1
+        assert result["trades"][0]["exit_price"] == 120.0
+        assert result["trades"][0]["metadata"]["exit_reason"] == "end_of_backtest"
+        assert result["final_value"] == 10200.0
+        assert result["equity_curve"][-1]["position"] == 0
+
+    def test_intraday_timestamps_preserve_time(self):
+        sig = SignalResult(action="buy", direction="long", position_size=1)
+        dates = pd.date_range("2024-01-01 10:00", periods=2, freq="h")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0],
+                "high": [100.0, 101.0],
+                "low": [100.0, 100.0],
+                "close": [100.0, 101.0],
+                "volume": [1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert result["equity_curve"][0]["date"] == "2024-01-01T10:00:00"
+        assert result["trades"][0]["entry_date"] == "2024-01-01T11:00:00"

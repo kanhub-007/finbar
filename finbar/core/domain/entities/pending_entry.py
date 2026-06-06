@@ -20,7 +20,10 @@ class PendingEntry:
     """Take-profit price level from the signal."""
 
     position_size: int = 0
-    """Computed position size in shares. 0 means use default."""
+    """Explicit position size requested by the strategy. 0 means risk-size."""
 
     explicit_size: bool = False
     """True if the strategy explicitly set position_size (skip cash constraint)."""
+
+    risk_per_trade: float = 0.02
+    """Fraction of portfolio value to risk when engine computes position size."""

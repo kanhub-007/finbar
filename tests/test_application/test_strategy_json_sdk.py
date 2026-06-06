@@ -296,8 +296,9 @@ class TestStrategyJsonSdk:
 
         assert result.valid is True
         assert result.result is not None
-        assert result.result.total_trades == 0
-        assert result.result.equity_curve[-1]["position"] == 100
+        assert result.result.total_trades == 1
+        assert result.result.trades[0]["metadata"]["exit_reason"] == "end_of_backtest"
+        assert result.result.equity_curve[-1]["position"] == 0
 
     def test_direct_concrete_indicator_operand_is_required_column(self):
         result = _make_use_case().execute(
@@ -955,15 +956,9 @@ class TestSignalParity:
             },
         }
 
-    def test_sma_crossover_long_entry_parity(self):
-        from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
-            SmaCrossoverStrategy,
-        )
-
+    def test_sma_crossover_long_entry_signal(self):
         json_strategy = self._make_json_strategy(self._sma_crossover_v2())
-        builtin = SmaCrossoverStrategy(fast_period=20, slow_period=50)
         json_strategy.on_reset()
-        builtin.on_reset()
 
         bars = [
             _bar("day1", sma_20=100, sma_50=101),
@@ -971,22 +966,17 @@ class TestSignalParity:
             _bar("day3", sma_20=102, sma_50=100),
         ]
 
-        for bar in bars:
-            json_sig = json_strategy.on_bar(bar, {})
-            builtin_sig = builtin.on_bar(bar, {})
-            assert json_sig.action == builtin_sig.action, f'bar {bar["timestamp"]}'
+        signals = [json_strategy.on_bar(bar, {}) for bar in bars]
 
-            assert json_sig.direction == builtin_sig.direction
+        assert [(signal.action, signal.direction) for signal in signals] == [
+            ("hold", ""),
+            ("hold", ""),
+            ("buy", "long"),
+        ]
 
-    def test_sma_crossover_long_exit_parity(self):
-        from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
-            SmaCrossoverStrategy,
-        )
-
+    def test_sma_crossover_long_exit_signal(self):
         json_strategy = self._make_json_strategy(self._sma_crossover_v2())
-        builtin = SmaCrossoverStrategy(fast_period=20, slow_period=50)
         json_strategy.on_reset()
-        builtin.on_reset()
 
         bars = [
             _bar("day1", sma_20=102, sma_50=100),
@@ -994,23 +984,20 @@ class TestSignalParity:
             _bar("day3", sma_20=99, sma_50=101),
         ]
 
+        signals = []
         for i, bar in enumerate(bars):
             pos = {"size": 100, "direction": "long"} if i >= 1 else {}
-            json_sig = json_strategy.on_bar(bar, pos)
-            builtin_sig = builtin.on_bar(bar, pos)
-            assert json_sig.action == builtin_sig.action, f'bar {bar["timestamp"]}'
+            signals.append(json_strategy.on_bar(bar, pos))
 
-            assert json_sig.direction == builtin_sig.direction
+        assert [(signal.action, signal.direction) for signal in signals] == [
+            ("hold", ""),
+            ("hold", ""),
+            ("sell", "exit"),
+        ]
 
-    def test_sma_crossover_short_entry_parity(self):
-        from finbar.infrastructure.services.backtest_strategies.sma_crossover import (
-            SmaCrossoverStrategy,
-        )
-
+    def test_sma_crossover_short_entry_signal(self):
         json_strategy = self._make_json_strategy(self._sma_crossover_v2())
-        builtin = SmaCrossoverStrategy(fast_period=20, slow_period=50)
         json_strategy.on_reset()
-        builtin.on_reset()
 
         bars = [
             _bar("day1", sma_20=101, sma_50=100),
@@ -1018,22 +1005,17 @@ class TestSignalParity:
             _bar("day3", sma_20=98, sma_50=100),
         ]
 
-        for bar in bars:
-            json_sig = json_strategy.on_bar(bar, {})
-            builtin_sig = builtin.on_bar(bar, {})
-            assert json_sig.action == builtin_sig.action, f'bar {bar["timestamp"]}'
+        signals = [json_strategy.on_bar(bar, {}) for bar in bars]
 
-            assert json_sig.direction == builtin_sig.direction
+        assert [(signal.action, signal.direction) for signal in signals] == [
+            ("hold", ""),
+            ("hold", ""),
+            ("sell", "short"),
+        ]
 
-    def test_rsi_mean_reversion_long_entry_parity(self):
-        from finbar.infrastructure.services.backtest_strategies.rsi_mean_reversion import (  # noqa: E501
-            RsiMeanReversionStrategy,
-        )
-
+    def test_rsi_mean_reversion_long_entry_signal(self):
         json_strategy = self._make_json_strategy(self._rsi_reversion_v2())
-        builtin = RsiMeanReversionStrategy(rsi_period=14, oversold=30, overbought=70)
         json_strategy.on_reset()
-        builtin.on_reset()
 
         bars = [
             _bar("day1", rsi_14=50),
@@ -1042,23 +1024,22 @@ class TestSignalParity:
         ]
 
         pos = {}
+        signals = []
         for bar in bars:
-            json_sig = json_strategy.on_bar(bar, pos)
-            builtin_sig = builtin.on_bar(bar, pos)
-            assert json_sig.action == builtin_sig.action, f"bar {bar['timestamp']}"
-            assert json_sig.direction == builtin_sig.direction
-            if builtin_sig.action == "buy" and builtin_sig.direction == "long":
+            signal = json_strategy.on_bar(bar, pos)
+            signals.append(signal)
+            if signal.action == "buy" and signal.direction == "long":
                 pos = {"size": 100, "direction": "long"}
 
-    def test_rsi_mean_reversion_long_exit_parity(self):
-        from finbar.infrastructure.services.backtest_strategies.rsi_mean_reversion import (  # noqa: E501
-            RsiMeanReversionStrategy,
-        )
+        assert [(signal.action, signal.direction) for signal in signals] == [
+            ("hold", ""),
+            ("buy", "long"),
+            ("sell", "exit"),
+        ]
 
+    def test_rsi_mean_reversion_long_exit_signal(self):
         json_strategy = self._make_json_strategy(self._rsi_reversion_v2())
-        builtin = RsiMeanReversionStrategy(rsi_period=14, oversold=30, overbought=70)
         json_strategy.on_reset()
-        builtin.on_reset()
 
         bars = [
             _bar("day1", rsi_14=25),
@@ -1066,11 +1047,12 @@ class TestSignalParity:
         ]
 
         pos = {"size": 100, "direction": "long"}
-        for bar in bars:
-            json_sig = json_strategy.on_bar(bar, pos)
-            builtin_sig = builtin.on_bar(bar, pos)
-            assert json_sig.action == builtin_sig.action, f"bar {bar['timestamp']}"
-            assert json_sig.direction == builtin_sig.direction
+        signals = [json_strategy.on_bar(bar, pos) for bar in bars]
+
+        assert [(signal.action, signal.direction) for signal in signals] == [
+            ("hold", ""),
+            ("sell", "exit"),
+        ]
 
     def test_flat_strategy_stays_hold(self):
         json_strategy = self._make_json_strategy(self._sma_crossover_v2())

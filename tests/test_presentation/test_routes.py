@@ -3,6 +3,8 @@
 Smoke tests for all endpoint groups — health, symbols, prices, jobs, analysis.
 """
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -71,15 +73,22 @@ class TestPrices:
 
 
 class TestAnalysis:
-    def test_list_strategies(self, client):
-        response = client.get("/api/analysis/strategies")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        names = [s["name"] for s in data]
-        assert "sma_crossover" in names
-        assert "rsi_mean_reversion" in names
-        assert "auction_drive" in names
+    def test_list_strategies_returns_saved_json_strategies(self, client):
+        strategy = _route_json_strategy("route_json_list_test")
+        save_response = client.post(
+            "/api/strategies/save",
+            params={"definition": json.dumps(strategy)},
+        )
+        assert save_response.status_code == 200
+        try:
+            response = client.get("/api/analysis/strategies")
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, list)
+            names = [s["name"] for s in data]
+            assert "route_json_list_test" in names
+        finally:
+            client.delete("/api/strategies/route_json_list_test")
 
     def test_apply_indicators_empty(self, client):
         response = client.post(
@@ -155,38 +164,83 @@ class TestAnalysis:
         assert response.status_code == 400
 
     def test_run_backtest_success(self, client):
-
-        bars = [
-            {
-                "timestamp": f"2024-01-{day:02d}",
-                "open": 100 + i * 0.5,
-                "high": 102 + i * 0.5,
-                "low": 99 + i * 0.5,
-                "close": 101 + i * 0.5,
-                "volume": 1000000,
-                # Pre-compute indicators so backtest works
-                "sma_20": 100 + i * 0.5,
-                "sma_50": 99 + i * 0.5,
-            }
-            for i, day in enumerate(range(1, 21), start=0)
-        ]
-        response = client.post(
-            "/api/analysis/backtest",
-            json={
-                "bars": bars,
-                "strategy_name": "sma_crossover",
-                "symbol": "TEST",
-                "interval": "1d",
-            },
+        strategy = _route_json_strategy("route_json_backtest_test")
+        save_response = client.post(
+            "/api/strategies/save",
+            params={"definition": json.dumps(strategy)},
         )
-        assert response.status_code == 200
-        data = response.json()
-        assert "total_return" in data
-        assert "sharpe_ratio" in data
-        assert "trades" in data
+        assert save_response.status_code == 200
+        try:
+            bars = [
+                {
+                    "timestamp": f"2024-01-{day:02d}",
+                    "open": 100 + i * 0.5,
+                    "high": 102 + i * 0.5,
+                    "low": 99 + i * 0.5,
+                    "close": 101 + i * 0.5,
+                    "volume": 1000000,
+                    "sma_20": 100 + i * 0.5,
+                    "sma_50": 99 + i * 0.5,
+                }
+                for i, day in enumerate(range(1, 21), start=0)
+            ]
+            response = client.post(
+                "/api/analysis/backtest",
+                json={
+                    "bars": bars,
+                    "strategy_name": "route_json_backtest_test",
+                    "symbol": "TEST",
+                    "interval": "1d",
+                },
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert "total_return" in data
+            assert "sharpe_ratio" in data
+            assert "trades" in data
+        finally:
+            client.delete("/api/strategies/route_json_backtest_test")
 
 
 class TestJobs:
     def test_job_status_not_found(self, client):
         response = client.get("/api/jobs/nonexistent-job-id")
         assert response.status_code in (200, 404)
+
+
+def _route_json_strategy(name: str) -> dict:
+    """Return a minimal saved JSON strategy for route tests."""
+    return {
+        "schema_version": "2.0",
+        "name": name,
+        "indicators": [
+            {"name": "fast_sma", "type": "sma", "period": 20},
+            {"name": "slow_sma", "type": "sma", "period": 50},
+        ],
+        "sides": {
+            "long": {
+                "entry": {
+                    "condition": {
+                        "all": [
+                            {
+                                "left": "fast_sma",
+                                "operator": ">",
+                                "right": "slow_sma",
+                            }
+                        ]
+                    }
+                },
+                "exit": {
+                    "condition": {
+                        "any": [
+                            {
+                                "left": "fast_sma",
+                                "operator": "<",
+                                "right": "slow_sma",
+                            }
+                        ]
+                    }
+                },
+            }
+        },
+    }

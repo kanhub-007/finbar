@@ -16,9 +16,8 @@ def test_auction_drive_json_parses():
 
     assert result.valid is True, f"Errors: {result.errors}"
     assert result.definition is not None
-    assert result.definition.timeframes is not None
-    assert result.definition.timeframes.primary == "1h"
-    assert len(result.definition.indicators) == 6
+    assert result.definition.timeframes is None
+    assert len(result.definition.indicators) == 5
     assert len(result.definition.features) == 3
     assert result.definition.risk is not None
     assert result.required_columns

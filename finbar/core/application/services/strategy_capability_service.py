@@ -51,11 +51,11 @@ class StrategyCapabilityService:
                 "validate_strategy_json",
                 "fetch/query prices",
                 "apply_indicators separately",
-                "apply_strategy_features separately",
+                "features auto-computed by backtest_strategy_json",
                 "backtest_strategy_json with enriched bars",
             ],
             "backtest_calculates_indicators": False,
-            "backtest_calculates_features": False,
+            "backtest_calculates_features": True,
             "fields": ["timestamp", "open", "high", "low", "close", "volume"],
             "features": {"supported_types": _FEATURE_TYPES},
             "multi_timeframe": {

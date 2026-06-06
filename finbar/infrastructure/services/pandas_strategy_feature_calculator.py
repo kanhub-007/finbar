@@ -1,8 +1,11 @@
 """PandasStrategyFeatureCalculator — calculate strategy derived features."""
 
+import logging
 from collections.abc import Callable
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from finbar.core.domain.entities.feature_spec import FeatureSpec
 from finbar.core.domain.interfaces.formula_feature_calculator import (

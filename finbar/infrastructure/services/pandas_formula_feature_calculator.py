@@ -1,8 +1,11 @@
 """PandasFormulaFeatureCalculator — pandas implementation of formula features."""
 
+import logging
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from finbar.core.domain.entities.formula_node import FormulaNode
 from finbar.core.domain.interfaces.formula_feature_calculator import (
@@ -38,8 +41,17 @@ class PandasFormulaFeatureCalculator(FormulaFeatureCalculator):
 
 def _parse_node(raw: dict) -> FormulaNode:
     """Parse a dict expression into a FormulaNode tree."""
+    if not isinstance(raw, dict):
+        return _parse_operand(raw)
     op = raw.get("op", "")
     if op in _COMPARISON_OPS | _ARITHMETIC_OPS:
+        children = raw.get("children", [])
+        if children and len(children) >= 2:
+            return FormulaNode(
+                op=op,
+                left=_parse_operand(children[0]),
+                right=_parse_operand(children[1]),
+            )
         return FormulaNode(
             op=op,
             left=_parse_operand(raw.get("left")),

@@ -1,18 +1,8 @@
-"""Bar merger — combines primary and informative timeframes for multi-interval
-backtesting.
+"""Bar merger — combines primary and informative timeframes for backtests.
 
-When a strategy requires both intraday bars (e.g., 1h) and daily context
-(e.g., trend indicators from 1d), the merger aligns daily indicator columns
-to each primary bar's date and suffixes them with the informative interval.
-
-Example:
-  Primary (1h):   open, high, low, close, vwap, ib_high, ib_low
-  Informative (1d): sma_50, sma_200, atr
-
-  Merged (1h):    open, high, low, close, vwap, ib_high, ib_low,
-                  sma_50_1d, sma_200_1d, atr_1d
-
-This is used by multi-interval strategies like Auction Drive.
+The merger uses no-lookahead as-of alignment. Informative bars become
+available only after their interval has completed, so an intraday primary bar
+on a given date cannot see that same date's daily close/indicators.
 """
 
 from __future__ import annotations
@@ -30,59 +20,86 @@ def merge_timeframes(
 ) -> pd.DataFrame:
     """Merge informative timeframe columns into primary DataFrame.
 
-    Aligns bars by date (YYYY-MM-DD). Each primary bar gets the
-    informative bar values for its date, suffixed with the informative
-    interval (e.g., sma_50 → sma_50_1d).
+    Informative values are aligned as-of their completion timestamp. For
+    example, a daily bar stamped ``2024-01-02`` is considered available from
+    ``2024-01-03 00:00:00`` when merged into intraday bars. This prevents
+    same-day daily indicators from leaking into earlier intraday signals.
 
     Args:
         primary: DataFrame indexed by datetime (e.g., 1h bars).
         informative: DataFrame indexed by datetime (e.g., 1d bars).
-        informative_interval: Suffix for informative columns (e.g., "1d").
-        columns: Specific columns to merge. If None, merges all columns
-            except OHLCV (open, high, low, close, volume, timestamp).
+        informative_interval: Suffix and availability interval (e.g., "1d").
+        columns: Specific columns to merge. If None, merges all non-OHLCV
+            columns from the informative frame.
 
     Returns:
-        Primary DataFrame with informative columns added with suffix.
+        Primary DataFrame with suffixed informative columns added.
     """
     result = primary.copy()
-
     if informative.empty:
         return result
 
-    # Determine which columns to merge
-    ohlcv = {"open", "high", "low", "close", "volume", "timestamp"}
-    if columns is None:
-        columns = [c for c in informative.columns if c not in ohlcv]
-
-    if not columns:
+    selected = _selected_columns(informative, columns)
+    if not selected:
         return result
 
-    # Build date → indicator value lookup from informative DataFrame
-    suffix = f"_{informative_interval}"
-    info_by_date: dict[str, dict[str, float]] = {}
+    primary_index = pd.to_datetime(primary.index)
+    info = _build_available_informative_frame(
+        informative,
+        selected,
+        informative_interval,
+    )
+    if info.empty:
+        return result
 
-    for idx, row in informative.iterrows():
-        date_str = _to_date_str(idx)
-        for col in columns:
-            val = row.get(col)
-            if val is not None and pd.notna(val):
-                numeric = to_numeric(val)
-                if numeric is not None:
-                    info_by_date.setdefault(date_str, {})[f"{col}{suffix}"] = numeric
-
-    # Apply to each primary bar
-    primary_dates = pd.to_datetime(primary.index).strftime("%Y-%m-%d")
-
-    for merged_col in [f"{c}{suffix}" for c in columns]:
-        result[merged_col] = primary_dates.map(
-            lambda d: info_by_date.get(d, {}).get(merged_col)
-        )
-
+    aligned = info.reindex(primary_index, method="ffill")
+    for column in aligned.columns:
+        result[column] = aligned[column].to_numpy()
     return result
 
 
-def _to_date_str(timestamp) -> str:
-    """Convert a pandas Timestamp to YYYY-MM-DD string."""
-    if hasattr(timestamp, "strftime"):
-        return timestamp.strftime("%Y-%m-%d")
-    return str(timestamp)[:10]
+def _selected_columns(frame: pd.DataFrame, columns: list[str] | None) -> list[str]:
+    """Return informative columns eligible for merging."""
+    ohlcv = {"open", "high", "low", "close", "volume", "timestamp"}
+    if columns is not None:
+        return [column for column in columns if column in frame.columns]
+    return [column for column in frame.columns if column not in ohlcv]
+
+
+def _build_available_informative_frame(
+    informative: pd.DataFrame,
+    columns: list[str],
+    informative_interval: str,
+) -> pd.DataFrame:
+    """Return numeric informative values indexed by availability timestamp."""
+    suffix = f"_{informative_interval}"
+    availability_index = _availability_index(informative.index, informative_interval)
+    data: dict[str, pd.Series] = {}
+    for column in columns:
+        numeric = informative[column].map(to_numeric)
+        data[f"{column}{suffix}"] = pd.Series(
+            numeric.to_numpy(),
+            index=availability_index,
+        )
+    frame = pd.DataFrame(data).sort_index()
+    frame = frame[~frame.index.duplicated(keep="last")]
+    return frame.dropna(how="all")
+
+
+def _availability_index(index, informative_interval: str) -> pd.DatetimeIndex:
+    """Return timestamps when informative bars are safe to consume."""
+    timestamps = pd.to_datetime(index)
+    return pd.DatetimeIndex(timestamps + _interval_offset(informative_interval))
+
+
+def _interval_offset(interval: str) -> pd.Timedelta:
+    """Convert a Finbar interval string to a pandas Timedelta."""
+    normalized = interval.lower().strip()
+    offsets = {
+        "5min": pd.Timedelta(minutes=5),
+        "30min": pd.Timedelta(minutes=30),
+        "1h": pd.Timedelta(hours=1),
+        "1d": pd.Timedelta(days=1),
+        "1w": pd.Timedelta(weeks=1),
+    }
+    return offsets.get(normalized, pd.Timedelta(0))

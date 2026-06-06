@@ -77,7 +77,7 @@ class StrategyFeatureResolver:
             )
             return
         if feature_type == "formula":
-            raw_expr = item.get("expr")
+            raw_expr = item.get("expression") or item.get("expr")
             if raw_expr is not None:
                 raw_expr = _resolve_expr_params(raw_expr, resolved_params, f"{path}.expr", errors)
             features.append(

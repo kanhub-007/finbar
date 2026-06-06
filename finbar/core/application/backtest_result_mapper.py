@@ -16,6 +16,7 @@ def result_dto_from_raw(raw_result: dict) -> BacktestResultDTO:
         final_value=raw_result.get("final_value", 0.0),
         total_return=raw_result.get("total_return", 0.0),
         annualized_return=raw_result.get("annualized_return"),
+        annualization_factor=raw_result.get("annualization_factor", 252.0),
         total_trades=raw_result.get("total_trades", 0),
         winning_trades=raw_result.get("winning_trades", 0),
         losing_trades=raw_result.get("losing_trades", 0),

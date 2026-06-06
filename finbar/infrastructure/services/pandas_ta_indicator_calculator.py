@@ -630,10 +630,17 @@ def _compute_dynamic(df: pd.DataFrame, name: str) -> pd.DataFrame:
         if name.startswith(f"{prefix}_"):
             period = int(name[len(prefix) + 1 :])
             if source_col == "hlc":
-                result_df = func(df["high"], df["low"], df["close"], length=period)
-                col = f"{prefix.upper()}_{period}"
-                if result_df is not None and col in result_df.columns:
-                    df[name] = result_df[col]
+                result = func(df["high"], df["low"], df["close"], length=period)
+                if result is None:
+                    return df
+                if isinstance(result, pd.Series):
+                    # ta.atr returns a Series directly (single numeric column)
+                    df[name] = result
+                else:
+                    # ta.adx returns a DataFrame with named columns
+                    col = f"{prefix.upper()}_{period}"
+                    if col in result.columns:
+                        df[name] = result[col]
             elif source_col == "bb":
                 result_df = func(df["close"], length=period, std=2)
                 if result_df is not None:

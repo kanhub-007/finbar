@@ -45,6 +45,9 @@ class BacktestResultDTO:
     annualized_return: float | None = None
     """Annualized return as a decimal."""
 
+    annualization_factor: float = 252.0
+    """Number of return periods per year used for annualized metrics."""
+
     total_trades: int = 0
     """Total number of completed trades."""
 

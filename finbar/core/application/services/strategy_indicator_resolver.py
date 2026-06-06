@@ -75,27 +75,32 @@ class StrategyIndicatorResolver:
         period = resolve_expression(
             item.get("period"), resolved_params, f"{path}.period", errors
         )
-        if self._period_invalid(
-            indicator_type,
-            period,
-            "period" in item,
-            f"{path}.period",
-            errors,
-        ):
-            return
-        concrete = self._catalog.resolve(indicator_type, period)
-        if concrete is None:
-            errors.append(
-                make_error(
-                    path,
-                    f"unsupported indicator type/period: {indicator_type}_{period}",
-                    "unsupported_indicator",
-                )
-            )
-            return
         sources = self._parse_sources(
             indicator_type, item.get("sources"), f"{path}.sources", errors
         )
+        if indicator_type == "fallback":
+            if not sources:
+                return
+            concrete = sources[0]
+        else:
+            if self._period_invalid(
+                indicator_type,
+                period,
+                "period" in item,
+                f"{path}.period",
+                errors,
+            ):
+                return
+            concrete = self._catalog.resolve(indicator_type, period)
+            if concrete is None:
+                errors.append(
+                    make_error(
+                        path,
+                        f"unsupported indicator type/period: {indicator_type}_{period}",
+                        "unsupported_indicator",
+                    )
+                )
+                return
         timeframe = _resolve_timeframe(
             item.get("timeframe", "primary"), timeframes, f"{path}.timeframe", errors
         )

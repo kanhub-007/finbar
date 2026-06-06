@@ -14,12 +14,14 @@ TRADING_DAYS_PER_YEAR = 252
 def calculate_sharpe(
     daily_returns: Sequence[float],
     risk_free_rate: float = 0.0,
+    annualization_factor: float = TRADING_DAYS_PER_YEAR,
 ) -> float:
-    """Annualised Sharpe ratio from daily returns.
+    """Annualised Sharpe ratio from periodic returns.
 
     Args:
-        daily_returns: Sequence of daily returns as decimals (e.g. 0.01 for 1%).
+        daily_returns: Sequence of periodic returns as decimals.
         risk_free_rate: Annual risk-free rate (default 0).
+        annualization_factor: Number of periods per year for the bar interval.
 
     Returns:
         Annualised Sharpe ratio.
@@ -35,18 +37,20 @@ def calculate_sharpe(
 
     if std_ret < 1e-12:
         return 0.0
-    return (mean_ret / std_ret) * math.sqrt(TRADING_DAYS_PER_YEAR)
+    return (mean_ret / std_ret) * math.sqrt(annualization_factor)
 
 
 def calculate_sortino(
     daily_returns: Sequence[float],
     risk_free_rate: float = 0.0,
+    annualization_factor: float = TRADING_DAYS_PER_YEAR,
 ) -> float:
     """Annualised Sortino ratio (downside deviation only).
 
     Args:
-        daily_returns: Sequence of daily returns as decimals.
+        daily_returns: Sequence of periodic returns as decimals.
         risk_free_rate: Annual risk-free rate (default 0).
+        annualization_factor: Number of periods per year for the bar interval.
 
     Returns:
         Annualised Sortino ratio.
@@ -66,7 +70,7 @@ def calculate_sortino(
 
     if downside_std == 0:
         return 0.0
-    return (mean_ret / downside_std) * math.sqrt(TRADING_DAYS_PER_YEAR)
+    return (mean_ret / downside_std) * math.sqrt(annualization_factor)
 
 
 def calculate_max_drawdown(equity_values: Sequence[float]) -> float:
@@ -158,19 +162,21 @@ def calculate_total_return(initial: float, final: float) -> float:
 def calculate_annualised_return(
     total_return: float,
     trading_days: int,
+    annualization_factor: float = TRADING_DAYS_PER_YEAR,
 ) -> float:
     """Annualise a total return.
 
     Args:
         total_return: Total return as a decimal.
-        trading_days: Number of trading days in the period.
+        trading_days: Number of periods in the backtest.
+        annualization_factor: Number of periods per year for the bar interval.
 
     Returns:
         Annualised return as a decimal.
     """
-    if trading_days <= 0:
+    if trading_days <= 0 or annualization_factor <= 0:
         return 0.0
-    years = trading_days / TRADING_DAYS_PER_YEAR
+    years = trading_days / annualization_factor
     if years <= 0:
         return 0.0
     return (1 + total_return) ** (1 / years) - 1

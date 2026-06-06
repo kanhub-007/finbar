@@ -149,7 +149,27 @@ class BacktestStrategyDefinitionUseCase:
     def _resolve_and_compute_signals(self, frame: Any, definition) -> Any:
         """Compute signals (derived formula columns) on the frame."""
         if self._feature_calculator is not None and definition.features:
+            logger.info(
+                "Computing %d features: %s",
+                len(definition.features),
+                [f.name for f in definition.features],
+            )
             frame = self._feature_calculator.calculate(frame, definition.features)
+            computed = [f.name for f in definition.features if f.name in frame.columns]
+            missing_feats = [
+                f.name for f in definition.features if f.name not in frame.columns
+            ]
+            logger.info("Features computed: %s", computed)
+            if missing_feats:
+                logger.warning("Features missing after compute: %s", missing_feats)
+        else:
+            fc = self._feature_calculator
+            feats = definition.features if definition else []
+            logger.info(
+                "Feature computation SKIPPED: fc=%s, features=%d",
+                "present" if fc else "None",
+                len(feats),
+            )
         return frame
 
     def _prepare_frame(
@@ -225,6 +245,7 @@ def _run_backtest(
             strategy=strategy,
             initial_cash=request.initial_cash,
             risk_per_trade=request.risk_per_trade,
+            interval=request.interval,
         )
     except Exception as exc:
         logger.exception("JSON strategy backtest failed")

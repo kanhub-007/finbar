@@ -118,6 +118,39 @@ def test_backtest_requires_informative_bars_when_declared():
     assert any("Missing informative bars" in error.message for error in result.errors)
 
 
+def test_backtest_does_not_leak_same_day_daily_bar_into_intraday():
+    """Daily informative values are unavailable until the daily bar completes."""
+    result = _make_use_case().execute(
+        BacktestStrategyDefinitionRequest(
+            definition=_daily_leak_probe_strategy(),
+            bars=[
+                _hourly_bar("2024-01-02T10:00:00", 100, 100),
+                _hourly_bar("2024-01-02T11:00:00", 110, 100),
+            ],
+            informative_bars={
+                "daily": [
+                    {
+                        "timestamp": "2024-01-02",
+                        "open": 100,
+                        "high": 101,
+                        "low": 99,
+                        "close": 100,
+                        "volume": 10000,
+                        "sma_50": 999,
+                    }
+                ]
+            },
+            symbol="AAPL",
+            interval="1h",
+        )
+    )
+
+    assert result.valid is True
+    assert result.result is not None
+    assert result.result.total_trades == 0
+    assert result.result.final_value == 10000.0
+
+
 def _make_use_case() -> BacktestStrategyDefinitionUseCase:
     return BacktestStrategyDefinitionUseCase(
         engine=BacktestRunner(),
@@ -126,6 +159,41 @@ def _make_use_case() -> BacktestStrategyDefinitionUseCase:
         parser=StrategyDefinitionParser(),
         timeframe_merger=PandasTimeframeBarMerger(),
     )
+
+
+def _daily_leak_probe_strategy() -> dict:
+    return {
+        "schema_version": "2.0",
+        "name": "daily_leak_probe",
+        "timeframes": {
+            "primary": "1h",
+            "informative": [{"alias": "daily", "interval": "1d"}],
+        },
+        "indicators": [
+            {
+                "name": "daily_trend_sma",
+                "type": "sma",
+                "period": 50,
+                "timeframe": "daily",
+            }
+        ],
+        "sides": {
+            "long": {
+                "entry": {
+                    "condition": {
+                        "all": [
+                            {
+                                "left": "daily_trend_sma",
+                                "operator": ">",
+                                "right": 900,
+                            },
+                            {"left": "close", "operator": ">", "right": 0},
+                        ]
+                    }
+                }
+            }
+        },
+    }
 
 
 def _multi_timeframe_strategy() -> dict:

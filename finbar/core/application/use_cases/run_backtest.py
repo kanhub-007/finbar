@@ -88,6 +88,7 @@ class RunBacktestUseCase:
                 df=df,
                 strategy=strategy,
                 initial_cash=request.initial_cash,
+                interval=request.interval,
                 **request.params,
             )
         except Exception as e:
