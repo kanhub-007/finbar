@@ -34,8 +34,23 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "bb_upper": "bb_upper",
         "bb_middle": "bb_middle",
         "bb_lower": "bb_lower",
+        # --- Proxy quantitative indicators ---
         "proxy_atr": "proxy_atr",
         "proxy_vwap": "proxy_vwap",
+        "proxy_ibs": "proxy_ibs",
+        "proxy_ib_high": "proxy_ib_high",
+        "proxy_ib_low": "proxy_ib_low",
+        "proxy_expected_move": "proxy_expected_move",
+        "proxy_parkinson": "proxy_parkinson",
+        "proxy_garman_klass": "proxy_garman_klass",
+        "proxy_rogers_satchell": "proxy_rogers_satchell",
+        # --- Intraday session metrics (real, not proxy) ---
+        "ib_high": "ib_high",
+        "ib_low": "ib_low",
+        "ib_range": "ib_range",
+        # --- Volume buffer levels ---
+        "vol_buffer_high": "vol_buffer_high",
+        "vol_buffer_low": "vol_buffer_low",
     }
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
