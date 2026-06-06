@@ -22,7 +22,6 @@ from finbar.core.domain.interfaces.derivatives_data_provider import (
 logger = logging.getLogger(__name__)
 
 _COINGLASS_BASE = "https://open-api-v3.coinglass.com/api"
-_DEFAULT_PAGE_SIZE = 100
 _MAX_RETRIES = 3
 _BASE_BACKOFF = 2.0
 
@@ -144,48 +143,41 @@ class CoinGlassClient(DerivativesDataProvider):
         symbol: str,
         interval: str,
     ) -> list[DerivativesMetrics]:
-        metrics: list[DerivativesMetrics] = []
-        for item in raw:
-            ts = item.get("createTime") or item.get("time") or 0
-            ts_str = str(ts)
-            try:
-                ts_int = int(ts)
-                ts_str = datetime.fromtimestamp(
-                    ts_int / 1000, tz=timezone.utc
-                ).isoformat()
-            except (ValueError, OSError):
-                pass
+        return [
+            CoinGlassClient._item_to_metrics(item, symbol, interval)
+            for item in raw
+        ]
 
-            oi = CoinGlassClient._opt_float(item.get("openInterest"))
-            oi_d1h = CoinGlassClient._opt_float(item.get("h1OIChangePercent"))
-            oi_d24h = CoinGlassClient._opt_float(item.get("h24OIChangePercent"))
+    @staticmethod
+    def _item_to_metrics(
+        item: dict,
+        symbol: str,
+        interval: str,
+    ) -> DerivativesMetrics:
+        of = CoinGlassClient._opt_float
+        return DerivativesMetrics(
+            symbol=symbol,
+            timestamp=CoinGlassClient._parse_timestamp(item),
+            interval=interval,
+            open_interest=of(item.get("openInterest")),
+            open_interest_delta_1h=of(item.get("h1OIChangePercent")),
+            open_interest_delta_24h=of(item.get("h24OIChangePercent")),
+            funding_rate=of(item.get("fundingRate")),
+            cumulative_volume_delta=of(item.get("cvd")),
+            long_short_ratio=of(item.get("longShortRatio")),
+            liquidations_long_1h=of(item.get("longLiquidationUsd")),
+            liquidations_short_1h=of(item.get("shortLiquidationUsd")),
+        )
 
-            metrics.append(
-                DerivativesMetrics(
-                    symbol=symbol,
-                    timestamp=ts_str,
-                    interval=interval,
-                    open_interest=oi,
-                    open_interest_delta_1h=oi_d1h,
-                    open_interest_delta_24h=oi_d24h,
-                    funding_rate=CoinGlassClient._opt_float(
-                        item.get("fundingRate")
-                    ),
-                    cumulative_volume_delta=CoinGlassClient._opt_float(
-                        item.get("cvd")
-                    ),
-                    long_short_ratio=CoinGlassClient._opt_float(
-                        item.get("longShortRatio")
-                    ),
-                    liquidations_long_1h=CoinGlassClient._opt_float(
-                        item.get("longLiquidationUsd")
-                    ),
-                    liquidations_short_1h=CoinGlassClient._opt_float(
-                        item.get("shortLiquidationUsd")
-                    ),
-                )
-            )
-        return metrics
+    @staticmethod
+    def _parse_timestamp(item: dict) -> str:
+        ts = item.get("createTime") or item.get("time") or 0
+        try:
+            return datetime.fromtimestamp(
+                int(ts) / 1000, tz=timezone.utc
+            ).isoformat()
+        except (ValueError, OSError):
+            return str(ts)
 
     @staticmethod
     def _opt_float(value: Any) -> float | None:

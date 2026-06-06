@@ -11,15 +11,15 @@ from finbar.core.application.dto.fetch_derivatives_result import (
 from finbar.core.domain.interfaces.derivatives_data_provider import (
     DerivativesDataProvider,
 )
-from finbar.infrastructure.repositories.sql_coinglass_repository import (
-    SqlCoinGlassRepository,
+from finbar.core.domain.interfaces.derivatives_repository import (
+    DerivativesRepository,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class FetchDerivativesUseCase:
-    """Fetch derivatives metrics from a provider and persist to the database.
+    """Fetch derivatives metrics from a provider and persist via repository.
 
     Synchronous — the provider handles its own retry/backoff logic.
     """
@@ -27,13 +27,13 @@ class FetchDerivativesUseCase:
     def __init__(
         self,
         provider: DerivativesDataProvider,
-        repository: SqlCoinGlassRepository,
+        repository: DerivativesRepository,
     ):
-        """Create the use case with injected provider and repository.
+        """Create the use case with injected domain interfaces.
 
         Args:
-            provider: Concrete derivatives data provider (e.g. CoinGlassClient).
-            repository: Repository for persisting fetched metrics.
+            provider: Concrete data provider (e.g. CoinGlassClient).
+            repository: Concrete repository (e.g. SqlCoinGlassRepository).
         """
         self._provider = provider
         self._repository = repository
@@ -42,14 +42,7 @@ class FetchDerivativesUseCase:
         self,
         request: FetchDerivativesRequest,
     ) -> FetchDerivativesResult:
-        """Fetch and persist derivatives metrics.
-
-        Args:
-            request: Fetch parameters (symbol, interval, time range).
-
-        Returns:
-            FetchDerivativesResult with fetched metrics or error.
-        """
+        """Fetch and persist derivatives metrics."""
         try:
             metrics = self._provider.fetch(
                 symbol=request.symbol,
@@ -74,7 +67,6 @@ class FetchDerivativesUseCase:
                     request.symbol,
                     exc,
                 )
-                # Return the data even if persistence fails
 
         return FetchDerivativesResult(
             symbol=request.symbol,

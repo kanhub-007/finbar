@@ -44,7 +44,7 @@ def register_derivatives_tools(mcp: FastMCP) -> None:
         )
         result = _make_fetch_derivatives_use_case().execute(request)
         return json.dumps(
-            DerivativesPresenter.fetch_result(result),
+            DerivativesPresenter().fetch_result(result),
             indent=2,
             default=str,
         )

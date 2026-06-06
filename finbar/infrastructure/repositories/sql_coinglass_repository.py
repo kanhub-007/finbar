@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 from finbar.core.domain.entities.derivatives_metrics import (
     DerivativesMetrics as DomainMetrics,
 )
+from finbar.core.domain.interfaces.derivatives_repository import (
+    DerivativesRepository,
+)
 from finbar.infrastructure.tables.coinglass_data import CoinGlassData as OrmMetrics
 
 logger = logging.getLogger(__name__)
@@ -57,7 +60,7 @@ def _orm_to_domain(orm: OrmMetrics) -> DomainMetrics:
     )
 
 
-class SqlCoinGlassRepository:
+class SqlCoinGlassRepository(DerivativesRepository):
     """SQLite repository for derivatives market metrics."""
 
     def __init__(self, db: Session):
