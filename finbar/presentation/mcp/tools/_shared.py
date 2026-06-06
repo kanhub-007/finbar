@@ -20,6 +20,7 @@ from finbar.startup.service_factory import (  # noqa: F401
     _make_cancel_optimization_job_use_case,
     _make_compute_signals_use_case,
     _make_delete_cached_use_case,
+    _make_fetch_derivatives_use_case,
     _make_fetch_prices_use_case,
     _make_get_indicator_job_progress_use_case,
     _make_get_indicator_job_results_use_case,

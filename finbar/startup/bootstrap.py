@@ -8,6 +8,7 @@ import logging
 from dotenv import load_dotenv
 
 # Import table modules so Base.metadata knows about them before create_all()
+import finbar.infrastructure.tables.coinglass_data  # noqa: F401
 import finbar.infrastructure.tables.indicator_artifact  # noqa: F401
 import finbar.infrastructure.tables.price_bar  # noqa: F401
 import finbar.infrastructure.tables.strategy_document  # noqa: F401

@@ -563,3 +563,34 @@ def _make_explain_strategy_definition_use_case() -> ExplainStrategyDefinitionUse
 def _make_validate_strategy_definition_use_case() -> ValidateStrategyDefinitionUseCase:
     """Create a use case for validating strategy JSON."""
     return ValidateStrategyDefinitionUseCase(_get_parser())
+
+
+# ── Derivatives / CoinGlass ────────────────────────────────────────────
+
+_derivatives_provider: "DerivativesDataProvider | None" = None
+
+
+def _get_derivatives_provider() -> "DerivativesDataProvider":
+    """Return the shared derivatives data provider (CoinGlass)."""
+    global _derivatives_provider
+    if _derivatives_provider is None:
+        from finbar.infrastructure.services.coinglass_client import CoinGlassClient
+
+        _derivatives_provider = CoinGlassClient()
+    return _derivatives_provider
+
+
+def _make_fetch_derivatives_use_case() -> "FetchDerivativesUseCase":
+    """Create a derivatives fetch use case with wiring."""
+    from finbar.core.application.use_cases.fetch_derivatives import (
+        FetchDerivativesUseCase,
+    )
+    from finbar.infrastructure.repositories.sql_coinglass_repository import (
+        SqlCoinGlassRepository,
+    )
+
+    db = _get_db()
+    return FetchDerivativesUseCase(
+        provider=_get_derivatives_provider(),
+        repository=SqlCoinGlassRepository(db),
+    )
