@@ -448,3 +448,71 @@ class TestBacktestDataValidation:
         result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
 
         assert "Missing required OHLC columns: low" == result["error"]
+
+
+class TestTransactionCosts:
+    def test_commission_reduces_net_pnl(self):
+        sig = SignalResult(action="buy", direction="long", position_size=100)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 100.0],
+                "high": [100.0, 110.0, 120.0],
+                "low": [100.0, 100.0, 100.0],
+                "close": [100.0, 110.0, 120.0],
+                "volume": [1000000] * 3,
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(
+            df, _StaticSignalStrategy(sig), 10000, commission_pct=0.001
+        )
+
+        assert result["commission_pct"] == 0.001
+        assert result["total_commission"] > 0
+        assert result["final_value"] < 12000.0
+
+    def test_slippage_reduces_returns(self):
+        sig = SignalResult(action="buy", direction="long", position_size=100)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 100.0],
+                "high": [100.0, 110.0, 120.0],
+                "low": [100.0, 100.0, 100.0],
+                "close": [100.0, 110.0, 120.0],
+                "volume": [1000000] * 3,
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(
+            df, _StaticSignalStrategy(sig), 10000, slippage_pct=0.0005
+        )
+
+        trade = result["trades"][0]
+        assert result["slippage_pct"] == 0.0005
+        assert result["total_slippage"] > 0
+        assert trade["entry_price"] > 100.0  # Long entry: price * (1+slippage)
+
+    def test_zero_cost_backtest_unchanged(self):
+        sig = SignalResult(action="buy", direction="long", position_size=100)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 100.0],
+                "high": [100.0, 110.0, 120.0],
+                "low": [100.0, 100.0, 100.0],
+                "close": [100.0, 110.0, 120.0],
+                "volume": [1000000] * 3,
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert result["total_commission"] == 0.0
+        assert result["total_slippage"] == 0.0
+        assert result["commission_pct"] == 0.0
+        assert result["slippage_pct"] == 0.0

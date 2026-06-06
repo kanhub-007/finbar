@@ -79,9 +79,25 @@ class BacktestRunner(BacktestEngine):
         interval = str(params.pop("interval", "") or "")
         warmup_bars = int(params.pop("warmup_bars", 0) or 0)
         first_tradable = str(params.pop("first_tradable", "") or "")
-        result = _run_loop(df, strategy, initial_cash, risk_per_trade)
+        commission_pct = float(params.pop("commission_pct", 0.0) or 0.0)
+        slippage_pct = float(params.pop("slippage_pct", 0.0) or 0.0)
+        result = _run_loop(
+            df,
+            strategy,
+            initial_cash,
+            risk_per_trade,
+            commission_pct,
+            slippage_pct,
+        )
         return _build_result_dict(
-            strategy, result, initial_cash, interval, warmup_bars, first_tradable
+            strategy,
+            result,
+            initial_cash,
+            interval,
+            warmup_bars,
+            first_tradable,
+            commission_pct,
+            slippage_pct,
         )
 
 
@@ -95,6 +111,8 @@ def _run_loop(
     strategy: TradingStrategy,
     initial_cash: float,
     risk_per_trade: float = 0.02,
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> BacktestLoopState:
     """Iterate bars, call strategy, execute signals, track positions."""
     state = BacktestLoopState(initial_cash)
@@ -112,8 +130,10 @@ def _run_loop(
         final_date = bar_date
 
         bar_dict = _row_to_bar(row)
-        _execute_pending(state, open_price, bar_date)
-        _check_exit_conditions(state, open_price, close, high, low, bar_date)
+        _execute_pending(state, open_price, bar_date, commission_pct, slippage_pct)
+        _check_exit_conditions(
+            state, open_price, close, high, low, bar_date, commission_pct, slippage_pct
+        )
         _process_signal(
             state,
             strategy,
@@ -122,21 +142,31 @@ def _run_loop(
             close,
             bar_date,
             risk_per_trade,
+            commission_pct,
+            slippage_pct,
         )
         _track_equity(state, close, bar_date)
 
-    _liquidate_open_position(state, final_close, final_date)
+    _liquidate_open_position(
+        state, final_close, final_date, commission_pct, slippage_pct
+    )
     _log_run_summary(state)
     return state
 
 
-def _execute_pending(state: BacktestLoopState, price: float, date: str) -> None:
+def _execute_pending(
+    state: BacktestLoopState,
+    price: float,
+    date: str,
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
+) -> None:
     """Execute a pending entry signal at next bar's open."""
     if state.pending_entry is None or state.position.size != 0:
         return
     entry = state.pending_entry
     state.pending_entry = None
-    _enter_position(state, entry, price, date)
+    _enter_position(state, entry, price, date, commission_pct, slippage_pct)
 
 
 def _process_signal(
@@ -147,6 +177,8 @@ def _process_signal(
     close: float,
     date: str,
     risk_per_trade: float,
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> None:
     """Generate and handle strategy signals for the current bar."""
     signal = strategy.on_bar(bar, state.position.to_dict())
@@ -156,7 +188,14 @@ def _process_signal(
         and signal.action in ("buy", "sell")
         and state.position.size != 0
     ):
-        _exit_position(state, close, date, exit_reason="signal_exit")
+        _exit_position(
+            state,
+            close,
+            date,
+            exit_reason="signal_exit",
+            commission_pct=commission_pct,
+            slippage_pct=slippage_pct,
+        )
         return
 
     if (
@@ -219,6 +258,8 @@ def _enter_position(
     entry: PendingEntry,
     price: float,
     date: str,
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> None:
     """Enter a new position from a pending entry signal."""
     if not _protective_stop_valid(entry, price):
@@ -242,21 +283,26 @@ def _enter_position(
             return
         size = min(size, max_affordable)
 
-    cost = size * price
+    fill_price = _apply_slippage(price, slippage_pct, entry.direction, "entry")
+    cost = size * fill_price
+    commission = _commission_cost(cost, commission_pct)
+    state.total_commission += commission
+    state.total_slippage += abs(fill_price - price) * size
+
     if entry.direction == "long":
-        state.cash -= cost
+        state.cash -= cost + commission
         state.position = BacktestPosition()
         state.position.size = size
         state.position.direction = "long"
     elif entry.direction == "short":
-        state.cash += cost
+        state.cash += cost - commission
         state.position = BacktestPosition()
         state.position.size = -size
         state.position.direction = "short"
     else:
         return
 
-    state.position.entry_price = price
+    state.position.entry_price = fill_price
     state.position.entry_date = date
     state.position.stop_price = entry.stop_price
     state.position.target_price = entry.target_price
@@ -265,7 +311,7 @@ def _enter_position(
         "cash: %.2f->%.2f (d=%.2f) | stop=%.2f target=%.2f",
         date,
         entry.direction.upper(),
-        price,
+        fill_price,
         size,
         cost,
         cash_before,
@@ -281,6 +327,8 @@ def _exit_position(
     exit_price: float,
     bar_date: str,
     exit_reason: str = "signal",
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> None:
     """Close the current position and record the trade."""
     abs_size = abs(state.position.size)
@@ -288,12 +336,19 @@ def _exit_position(
     entry_price = state.position.entry_price
     entry_date = state.position.entry_date
     direction = state.position.direction
+
+    fill_price = _apply_slippage(exit_price, slippage_pct, direction, "exit")
+    fill_cost = abs_size * fill_price
+    commission = _commission_cost(fill_cost, commission_pct)
+    state.total_commission += commission
+    state.total_slippage += abs(fill_price - exit_price) * abs_size
+
     if state.position.size > 0:
-        pnl = (exit_price - entry_price) * abs_size
-        state.cash += abs_size * exit_price
+        pnl = (fill_price - entry_price) * abs_size
+        state.cash += fill_cost - commission
     else:
-        pnl = (entry_price - exit_price) * abs_size
-        state.cash -= abs_size * exit_price
+        pnl = (entry_price - fill_price) * abs_size
+        state.cash -= fill_cost + commission
 
     pnl_pct = (
         pnl / (entry_price * abs_size) if entry_price > 0 and abs_size > 0 else 0.0
@@ -303,7 +358,7 @@ def _exit_position(
             "entry_date": entry_date,
             "exit_date": bar_date,
             "entry_price": entry_price,
-            "exit_price": exit_price,
+            "exit_price": fill_price,
             "size": abs_size,
             "pnl": round(pnl, 2),
             "pnl_pct": round(pnl_pct, 4),
@@ -338,13 +393,22 @@ def _check_exit_conditions(
     high: float,
     low: float,
     bar_date: str,
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> None:
     """Check gap-aware stop-loss and take-profit for the open position."""
     state.position.bars_held += 1
     fill = _resolve_intrabar_exit(state.position, open_price, high, low)
     if fill is not None:
         exit_price, reason = fill
-        _exit_position(state, exit_price, bar_date, exit_reason=reason)
+        _exit_position(
+            state,
+            exit_price,
+            bar_date,
+            exit_reason=reason,
+            commission_pct=commission_pct,
+            slippage_pct=slippage_pct,
+        )
 
 
 def _resolve_intrabar_exit(
@@ -409,11 +473,20 @@ def _liquidate_open_position(
     state: BacktestLoopState,
     final_close: float,
     final_date: str,
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> None:
     """Close any open position at the final bar close for metric consistency."""
     if state.position.size == 0 or not final_date:
         return
-    _exit_position(state, final_close, final_date, exit_reason="end_of_backtest")
+    _exit_position(
+        state,
+        final_close,
+        final_date,
+        exit_reason="end_of_backtest",
+        commission_pct=commission_pct,
+        slippage_pct=slippage_pct,
+    )
     if state.equity_curve:
         last = state.equity_curve[-1]
         last["value"] = _portfolio_value(state, final_close)
@@ -475,6 +548,8 @@ def _build_result_dict(
     interval: str = "",
     warmup_bars: int = 0,
     first_tradable: str = "",
+    commission_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> dict:
     """Compute metrics and build the result dict from loop state."""
     equity_values = [e["value"] for e in state.equity_curve]
@@ -545,6 +620,10 @@ def _build_result_dict(
         "calmar_ratio": round(calmar, 4),
         "warmup_bars": warmup_bars,
         "first_tradable": first_tradable,
+        "total_commission": round(state.total_commission, 2),
+        "total_slippage": round(state.total_slippage, 2),
+        "commission_pct": round(commission_pct, 6),
+        "slippage_pct": round(slippage_pct, 6),
         "trades": state.trades,
         "equity_curve": state.equity_curve,
     }
@@ -615,6 +694,31 @@ def _resolve_entry_size(
             return max(1, int(risk_amount / risk_per_share))
 
     return _DEFAULT_POSITION_SIZE
+
+
+def _apply_slippage(
+    price: float,
+    slippage_pct: float,
+    direction: str,
+    side: str,
+) -> float:
+    """Return fill price adjusted by directional slippage."""
+    if slippage_pct <= 0:
+        return price
+    if direction == "long":
+        factor = 1.0 + slippage_pct if side == "entry" else 1.0 - slippage_pct
+    elif direction == "short":
+        factor = 1.0 - slippage_pct if side == "entry" else 1.0 + slippage_pct
+    else:
+        return price
+    return price * factor
+
+
+def _commission_cost(gross: float, commission_pct: float) -> float:
+    """Return absolute commission cost for a transaction."""
+    if commission_pct <= 0:
+        return 0.0
+    return abs(gross) * commission_pct
 
 
 def _annualization_factor(interval: str) -> float:

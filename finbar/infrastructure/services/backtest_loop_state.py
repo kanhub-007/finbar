@@ -16,6 +16,8 @@ class BacktestLoopState:
         "equity_curve",
         "pending_entry",
         "peak_value",
+        "total_commission",
+        "total_slippage",
     )
 
     def __init__(self, initial_cash: float) -> None:
@@ -26,3 +28,5 @@ class BacktestLoopState:
         self.equity_curve: list[dict] = []
         self.pending_entry: PendingEntry | None = None
         self.peak_value = initial_cash
+        self.total_commission: float = 0.0
+        self.total_slippage: float = 0.0

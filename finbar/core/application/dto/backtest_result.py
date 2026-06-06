@@ -84,6 +84,18 @@ class BacktestResultDTO:
     first_tradable: str = ""
     """Timestamp of the first bar where all required indicators are valid."""
 
+    total_commission: float = 0.0
+    """Total absolute commission costs across all trades."""
+
+    total_slippage: float = 0.0
+    """Total absolute slippage impact across all trades."""
+
+    commission_pct: float = 0.0
+    """Commission percentage used for this backtest."""
+
+    slippage_pct: float = 0.0
+    """Slippage percentage used for this backtest."""
+
     trades: list[dict] = field(default_factory=list)
     """List of trade records. Each trade has: entry_date, exit_date,
     entry_price, exit_price, size, pnl, pnl_pct, duration_bars, metadata."""
