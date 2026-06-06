@@ -194,9 +194,15 @@ def _resolve_leaf(
     path: str,
     errors: list[StrategyValidationError],
 ) -> Any:
-    """Resolve a leaf value, handling {{ param }} string references."""
+    """Resolve a leaf value, handling {{ param }} string references
+    and {"param": "name"} dict references."""
     if isinstance(value, str):
         return resolve_expression(value, resolved_params, path, errors)
     if isinstance(value, dict):
+        param_name = value.get("param")
+        if param_name is not None and isinstance(param_name, str):
+            if param_name not in resolved_params:
+                return value
+            return resolved_params[param_name]
         return _resolve_expr_params(value, resolved_params, path, errors)
     return value
