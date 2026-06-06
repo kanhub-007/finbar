@@ -28,5 +28,11 @@ class StartOptimizationJobRequest:
     informative_bars_artifact_ids: dict[str, str] = field(default_factory=dict)
     """Completed indicator job IDs keyed by informative timeframe alias."""
 
+    interval: str = ""
+    """Bar interval for result metadata and annualization."""
+
+    risk_per_trade: float = 0.02
+    """Fraction of portfolio to risk per trade."""
+
     initial_cash: float = 10000.0
     """Starting capital for backtests."""

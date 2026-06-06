@@ -54,6 +54,8 @@ def register_optimization_tools(mcp: FastMCP) -> None:
         initial_cash: float = 10000.0,
         search_method: str = "grid",
         random_count: int = 20,
+        interval: str = "",
+        risk_per_trade: float = 0.02,
     ) -> str:
         """Start a grid search optimization job and return its job id."""
         parsed = _parse_optimization_inputs(
@@ -70,6 +72,8 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             initial_cash=initial_cash,
             search_method=search_method,
             random_count=random_count,
+            interval=interval,
+            risk_per_trade=risk_per_trade,
         )
         job = _make_start_optimization_job_use_case().execute(request)
         return json.dumps(

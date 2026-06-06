@@ -9,16 +9,16 @@ from finbar.core.domain.entities.optimization_job import OptimizationJob
 from finbar.core.domain.entities.optimization_result import OptimizationResult
 from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.core.domain.entities.param_range import ParamRange
-from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.indicator_artifact_provider import (
     IndicatorArtifactProvider,
 )
-from finbar.core.domain.interfaces.optimization_job_manager import (
-    OptimizationJobManager,
-)
 from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
+)
+from finbar.core.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
+from finbar.infrastructure.services.backtest_data_validator import (
+    validate_required_data,
 )
 
 _MAX_COMBINATIONS = 100
@@ -175,11 +175,26 @@ class GridSearchOptimizer(OptimizationJobRunner):
                 frame = self._feature_calculator.calculate(
                     frame, validation.definition.features
                 )
+
+            warmup = _warmup_check(frame, validation)
+            if warmup.get("no_tradable_bars"):
+                return OptimizationResult(
+                    rank=0,
+                    params=params,
+                    error="No tradable bars after warmup",
+                )
+
             strategy = self._strategy_factory.create(validation.definition)
+            interval = str(metadata.get("interval", "") or "")
+            risk_per_trade = float(metadata.get("risk_per_trade", 0.02) or 0.02)
             raw = self._engine.run(
                 df=frame,
                 strategy=strategy,
                 initial_cash=metadata.get("initial_cash", 10000),
+                interval=interval,
+                risk_per_trade=risk_per_trade,
+                warmup_bars=warmup.get("warmup_bars", 0),
+                first_tradable=warmup.get("first_tradable", ""),
             )
             return _metrics_from_raw(params, raw)
         except Exception as exc:
@@ -305,3 +320,8 @@ def _metrics_from_raw(params: dict, raw: dict) -> OptimizationResult:
         calmar_ratio=float(raw.get("calmar_ratio", 0) or 0),
         total_trades=int(raw.get("total_trades", 0) or 0),
     )
+
+
+def _warmup_check(frame, validation) -> dict:
+    """Validate required data warmup for optimization backtests."""
+    return validate_required_data(frame, validation.required_columns)

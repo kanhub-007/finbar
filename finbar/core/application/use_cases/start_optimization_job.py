@@ -39,4 +39,6 @@ def _params(request: StartOptimizationJobRequest) -> dict:
         "random_count": request.random_count,
         "informative_bars_artifact_ids": dict(request.informative_bars_artifact_ids),
         "initial_cash": request.initial_cash,
+        "interval": request.interval,
+        "risk_per_trade": request.risk_per_trade,
     }
