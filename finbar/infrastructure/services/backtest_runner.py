@@ -151,6 +151,7 @@ def _process_signal(
             stop_price=signal.stop_price,
             target_price=signal.target_price,
             position_size=size,
+            explicit_size=signal.position_size > 0,
         )
 
 
@@ -190,8 +191,9 @@ def _enter_position(
 ) -> None:
     """Enter a new position from a pending entry signal."""
     size = entry.position_size or _DEFAULT_POSITION_SIZE
-    # Cash constraint: never buy more shares than we can afford
-    if price > 0:
+    # Cash constraint: never buy more shares than we can afford,
+    # unless the strategy explicitly set the position size.
+    if not entry.explicit_size and price > 0:
         max_affordable = int(state.cash / price) if state.cash > 0 else 0
         if max_affordable > 0:
             size = min(size, max_affordable)

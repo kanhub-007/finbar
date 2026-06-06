@@ -21,3 +21,6 @@ class PendingEntry:
 
     position_size: int = 0
     """Computed position size in shares. 0 means use default."""
+
+    explicit_size: bool = False
+    """True if the strategy explicitly set position_size (skip cash constraint)."""

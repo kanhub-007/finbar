@@ -461,6 +461,36 @@ def _get_strategy_feature_calculator() -> PandasStrategyFeatureCalculator:
     return _strategy_feature_calculator
 
 
+# ── Signal interpretation ─────────────────────────────────────────────
+
+_signal_calculator: "PandasSignalCalculator | None" = None
+
+
+def _get_signal_calculator() -> "PandasSignalCalculator":
+    """Return the shared signal interpretation calculator."""
+    global _signal_calculator
+    if _signal_calculator is None:
+        from finbar.core.domain.services.confidence_scorer import ConfidenceScorer
+        from finbar.infrastructure.services.pandas_signal_calculator import (
+            PandasSignalCalculator,
+        )
+
+        _signal_calculator = PandasSignalCalculator(scorer=ConfidenceScorer())
+    return _signal_calculator
+
+
+def _make_compute_signals_use_case() -> "ComputeSignalsUseCase":
+    """Create a signal computation use case with wiring."""
+    from finbar.core.application.use_cases.compute_signals import (
+        ComputeSignalsUseCase,
+    )
+
+    return ComputeSignalsUseCase(
+        calculator=_get_signal_calculator(),
+        converter=_get_bar_frame_converter(),
+    )
+
+
 def _get_parser() -> StrategyDefinitionParser:
     """Return the shared strategy JSON parser."""
     global _parser

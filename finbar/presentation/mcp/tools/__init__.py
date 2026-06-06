@@ -12,6 +12,7 @@ from .indicators import register_indicator_tools
 from .jobs import register_job_tools
 from .optimization import register_optimization_tools
 from .prices import register_price_tools
+from .signals import register_signal_tools
 from .strategy_json import register_strategy_json_tools
 from .symbols import register_symbol_tools
 
@@ -24,4 +25,5 @@ def register_tools(mcp: FastMCP) -> None:
     register_analysis_tools(mcp)
     register_indicator_tools(mcp)
     register_optimization_tools(mcp)
+    register_signal_tools(mcp)
     register_strategy_json_tools(mcp)
