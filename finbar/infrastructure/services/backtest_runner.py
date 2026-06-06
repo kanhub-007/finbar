@@ -640,6 +640,23 @@ def _build_result_dict(
         "slippage_pct": round(slippage_pct, 6),
         "trades": state.trades,
         "equity_curve": state.equity_curve,
+        "trust_diagnostics": {
+            "gap_aware_fills": True,
+            "lookahead_safe_mtf": True,
+            "liquidated_on_close": True,
+            "entry_model": "next_bar_open",
+            "exit_model": "next_bar_open",
+            "cost_model": (
+                "commission_and_slippage"
+                if commission_pct > 0 or slippage_pct > 0
+                else "zero_cost"
+            ),
+            "warmup_bars": warmup_bars,
+            "first_tradable": first_tradable,
+            "commission_pct": round(commission_pct, 6),
+            "slippage_pct": round(slippage_pct, 6),
+            "annualization_factor": annualization_factor,
+        },
     }
 
 

@@ -104,6 +104,11 @@ class BacktestResultDTO:
     """List of equity snapshots over time. Each dict has: date, close,
     value, drawdown, position."""
 
+    trust_diagnostics: dict = field(default_factory=dict)
+    """Execution-model assumptions active during this backtest.
+    Includes fill model, lookahead safety, cost model, warmup, and
+    annualization metadata."""
+
     error: str | None = None
     """Error message if the backtest failed."""
 

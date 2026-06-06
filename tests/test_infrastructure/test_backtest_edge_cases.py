@@ -593,3 +593,30 @@ class TestPendingExit:
         assert result["total_trades"] == 1
         trade = result["trades"][0]
         assert trade["metadata"]["exit_reason"] == "stop_loss"
+
+
+class TestTrustDiagnostics:
+    def test_diagnostics_present_on_basic_run(self):
+        sig = SignalResult(action="buy", direction="long", position_size=100)
+        df = _make_flat_df(5)
+        runner = BacktestRunner()
+        result = runner.run(df, _StaticSignalStrategy(sig), 10000)
+
+        diag = result["trust_diagnostics"]
+        assert diag["gap_aware_fills"] is True
+        assert diag["lookahead_safe_mtf"] is True
+        assert diag["liquidated_on_close"] is True
+        assert diag["entry_model"] == "next_bar_open"
+        assert diag["exit_model"] == "next_bar_open"
+        assert diag["cost_model"] == "zero_cost"
+        assert "annualization_factor" in diag
+
+    def test_diagnostics_reflect_cost_model_when_commission_active(self):
+        sig = SignalResult(action="buy", direction="long", position_size=100)
+        df = _make_flat_df(5)
+        runner = BacktestRunner()
+        result = runner.run(df, _StaticSignalStrategy(sig), 10000, commission_pct=0.001)
+
+        diag = result["trust_diagnostics"]
+        assert diag["cost_model"] == "commission_and_slippage"
+        assert diag["commission_pct"] == 0.001
