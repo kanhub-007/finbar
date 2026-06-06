@@ -26,6 +26,9 @@ from finbar.core.domain.services.backtest_metrics import (
     calculate_sortino,
     calculate_total_return,
 )
+from finbar.infrastructure.services.backtest_data_validator import (
+    validate_backtest_frame,
+)
 from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
 from finbar.infrastructure.services.backtest_position import BacktestPosition
 
@@ -65,6 +68,10 @@ class BacktestRunner(BacktestEngine):
         """
         if df.empty:
             return _error_result("No bars provided")
+
+        validation_error = validate_backtest_frame(df)
+        if validation_error is not None:
+            return _error_result(validation_error)
 
         strategy.on_reset()
 

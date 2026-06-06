@@ -393,3 +393,58 @@ class TestExecutionCorrectness:
 
         assert result["equity_curve"][0]["date"] == "2024-01-01T10:00:00"
         assert result["trades"][0]["entry_date"] == "2024-01-01T11:00:00"
+
+
+class TestBacktestDataValidation:
+    def test_invalid_high_below_low_returns_error(self):
+        sig = SignalResult(action="buy", direction="long")
+        dates = pd.date_range("2024-01-01", periods=1, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0],
+                "high": [95.0],
+                "low": [99.0],
+                "close": [100.0],
+                "volume": [1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert "high is below low" in result["error"]
+
+    def test_duplicate_timestamp_returns_error(self):
+        sig = SignalResult(action="buy", direction="long")
+        index = pd.to_datetime(["2024-01-01", "2024-01-01"])
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 101.0],
+                "high": [101.0, 102.0],
+                "low": [99.0, 100.0],
+                "close": [100.0, 101.0],
+                "volume": [1000000, 1000000],
+            },
+            index=index,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert "Duplicate bar" in result["error"]
+
+    def test_missing_ohlc_column_returns_error(self):
+        sig = SignalResult(action="buy", direction="long")
+        dates = pd.date_range("2024-01-01", periods=1, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0],
+                "high": [101.0],
+                "close": [100.0],
+                "volume": [1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+
+        assert "Missing required OHLC columns: low" == result["error"]
