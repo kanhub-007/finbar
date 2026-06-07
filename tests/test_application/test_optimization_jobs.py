@@ -5,6 +5,9 @@ import pytest
 from finbar.core.application.dto.start_optimization_job_request import (
     StartOptimizationJobRequest,
 )
+from finbar.core.application.services.strategy_definition_parser import (
+    StrategyDefinitionParser,
+)
 from finbar.core.application.use_cases.cancel_optimization_job import (
     CancelOptimizationJobUseCase,
 )
@@ -18,11 +21,20 @@ from finbar.core.application.use_cases.start_optimization_job import (
     StartOptimizationJobUseCase,
 )
 from finbar.core.domain.entities.optimization_job import OptimizationJob
+from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.core.domain.entities.param_range import ParamRange
+from finbar.core.domain.interfaces.indicator_artifact_provider import (
+    IndicatorArtifactProvider,
+)
+from finbar.core.domain.interfaces.optimization_job_manager import (
+    OptimizationJobManager,
+)
 from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
 )
+from finbar.infrastructure.services.backtest_runner import BacktestRunner
 from finbar.infrastructure.services.grid_search_optimizer import (
+    GridSearchOptimizer,
     _execution_params,
     _generate_combinations,
     _parse_ranges,
@@ -31,6 +43,12 @@ from finbar.infrastructure.services.grid_search_optimizer import (
 from finbar.infrastructure.services.in_memory_optimization_job_manager import (
     InMemoryOptimizationJobManager,
 )
+from finbar.infrastructure.services.pandas_bar_frame_converter import (
+    PandasBarFrameConverter,
+)
+from finbar.infrastructure.services.strategy_definition_factory import (
+    StrategyDefinitionFactory,
+)
 
 
 class _NoopRunner(OptimizationJobRunner):
@@ -38,6 +56,46 @@ class _NoopRunner(OptimizationJobRunner):
 
     async def run(self, job: OptimizationJob) -> None:
         """No-op for manager tests."""
+
+
+class _ArtifactProvider(IndicatorArtifactProvider):
+    """Test artifact provider backed by an in-memory dict."""
+
+    def __init__(self, bars_by_id: dict[str, list[dict]]):
+        self._bars_by_id = bars_by_id
+
+    def get_artifact_job(self, job_id: str):
+        """Return no job metadata; optimizer only needs bars."""
+        return None
+
+    def get_artifact_bars(self, job_id: str) -> list[dict] | None:
+        """Return bars for an artifact id."""
+        return self._bars_by_id.get(job_id)
+
+
+class _SyncManager(OptimizationJobManager):
+    """Synchronous manager used to inspect optimizer updates."""
+
+    def start(self, params: dict, runner):
+        """Create a job without launching a background task."""
+        return OptimizationJob(
+            job_id="sync-job",
+            metric=params.get("metric", "sharpe_ratio"),
+            metadata=dict(params),
+        )
+
+    def get(self, job_id: str) -> OptimizationJob | None:
+        """No lookup support needed for this test double."""
+        return None
+
+    def update(self, job: OptimizationJob, **updates) -> None:
+        """Apply updates directly to the supplied job."""
+        for key, value in updates.items():
+            setattr(job, key, value)
+
+    def cancel(self, job_id: str) -> OptimizationJob | None:
+        """No cancellation support needed for this test double."""
+        return None
 
 
 class TestParamRange:
@@ -137,6 +195,62 @@ class TestOptimizationPreparation:
         assert params["market_calendar"] == "crypto_24_7"
 
 
+class TestOptimizationParity:
+    def test_single_combination_matches_direct_backtest_metrics(self):
+        """A one-combination optimization matches direct engine metrics."""
+        bars = [
+            _bar("2024-01-01", 100, 100),
+            _bar("2024-01-02", 100, 100),
+            _bar("2024-01-03", 110, 110),
+        ]
+        definition = _always_long_strategy()
+        manager = _SyncManager()
+        converter = PandasBarFrameConverter()
+        parser = StrategyDefinitionParser()
+        factory = StrategyDefinitionFactory()
+        engine = BacktestRunner()
+        optimizer = GridSearchOptimizer(
+            OptimizerConfig(
+                parser=parser,
+                engine=engine,
+                converter=converter,
+                strategy_factory=factory,
+                manager=manager,
+                artifact_provider=_ArtifactProvider({"bars": bars}),
+            )
+        )
+        job = OptimizationJob(
+            job_id="opt-1",
+            metric="total_return",
+            metadata={
+                "definition": definition,
+                "bars_artifact_id": "bars",
+                "param_ranges": {},
+                "metric": "total_return",
+                "interval": "1d",
+                "initial_cash": 10000,
+                "commission_pct": 0.001,
+            },
+        )
+
+        optimizer._sync_run(job)
+        validation = parser.parse(definition, {})
+        strategy = factory.create(validation.definition)
+        direct = engine.run(
+            converter.bars_to_frame(bars),
+            strategy,
+            10000,
+            interval="1d",
+            commission_pct=0.001,
+        )
+
+        assert job.status == "completed"
+        assert len(job.results) == 1
+        assert job.results[0].total_return == direct["total_return"]
+        assert job.results[0].total_trades == direct["total_trades"]
+        assert job.results[0].win_rate == direct["win_rate"]
+
+
 class TestOptimizationJobManager:
     @pytest.mark.asyncio
     async def test_start_job_records_metadata(self):
@@ -233,3 +347,36 @@ class TestOptimizationJobManager:
         assert result.found is True
         assert result.status == "cancelled"
         assert result.error == "Cancelled by user"
+
+
+def _bar(timestamp: str, open_price: float, close: float) -> dict:
+    """Return a minimal OHLCV bar dict."""
+    high = max(open_price, close)
+    low = min(open_price, close)
+    return {
+        "timestamp": timestamp,
+        "open": open_price,
+        "high": high,
+        "low": low,
+        "close": close,
+        "volume": 1000000,
+    }
+
+
+def _always_long_strategy() -> dict:
+    """Return a JSON strategy that enters long whenever close is positive."""
+    return {
+        "schema_version": "2.0",
+        "name": "always_long",
+        "sides": {
+            "long": {
+                "entry": {
+                    "condition": {
+                        "operator": ">",
+                        "left": "close",
+                        "right": 0,
+                    }
+                }
+            }
+        },
+    }
