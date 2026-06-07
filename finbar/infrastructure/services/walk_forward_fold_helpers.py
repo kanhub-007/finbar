@@ -163,10 +163,75 @@ def _compute_stability(folds: Sequence[WalkForwardFold]) -> float:
 
 
 def _compute_rank_correlation(folds: Sequence[WalkForwardFold]) -> float:
-    """Average Spearman rank correlation of params across folds (stub)."""
+    """Average Spearman rank correlation of param sensitivity across folds.
+
+    For each fold, parameters are ranked by their sensitivity score.
+    Spearman correlation is computed between every pair of fold rankings.
+    The result is the average of all pairwise correlations.
+
+    1.0 = params rank in exactly the same order across all folds.
+    0.0 = rankings are random relative to each other.
+    -1.0 = rankings are perfectly reversed.
+    """
     param_names: set[str] = set()
     for f in folds:
-        param_names.update(f.best_params.keys())
+        if not f.skipped and not f.error and f.param_sensitivity:
+            param_names.update(f.param_sensitivity.keys())
+
     if len(param_names) < 2 or len(folds) < 2:
         return 1.0
-    return 1.0  # Full implementation deferred to Phase 4b
+
+    ordered_names = sorted(param_names)
+    rankings: list[list[float]] = []
+    for f in folds:
+        if f.skipped or f.error or not f.param_sensitivity:
+            continue
+        scores = [f.param_sensitivity.get(n, 0.0) for n in ordered_names]
+        rankings.append(_rank_values(scores))
+
+    if len(rankings) < 2:
+        return 1.0
+
+    correlations: list[float] = []
+    for i in range(len(rankings)):
+        for j in range(i + 1, len(rankings)):
+            corr = _spearman(rankings[i], rankings[j])
+            correlations.append(corr)
+
+    if not correlations:
+        return 1.0
+    return round(sum(correlations) / len(correlations), 4)
+
+
+def _rank_values(values: list[float]) -> list[float]:
+    """Convert a list of values to ranks (1 = highest value, avg rank for ties)."""
+    if not values:
+        return []
+    indexed = [(v, i) for i, v in enumerate(values)]
+    indexed.sort(key=lambda x: x[0], reverse=True)
+    ranks = [0.0] * len(values)
+    i = 0
+    while i < len(indexed):
+        j = i
+        while j < len(indexed) and indexed[j][0] == indexed[i][0]:
+            j += 1
+        avg_rank = (i + 1 + j) / 2.0
+        for k in range(i, j):
+            ranks[indexed[k][1]] = avg_rank
+        i = j
+    return ranks
+
+
+def _spearman(xs: list[float], ys: list[float]) -> float:
+    """Compute Spearman rank correlation between two rank lists."""
+    n = len(xs)
+    if n < 2:
+        return 0.0
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    var_x = sum((x - mean_x) ** 2 for x in xs)
+    var_y = sum((y - mean_y) ** 2 for y in ys)
+    if var_x == 0 or var_y == 0:
+        return 0.0
+    return cov / ((var_x * var_y) ** 0.5)

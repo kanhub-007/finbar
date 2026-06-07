@@ -68,6 +68,7 @@ class TestAggregateFolds:
         is_sharpe=0.0,
         is_total_return=0.0,
         best_params=None,
+        param_sensitivity=None,
         skipped=False,
         error="",
     ):
@@ -81,6 +82,7 @@ class TestAggregateFolds:
             is_sharpe=is_sharpe,
             is_total_return=is_total_return,
             best_params=best_params or {"fast": 10, "slow": 30},
+            param_sensitivity=param_sensitivity or {},
             skipped=skipped,
             error=error,
         )
@@ -180,3 +182,32 @@ class TestAggregateFolds:
         result = aggregate_folds(folds)
         assert result.folds_requested == 4
         assert result.folds_completed == 2
+
+    def test_rank_correlation_identical(self):
+        """Identical sensitivity produces rank correlation of 1.0."""
+        folds = [
+            self.make_fold(i, param_sensitivity={"a": 0.7, "b": 0.3}) for i in range(3)
+        ]
+        result = aggregate_folds(folds)
+        assert result.avg_rank_correlation == pytest.approx(1.0)
+
+    def test_rank_correlation_reversed(self):
+        """Reversed rankings produce negative correlation."""
+        folds = [
+            self.make_fold(0, param_sensitivity={"a": 0.8, "b": 0.2}),
+            self.make_fold(1, param_sensitivity={"a": 0.2, "b": 0.8}),
+        ]
+        result = aggregate_folds(folds)
+        assert result.avg_rank_correlation == pytest.approx(-1.0)
+
+    def test_rank_correlation_missing_data(self):
+        """Empty sensitivity dicts produce 1.0 (not enough data)."""
+        folds = [self.make_fold(i, param_sensitivity={}) for i in range(3)]
+        result = aggregate_folds(folds)
+        assert result.avg_rank_correlation == pytest.approx(1.0)
+
+    def test_rank_correlation_single_fold(self):
+        """Single fold always returns 1.0."""
+        folds = [self.make_fold(0, param_sensitivity={"a": 0.5, "b": 0.5})]
+        result = aggregate_folds(folds)
+        assert result.avg_rank_correlation == pytest.approx(1.0)

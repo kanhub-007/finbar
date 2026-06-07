@@ -165,7 +165,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         test_end = _bar_timestamp(test_bars[-1])
 
         try:
-            grid_result = self._run_grid_search(
+            grid_result, sensitivity = self._run_grid_search(
                 definition, train_bars, metric, metadata
             )
             if grid_result is None or grid_result.error:
@@ -220,6 +220,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
                 oos_max_drawdown=float(oos_result.max_drawdown),
                 oos_win_rate=float(oos_result.win_rate),
                 oos_trades=int(oos_result.total_trades),
+                param_sensitivity=sensitivity,
             )
         except Exception as exc:
             logger.exception("Fold %d failed", fold_index)
@@ -243,8 +244,8 @@ class WalkForwardOptimizer(OptimizationJobRunner):
     ) -> OptimizationResult | None:
         """Run a synchronous grid search directly on the training window.
 
-        Bypasses the artifact provider so the grid search uses the sliced
-        train_bars, not the full dataset.
+        Returns (best_result, sensitivity_dict) where sensitivity maps
+        param name to a normalized importance score (sums to 1.0).
         """
         from finbar.infrastructure.services.grid_search_optimizer import (
             _generate_combinations,
@@ -285,8 +286,8 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         )
 
         if not results:
-            return OptimizationResult(rank=0, params={}, error="No results")
-        return results[0]
+            return None, {}
+        return results[0], _compute_sensitivity(results, metric, ranges)
 
     def _backtest_with_bars(
         self,
@@ -456,3 +457,55 @@ def _bar_timestamp(bar: dict) -> str:
 def _safe_get(metadata: dict, key: str, default):
     val = metadata.get(key, default)
     return val if val is not None else default
+
+
+def _compute_sensitivity(
+    results: list,
+    metric: str,
+    ranges: dict,
+) -> dict[str, float]:
+    """Compute per-parameter sensitivity from grid search results.
+
+    For each parameter, measures how much the objective varies across
+    that parameter's values (holding others at their best). Normalizes
+    so values sum to 1.0.
+
+    Returns empty dict for fewer than 2 params or less than 2 results.
+    """
+    param_names = list(ranges.keys())
+    if len(param_names) < 2 or len(results) < 2:
+        return {}
+
+    _ranking_metrics = frozenset(
+        {
+            "sharpe_ratio",
+            "sortino_ratio",
+            "total_return",
+            "profit_factor",
+            "win_rate",
+            "calmar_ratio",
+        }
+    )
+    m = metric if metric in _ranking_metrics else "sharpe_ratio"
+
+    sensitivity: dict[str, float] = {}
+    for name in param_names:
+        values = set()
+        scores: dict[float, list[float]] = {}
+        for r in results:
+            if r.error:
+                continue
+            val = r.params.get(name)
+            if val is not None:
+                values.add(val)
+                scores.setdefault(val, []).append(getattr(r, m, 0) or 0)
+        if len(values) < 2:
+            sensitivity[name] = 0.0
+            continue
+        means = [sum(v) / len(v) for v in scores.values()]
+        sensitivity[name] = max(means) - min(means)
+
+    total = sum(sensitivity.values())
+    if total <= 0:
+        return {}
+    return {k: round(v / total, 4) for k, v in sensitivity.items()}

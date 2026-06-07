@@ -29,6 +29,8 @@ class WalkForwardFold:
         oos_max_drawdown: Out-of-sample maximum drawdown.
         oos_win_rate: Out-of-sample win rate.
         oos_trades: Number of trades in the out-of-sample window.
+        param_sensitivity: Dict mapping param name to sensitivity score.
+            Higher = more impactful on the objective. Normalized to sum to 1.
         error: Error message if this fold failed.
         skipped: True if this fold was skipped due to insufficient bars.
     """
@@ -48,9 +50,12 @@ class WalkForwardFold:
     oos_max_drawdown: float = 0.0
     oos_win_rate: float = 0.0
     oos_trades: int = 0
+    param_sensitivity: dict = None  # type: ignore[assignment]
     error: str = ""
     skipped: bool = False
 
     def __post_init__(self):
         if self.best_params is None:
             object.__setattr__(self, "best_params", {})
+        if self.param_sensitivity is None:
+            object.__setattr__(self, "param_sensitivity", {})
