@@ -315,6 +315,7 @@ def enrich_dataframe_with_proxies(df: Any) -> Any:
 
     result["proxy_typical_price"] = (h + l + c) / 3
     result["proxy_ohlc4"] = (o + h + l + c) / 4
+    result["proxy_vwap"] = result["proxy_typical_price"]
 
     bar_range = h - l
     result["proxy_ibs"] = np.where(bar_range > 0, (c - l) / bar_range, 0.5)
@@ -329,8 +330,6 @@ def enrich_dataframe_with_proxies(df: Any) -> Any:
             (atr_col / c) * math.sqrt(TRADING_DAYS_PER_YEAR),
             0.0,
         )
-
-        result["proxy_vwap"] = result["proxy_typical_price"]
 
     # Parkinson: ln(H/L)^2 / (4 * ln(2))
     log_hl = np.where(
