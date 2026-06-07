@@ -34,5 +34,29 @@ class StartOptimizationJobRequest:
     risk_per_trade: float = 0.02
     """Fraction of portfolio to risk per trade."""
 
+    leverage: float = 1.0
+    """Leverage multiplier used by each backtest."""
+
+    risk_mode: str = "fixed_equity_risk"
+    """Risk sizing mode used by each backtest."""
+
+    commission_pct: float = 0.0
+    """Percentage commission per side for each backtest."""
+
+    slippage_pct: float = 0.0
+    """Directional slippage percentage for each backtest."""
+
+    cap_explicit_size: bool = True
+    """Cap explicit strategy sizes to buying power when true."""
+
+    reject_oversized_explicit_orders: bool = False
+    """Reject oversized explicit orders instead of capping them."""
+
+    allow_negative_cash: bool = False
+    """Allow backtests to overdraw cash when true."""
+
+    market_calendar: str = "equity_regular_hours"
+    """Market calendar used by annualization assumptions."""
+
     initial_cash: float = 10000.0
     """Starting capital for backtests."""

@@ -40,7 +40,9 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             "Use search_method='grid' (default) with min/max/step, "
             "or search_method='random' with min/max/random_count. "
             "Requires a completed indicator job artifact ID. "
-            "Max 100 combinations. Poll with "
+            "Uses the same execution controls as direct backtests: "
+            "risk_per_trade, leverage, commission, slippage, and "
+            "explicit-size policy. Max 100 combinations. Poll with "
             "get_optimization_job_progress(job_id), retrieve ranked results "
             "with get_optimization_job_results(job_id)."
         ),
@@ -56,6 +58,14 @@ def register_optimization_tools(mcp: FastMCP) -> None:
         random_count: int = 20,
         interval: str = "",
         risk_per_trade: float = 0.02,
+        leverage: float = 1.0,
+        risk_mode: str = "fixed_equity_risk",
+        commission_pct: float = 0.0,
+        slippage_pct: float = 0.0,
+        cap_explicit_size: bool = True,
+        reject_oversized_explicit_orders: bool = False,
+        allow_negative_cash: bool = False,
+        market_calendar: str = "equity_regular_hours",
     ) -> str:
         """Start a grid search optimization job and return its job id."""
         parsed = _parse_optimization_inputs(
@@ -74,6 +84,14 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             random_count=random_count,
             interval=interval,
             risk_per_trade=risk_per_trade,
+            leverage=leverage,
+            risk_mode=risk_mode,
+            commission_pct=commission_pct,
+            slippage_pct=slippage_pct,
+            cap_explicit_size=cap_explicit_size,
+            reject_oversized_explicit_orders=reject_oversized_explicit_orders,
+            allow_negative_cash=allow_negative_cash,
+            market_calendar=market_calendar,
         )
         job = _make_start_optimization_job_use_case().execute(request)
         return json.dumps(

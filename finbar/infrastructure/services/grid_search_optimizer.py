@@ -163,38 +163,36 @@ class GridSearchOptimizer(OptimizationJobRunner):
                     self._converter,
                     self._timeframe_merger,
                 )
-            missing = _missing_columns(bars, validation.required_columns)
+            frame = self._converter.bars_to_frame(bars)
+            if self._feature_calculator is not None and validation.definition.features:
+                frame = self._feature_calculator.calculate(
+                    frame, validation.definition.features
+                )
+            missing = _missing_frame_columns(frame, validation.required_columns)
             if missing:
                 return OptimizationResult(
                     rank=0,
                     params=params,
                     error=f"Missing columns: {', '.join(missing)}",
                 )
-            frame = self._converter.bars_to_frame(bars)
-            if self._feature_calculator is not None and validation.definition.features:
-                frame = self._feature_calculator.calculate(
-                    frame, validation.definition.features
-                )
 
             warmup = _warmup_check(frame, validation)
-            if warmup.get("no_tradable_bars"):
-                return OptimizationResult(
-                    rank=0,
-                    params=params,
-                    error="No tradable bars after warmup",
-                )
+            warmup_error = _warmup_error(warmup)
+            if warmup_error:
+                return OptimizationResult(rank=0, params=params, error=warmup_error)
+
+            executable_frame = frame
+            if warmup.get("warmup_bars", 0) > 0:
+                executable_frame = frame.iloc[int(warmup["warmup_bars"]) :]
 
             strategy = self._strategy_factory.create(validation.definition)
-            interval = str(metadata.get("interval", "") or "")
-            risk_per_trade = float(metadata.get("risk_per_trade", 0.02) or 0.02)
             raw = self._engine.run(
-                df=frame,
+                df=executable_frame,
                 strategy=strategy,
                 initial_cash=metadata.get("initial_cash", 10000),
-                interval=interval,
-                risk_per_trade=risk_per_trade,
                 warmup_bars=warmup.get("warmup_bars", 0),
                 first_tradable=warmup.get("first_tradable", ""),
+                **_execution_params(metadata),
             )
             return _metrics_from_raw(params, raw)
         except Exception as exc:
@@ -303,6 +301,43 @@ def _missing_columns(bars: list[dict], required: list[str]) -> list[str]:
     for bar in bars:
         available.update(bar.keys())
     return [column for column in required if column not in available]
+
+
+def _missing_frame_columns(frame, required: list[str]) -> list[str]:
+    """Return required columns absent from a prepared frame."""
+    return [column for column in required if column not in frame.columns]
+
+
+def _warmup_error(warmup: dict) -> str:
+    """Return a blocking warmup error message, or empty string."""
+    if warmup.get("no_tradable_bars"):
+        return "No tradable bars after warmup"
+    missing = warmup.get("missing_after_warmup", [])
+    if missing:
+        return "Missing required data after warmup: " + ", ".join(missing)
+    return ""
+
+
+def _execution_params(metadata: dict) -> dict:
+    """Extract backtest execution params from optimization metadata."""
+    return {
+        "interval": str(metadata.get("interval", "") or ""),
+        "risk_per_trade": float(metadata.get("risk_per_trade", 0.02) or 0.02),
+        "leverage": float(metadata.get("leverage", 1.0) or 1.0),
+        "risk_mode": str(
+            metadata.get("risk_mode", "fixed_equity_risk") or "fixed_equity_risk"
+        ),
+        "commission_pct": float(metadata.get("commission_pct", 0.0) or 0.0),
+        "slippage_pct": float(metadata.get("slippage_pct", 0.0) or 0.0),
+        "cap_explicit_size": bool(metadata.get("cap_explicit_size", True)),
+        "reject_oversized_explicit_orders": bool(
+            metadata.get("reject_oversized_explicit_orders", False)
+        ),
+        "allow_negative_cash": bool(metadata.get("allow_negative_cash", False)),
+        "market_calendar": str(
+            metadata.get("market_calendar", "equity_regular_hours") or ""
+        ),
+    }
 
 
 def _metrics_from_raw(params: dict, raw: dict) -> OptimizationResult:

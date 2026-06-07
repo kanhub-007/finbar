@@ -23,8 +23,10 @@ from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
 )
 from finbar.infrastructure.services.grid_search_optimizer import (
+    _execution_params,
     _generate_combinations,
     _parse_ranges,
+    _warmup_error,
 )
 from finbar.infrastructure.services.in_memory_optimization_job_manager import (
     InMemoryOptimizationJobManager,
@@ -96,6 +98,45 @@ class TestGridSearchCombinatorics:
         assert _generate_combinations({}) == [{}]
 
 
+class TestOptimizationPreparation:
+    def test_warmup_error_blocks_missing_after_warmup(self):
+        """Optimizer uses same missing-after-warmup blocking policy."""
+        warmup = {
+            "no_tradable_bars": False,
+            "missing_after_warmup": ["sma_20"],
+        }
+
+        assert _warmup_error(warmup) == "Missing required data after warmup: sma_20"
+
+    def test_execution_params_include_backtest_controls(self):
+        """Optimizer passes execution controls through to the engine."""
+        params = _execution_params(
+            {
+                "interval": "1h",
+                "risk_per_trade": 0.03,
+                "leverage": 2,
+                "risk_mode": "leverage_scaled_risk",
+                "commission_pct": 0.001,
+                "slippage_pct": 0.002,
+                "cap_explicit_size": False,
+                "reject_oversized_explicit_orders": True,
+                "allow_negative_cash": True,
+                "market_calendar": "crypto_24_7",
+            }
+        )
+
+        assert params["interval"] == "1h"
+        assert params["risk_per_trade"] == 0.03
+        assert params["leverage"] == 2
+        assert params["risk_mode"] == "leverage_scaled_risk"
+        assert params["commission_pct"] == 0.001
+        assert params["slippage_pct"] == 0.002
+        assert params["cap_explicit_size"] is False
+        assert params["reject_oversized_explicit_orders"] is True
+        assert params["allow_negative_cash"] is True
+        assert params["market_calendar"] == "crypto_24_7"
+
+
 class TestOptimizationJobManager:
     @pytest.mark.asyncio
     async def test_start_job_records_metadata(self):
@@ -115,6 +156,37 @@ class TestOptimizationJobManager:
         assert job.job_id
         assert job.metric == "sortino_ratio"
         assert job.metadata["bars_artifact_id"] == "primary-123"
+
+    @pytest.mark.asyncio
+    async def test_start_job_records_execution_metadata(self):
+        """Starting a job stores backtest execution controls."""
+        manager = InMemoryOptimizationJobManager()
+        use_case = StartOptimizationJobUseCase(manager, _NoopRunner())
+
+        job = use_case.execute(
+            StartOptimizationJobRequest(
+                definition={},
+                bars_artifact_id="primary-123",
+                param_ranges={},
+                leverage=3,
+                risk_mode="leverage_scaled_risk",
+                commission_pct=0.001,
+                slippage_pct=0.002,
+                cap_explicit_size=False,
+                reject_oversized_explicit_orders=True,
+                allow_negative_cash=True,
+                market_calendar="crypto_24_7",
+            )
+        )
+
+        assert job.metadata["leverage"] == 3
+        assert job.metadata["risk_mode"] == "leverage_scaled_risk"
+        assert job.metadata["commission_pct"] == 0.001
+        assert job.metadata["slippage_pct"] == 0.002
+        assert job.metadata["cap_explicit_size"] is False
+        assert job.metadata["reject_oversized_explicit_orders"] is True
+        assert job.metadata["allow_negative_cash"] is True
+        assert job.metadata["market_calendar"] == "crypto_24_7"
 
     def test_progress_not_found(self):
         """Missing jobs produce structured not-found result."""

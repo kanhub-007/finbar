@@ -41,4 +41,12 @@ def _params(request: StartOptimizationJobRequest) -> dict:
         "initial_cash": request.initial_cash,
         "interval": request.interval,
         "risk_per_trade": request.risk_per_trade,
+        "leverage": request.leverage,
+        "risk_mode": request.risk_mode,
+        "commission_pct": request.commission_pct,
+        "slippage_pct": request.slippage_pct,
+        "cap_explicit_size": request.cap_explicit_size,
+        "reject_oversized_explicit_orders": (request.reject_oversized_explicit_orders),
+        "allow_negative_cash": request.allow_negative_cash,
+        "market_calendar": request.market_calendar,
     }
