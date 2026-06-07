@@ -19,7 +19,7 @@ from finbar.infrastructure.services.backtest_data_validator import (
     validate_backtest_frame,
 )
 from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
-from finbar.infrastructure.services.backtest_result_builder import build_result
+from finbar.infrastructure.services.backtest_result_builder import BacktestResultBuilder
 from finbar.infrastructure.services.position_executor import PositionExecutor
 
 logger = logging.getLogger(__name__)
@@ -68,10 +68,10 @@ class BacktestRunner(BacktestEngine):
             slippage_pct,
         )
 
-        executor = PositionExecutor(execution_config=execution_config)
+        executor = PositionExecutor(execution_config)
         state = _run_loop(df, strategy, initial_cash, risk_per_trade, executor)
 
-        return build_result(
+        return BacktestResultBuilder().build(
             strategy,
             state,
             initial_cash,
