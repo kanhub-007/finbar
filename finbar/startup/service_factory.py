@@ -60,6 +60,9 @@ from finbar.core.application.use_cases.query_cached_prices import (
     QueryCachedPricesUseCase,
 )
 from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
+from finbar.core.application.use_cases.run_portfolio_backtest import (
+    RunPortfolioBacktestUseCase,
+)
 from finbar.core.application.use_cases.save_strategy_definition import (
     SaveStrategyDefinitionUseCase,
 )
@@ -450,6 +453,17 @@ def _make_run_backtest_use_case(db: Session | None = None) -> RunBacktestUseCase
     return RunBacktestUseCase(
         _get_backtest_runner(),
         _make_strategy_provider(db),
+        _get_bar_frame_converter(),
+    )
+
+
+def _make_run_portfolio_backtest_use_case(
+    db: Session | None = None,
+) -> RunPortfolioBacktestUseCase:
+    """Create a RunPortfolioBacktestUseCase."""
+    return RunPortfolioBacktestUseCase(
+        _make_strategy_provider(db),
+        _get_backtest_runner(),
         _get_bar_frame_converter(),
     )
 

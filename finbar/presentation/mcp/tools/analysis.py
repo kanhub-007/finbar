@@ -18,6 +18,7 @@ from finbar.startup.service_factory import (
     _get_indicator_calculator,
     _make_apply_indicators_use_case,
     _make_run_backtest_use_case,
+    _make_run_portfolio_backtest_use_case,
     _resolve_strategy,
 )
 
@@ -293,6 +294,88 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 "trades": raw.get("trades", []),
                 "equity_curve": raw.get("equity_curve", []),
                 "error": raw.get("error"),
+            },
+            indent=2,
+            default=str,
+        )
+
+    @mcp.tool(
+        name="run_portfolio_backtest",
+        description=(
+            "Run a multi-asset portfolio backtest. Each asset runs its "
+            "own strategy with weight-proportional capital. The portfolio "
+            "equity curve is the sum of individual curves. Returns "
+            "portfolio-level metrics plus per-asset results and a "
+            "correlation matrix. Pass portfolio_config_json with "
+            '{"assets": [{"symbol":"AAPL","strategy_name":"sma_crossover",'
+            '"weight":1.0,"bars":[...]}].'
+        ),
+    )
+    def run_portfolio_backtest(
+        portfolio_config_json: str,
+        initial_cash: float = 100000.0,
+        interval: str = "1d",
+        risk_per_trade: float = 0.02,
+        leverage: float = 1.0,
+        risk_mode: str = "fixed_equity_risk",
+        commission_pct: float = 0.0,
+        slippage_pct: float = 0.0,
+    ) -> str:
+        """Run portfolio backtest from a JSON config string."""
+        try:
+            config_raw = json.loads(portfolio_config_json)
+        except json.JSONDecodeError as exc:
+            return json.dumps({"error": f"Invalid portfolio_config_json: {exc}"})
+
+        from finbar.core.application.dto.portfolio_backtest_request import (
+            PortfolioBacktestRequest,
+        )
+        from finbar.core.domain.entities.portfolio_config import (
+            AssetAllocation,
+        )
+
+        assets = []
+        for item in config_raw.get("assets", []):
+            symbol = str(item.get("symbol", ""))
+            strategy = str(item.get("strategy_name", ""))
+            weight = float(item.get("weight", 1.0))
+            bars = item.get("bars", [])
+            if not isinstance(bars, list):
+                bars = []
+            assets.append(
+                AssetAllocation(
+                    symbol=symbol,
+                    strategy_name=strategy,
+                    weight=weight,
+                    bars=bars,
+                )
+            )
+
+        if not assets:
+            return json.dumps({"error": "No assets specified in portfolio_config_json"})
+
+        use_case = _make_run_portfolio_backtest_use_case()
+        request = PortfolioBacktestRequest(
+            assets=assets,
+            initial_cash=initial_cash,
+            interval=interval,
+            execution=ExecutionConfig(
+                leverage_multiplier=leverage,
+                risk_mode=risk_mode,
+                commission_pct=commission_pct,
+                slippage_pct=slippage_pct,
+            ),
+            risk_per_trade=risk_per_trade,
+        )
+        result = use_case.execute(request)
+        return json.dumps(
+            {
+                "total_return": result.total_return,
+                "sharpe_ratio": result.sharpe_ratio,
+                "max_drawdown": result.max_drawdown,
+                "equity_curve": result.equity_curve,
+                "correlation_matrix": result.correlation_matrix,
+                "error": result.error,
             },
             indent=2,
             default=str,
