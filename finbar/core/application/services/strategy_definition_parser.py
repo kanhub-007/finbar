@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import yaml
+
 from finbar.core.application.services.required_column_collector import (
     RequiredColumnCollector,
 )
@@ -181,10 +183,9 @@ class StrategyDefinitionParser(ParserInterface):
     ) -> dict | None:
         if isinstance(raw_definition, dict):
             return raw_definition
-        try:
-            data = json.loads(raw_definition)
-        except json.JSONDecodeError as exc:
-            errors.append(_err("$", f"Invalid JSON: {exc}", "invalid_json"))
+        data, parse_error = _parse_any(raw_definition)
+        if data is None:
+            errors.append(_err("$", parse_error, "invalid_json"))
             return None
         if not isinstance(data, dict):
             errors.append(_err("$", "strategy definition must be a JSON object"))
@@ -235,6 +236,21 @@ def _timeframe_intervals(definition: StrategyDefinition) -> dict[str, str]:
     for item in definition.timeframes.informative:
         intervals[item.alias] = item.interval
     return intervals
+
+
+def _parse_any(raw: str) -> tuple[dict | None, str]:
+    """Try JSON first, then YAML. Returns (data, error_message)."""
+    try:
+        return json.loads(raw), ""
+    except json.JSONDecodeError:
+        pass
+    try:
+        data = yaml.safe_load(raw)
+        if isinstance(data, dict):
+            return data, ""
+        return None, "strategy definition must be a JSON or YAML object"
+    except yaml.YAMLError as exc:
+        return None, f"Invalid JSON or YAML: {exc}"
 
 
 def _err(

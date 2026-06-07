@@ -4,6 +4,8 @@ import json
 import logging
 from datetime import UTC, datetime
 
+import yaml
+
 from finbar.core.application.dto.save_strategy_definition_request import (
     SaveStrategyDefinitionRequest,
 )
@@ -59,10 +61,17 @@ class SaveStrategyDefinitionUseCase:
         """
         try:
             raw = json.loads(request.definition_json)
-        except json.JSONDecodeError as exc:
-            return SaveStrategyDefinitionResult(
-                saved=False, error=f"Invalid JSON: {exc}"
-            )
+        except json.JSONDecodeError:
+            try:
+                raw = yaml.safe_load(request.definition_json)
+                if not isinstance(raw, dict):
+                    return SaveStrategyDefinitionResult(
+                        saved=False, error="Definition must be a JSON or YAML object"
+                    )
+            except yaml.YAMLError as exc:
+                return SaveStrategyDefinitionResult(
+                    saved=False, error=f"Invalid JSON or YAML: {exc}"
+                )
 
         validation = self._parser.parse(raw)
 

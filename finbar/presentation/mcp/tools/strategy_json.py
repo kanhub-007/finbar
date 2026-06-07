@@ -45,7 +45,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "risk types (atr, fixed_pct, risk_reward), multi-timeframe support "
             "(primary + informative with column merging), period ranges "
             "for parameterized indicators, and concrete indicator names. "
-            "Call this first before writing any strategy JSON."
+            "Call this first before writing any strategy definition (JSON or YAML)."
         ),
     )
     def get_strategy_capabilities() -> str:
@@ -67,7 +67,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="validate_strategy_json",
         description=(
-            "Validate a strategy JSON definition. Returns whether the "
+            "Validate a strategy definition (JSON or YAML). Returns whether the "
             "definition is valid, any path-specific validation errors, "
             "the list of required concrete indicator columns, "
             "primary_required_indicators (for primary bars), "
@@ -77,7 +77,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         ),
     )
     def validate_strategy_json(definition_json: str, params_json: str = "{}") -> str:
-        """Validate a strategy JSON string and optional param overrides."""
+        """Validate a strategy definition string (JSON or YAML)."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
             return json.dumps(params)
@@ -89,7 +89,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="explain_strategy_json",
         description=(
-            "Explain a strategy JSON definition in plain language. "
+            "Explain a strategy definition (JSON or YAML) in plain language. "
             "Returns a Markdown-formatted explanation with sections for "
             "parameters, indicators, features, risk settings, and "
             "entry/exit conditions for each side. Useful for verifying "
@@ -98,7 +98,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         ),
     )
     def explain_strategy_json(definition_json: str, params_json: str = "{}") -> str:
-        """Explain a strategy JSON string and optional param overrides."""
+        """Explain a strategy definition string (JSON or YAML)."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
             return json.dumps(params)
@@ -240,7 +240,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="save_strategy_json",
         description=(
-            "Validate and persist a strategy JSON definition to the database. "
+            "Validate and persist a strategy definition (JSON or YAML) to the database. "
             "The definition is validated before saving. On success, the "
             "strategy appears in list_backtest_strategies and can be "
             "backtested by name via run_backtest. Returns validation errors "
