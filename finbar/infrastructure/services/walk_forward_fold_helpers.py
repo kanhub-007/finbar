@@ -1,0 +1,172 @@
+"""Walk-forward fold index computation and result aggregation.
+
+Pure functions with no external dependencies — extracted from
+WalkForwardOptimizer to keep that file under 500 lines.
+"""
+
+from collections.abc import Sequence
+
+from finbar.core.domain.entities.walk_forward_fold import WalkForwardFold
+from finbar.core.domain.entities.walk_forward_result import WalkForwardResult
+
+
+def compute_fold_indices(
+    total_bars: int,
+    folds: int,
+    train_ratio: float,
+    anchor: str,
+) -> list[dict]:
+    """Compute train/test slice indices for walk-forward folds.
+
+    Rolling: each fold is a fixed-size window that slides forward.
+    Anchored: training window expands from start; test is fixed-size.
+    """
+    if total_bars < 3 or folds < 2:
+        return []
+
+    indices: list[dict] = []
+    fold_size = total_bars // folds
+
+    if anchor == "anchored":
+        for i in range(folds):
+            train_end = (i + 1) * fold_size
+            test_end = min(train_end + fold_size, total_bars)
+            indices.append(
+                {
+                    "train_start": 0,
+                    "train_end": train_end,
+                    "test_start": train_end,
+                    "test_end": test_end,
+                    "train_count": train_end,
+                    "test_count": max(0, test_end - train_end),
+                    "min_test": 1,
+                }
+            )
+    else:
+        for i in range(folds - 1):
+            train_start = i * (fold_size // 2)
+            train_end = train_start + int(fold_size * train_ratio)
+            test_start = train_end
+            test_end = min(test_start + fold_size, total_bars)
+            indices.append(
+                {
+                    "train_start": train_start,
+                    "train_end": train_end,
+                    "test_start": test_start,
+                    "test_end": test_end,
+                    "train_count": train_end - train_start,
+                    "test_count": max(0, test_end - test_start),
+                    "min_test": 1,
+                }
+            )
+
+        if indices and indices[-1]["test_end"] < total_bars:
+            last_test_end = min(total_bars, indices[-1]["test_end"] + fold_size)
+            last_train_start = max(0, indices[-1]["test_start"] - fold_size)
+            indices.append(
+                {
+                    "train_start": last_train_start,
+                    "train_end": indices[-1]["test_start"],
+                    "test_start": indices[-1]["test_start"],
+                    "test_end": last_test_end,
+                    "train_count": indices[-1]["test_start"] - last_train_start,
+                    "test_count": last_test_end - indices[-1]["test_start"],
+                    "min_test": 1,
+                }
+            )
+
+    return indices
+
+
+def aggregate_folds(folds: Sequence[WalkForwardFold]) -> WalkForwardResult:
+    """Aggregate fold results into a walk-forward result."""
+    completed = [f for f in folds if not f.skipped and not f.error]
+    if not completed:
+        return WalkForwardResult(
+            folds_requested=len(folds),
+            folds_completed=0,
+            folds=list(folds),
+            error="No folds completed successfully",
+        )
+
+    oos_returns = [f.oos_total_return for f in completed]
+    oos_sharpes = [f.oos_sharpe for f in completed]
+    is_sharpes = [f.is_sharpe for f in completed]
+
+    total_return = 1.0
+    for r in oos_returns:
+        total_return *= 1.0 + r
+    total_return -= 1.0
+
+    avg_oos_sharpe = sum(oos_sharpes) / len(oos_sharpes) if oos_sharpes else 0.0
+    avg_oos_dd = sum(f.oos_max_drawdown for f in completed) / len(completed)
+    avg_oos_wr = sum(f.oos_win_rate for f in completed) / len(completed)
+    total_trades = sum(f.oos_trades for f in completed)
+
+    is_oos_corr = _pearson(is_sharpes, oos_sharpes) if len(completed) >= 2 else 0.0
+    stability = _compute_stability(completed)
+    rank_corr = _compute_rank_correlation(completed)
+
+    return WalkForwardResult(
+        folds_requested=len(folds),
+        folds_completed=len(completed),
+        folds=list(folds),
+        oos_total_return=total_return,
+        oos_sharpe=avg_oos_sharpe,
+        oos_max_drawdown=avg_oos_dd,
+        oos_win_rate=avg_oos_wr,
+        oos_total_trades=total_trades,
+        is_oos_correlation=is_oos_corr,
+        stability=stability,
+        avg_rank_correlation=rank_corr,
+    )
+
+
+def _pearson(xs: list[float], ys: list[float]) -> float:
+    """Compute Pearson correlation between two equal-length lists."""
+    if len(xs) != len(ys) or len(xs) < 2:
+        return 0.0
+    n = len(xs)
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
+    var_x = sum((x - mean_x) ** 2 for x in xs)
+    var_y = sum((y - mean_y) ** 2 for y in ys)
+    if var_x == 0 or var_y == 0:
+        return 0.0
+    return cov / ((var_x * var_y) ** 0.5)
+
+
+def _compute_stability(folds: Sequence[WalkForwardFold]) -> float:
+    """Measure parameter stability: fraction of best params within 20% of avg."""
+    if len(folds) < 2:
+        return 1.0
+    param_names: set[str] = set()
+    for f in folds:
+        param_names.update(f.best_params.keys())
+    if not param_names:
+        return 1.0
+    stable_count = 0
+    total_values = 0
+    for name in param_names:
+        values = [float(f.best_params.get(name, 0.0)) for f in folds]
+        avg = sum(values) / len(values)
+        if avg == 0:
+            stable_count += len(values)
+            total_values += len(values)
+            continue
+        for v in values:
+            if abs(v - avg) / abs(avg) <= 0.2:
+                stable_count += 1
+            total_values += 1
+    return stable_count / total_values if total_values > 0 else 1.0
+
+
+def _compute_rank_correlation(folds: Sequence[WalkForwardFold]) -> float:
+    """Average Spearman rank correlation of params across folds (stub)."""
+    param_names: set[str] = set()
+    for f in folds:
+        param_names.update(f.best_params.keys())
+    if len(param_names) < 2 or len(folds) < 2:
+        return 1.0
+    return 1.0  # Full implementation deferred to Phase 4b

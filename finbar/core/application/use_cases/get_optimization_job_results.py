@@ -30,6 +30,8 @@ class GetOptimizationJobResultsUseCase:
                 error=f"Job is not complete (status: {job.status})",
             )
         results = [asdict(r) for r in job.results]
+        wf_result_raw = job.metadata.get("walk_forward_result")
+        wf_result_dict = asdict(wf_result_raw) if wf_result_raw else None
         return OptimizationJobResultsResult(
             found=True,
             job_id=job_id,
@@ -37,4 +39,5 @@ class GetOptimizationJobResultsUseCase:
             metric=job.metric,
             total_combinations=job.total_combinations,
             results=results,
+            walk_forward_result=wf_result_dict,
         )

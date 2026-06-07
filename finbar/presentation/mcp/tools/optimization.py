@@ -8,6 +8,9 @@ from fastmcp import FastMCP
 from finbar.core.application.dto.start_optimization_job_request import (
     StartOptimizationJobRequest,
 )
+from finbar.core.application.dto.start_walk_forward_job_request import (
+    StartWalkForwardJobRequest,
+)
 from finbar.core.domain.entities.execution_config import ExecutionConfig
 
 from ._shared import (
@@ -15,6 +18,7 @@ from ._shared import (
     _make_get_optimization_job_progress_use_case,
     _make_get_optimization_job_results_use_case,
     _make_start_optimization_job_use_case,
+    _make_start_walk_forward_job_use_case,
 )
 
 _SUPPORTED_METRICS = frozenset(
@@ -144,6 +148,91 @@ def register_optimization_tools(mcp: FastMCP) -> None:
         """Cancel an optimization job."""
         result = _make_cancel_optimization_job_use_case().execute(job_id)
         return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="start_walk_forward_job",
+        description=(
+            "Start a BACKGROUND walk-forward optimization job. "
+            "Divides the data into train/test folds, runs a grid search "
+            "on each training window, and validates the best parameters "
+            "out-of-sample. Returns OOS metrics plus IS/OOS correlation "
+            "and parameter stability diagnostics. Poll with "
+            "get_optimization_job_progress(job_id), retrieve results with "
+            "get_optimization_job_results(job_id)."
+        ),
+    )
+    async def start_walk_forward_job(
+        definition_json: str,
+        bars_artifact_id: str,
+        param_ranges_json: str,
+        metric: str = "sharpe_ratio",
+        folds: int = 5,
+        train_ratio: float = 0.7,
+        anchor: str = "rolling",
+        min_train_bars: int = 20,
+        min_test_bars: int = 5,
+        informative_bars_artifact_ids_json: str = "{}",
+        initial_cash: float = 10000.0,
+        search_method: str = "grid",
+        random_count: int = 20,
+        interval: str = "",
+        risk_per_trade: float = 0.02,
+        leverage: float = 1.0,
+        risk_mode: str = "fixed_equity_risk",
+        commission_pct: float = 0.0,
+        slippage_pct: float = 0.0,
+        cap_explicit_size: bool = True,
+        reject_oversized_explicit_orders: bool = False,
+        allow_negative_cash: bool = False,
+        market_calendar: str = "equity_regular_hours",
+        borrow_fee_annual_pct: float = 0.0,
+        margin_mode: str = "simplified",
+    ) -> str:
+        """Start a walk-forward optimization job and return its job ID."""
+        parsed = _parse_optimization_inputs(
+            param_ranges_json, informative_bars_artifact_ids_json, metric
+        )
+        if "error" in parsed:
+            return json.dumps(parsed)
+        request = StartWalkForwardJobRequest(
+            definition=definition_json,
+            bars_artifact_id=bars_artifact_id,
+            param_ranges=parsed["param_ranges"],
+            execution=ExecutionConfig(
+                leverage_multiplier=leverage,
+                risk_mode=risk_mode,
+                commission_pct=commission_pct,
+                slippage_pct=slippage_pct,
+                cap_explicit_size=cap_explicit_size,
+                reject_oversized_explicit_orders=(reject_oversized_explicit_orders),
+                allow_negative_cash=allow_negative_cash,
+                market_calendar=market_calendar,
+                borrow_fee_annual_pct=borrow_fee_annual_pct,
+                margin_mode=margin_mode,
+            ),
+            metric=parsed["metric"],
+            informative_bars_artifact_ids=parsed["informative_artifact_ids"],
+            initial_cash=initial_cash,
+            search_method=search_method,
+            random_count=random_count,
+            interval=interval,
+            risk_per_trade=risk_per_trade,
+            wf_folds=folds,
+            wf_train_ratio=train_ratio,
+            wf_anchor=anchor,
+            wf_min_train_bars=min_train_bars,
+            wf_min_test_bars=min_test_bars,
+        )
+        job = _make_start_walk_forward_job_use_case().execute(request)
+        return json.dumps(
+            {
+                "job_id": job.job_id,
+                "status": job.status,
+                "metric": job.metric,
+                "type": "walk_forward",
+            },
+            indent=2,
+        )
 
 
 def _parse_optimization_inputs(

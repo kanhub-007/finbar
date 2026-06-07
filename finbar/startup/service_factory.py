@@ -69,6 +69,9 @@ from finbar.core.application.use_cases.start_indicator_job import (
 from finbar.core.application.use_cases.start_optimization_job import (
     StartOptimizationJobUseCase,
 )
+from finbar.core.application.use_cases.start_walk_forward_job import (
+    StartWalkForwardJobUseCase,
+)
 from finbar.core.application.use_cases.validate_strategy_definition import (
     ValidateStrategyDefinitionUseCase,
 )
@@ -127,6 +130,9 @@ from finbar.infrastructure.services.rate_limiter import YahooFinanceRateLimiter
 from finbar.infrastructure.services.strategy_definition_factory import (
     StrategyDefinitionFactory,
 )
+from finbar.infrastructure.services.walk_forward_optimizer import (
+    WalkForwardOptimizer,
+)
 from finbar.infrastructure.services.yfinance_stock_fetcher import (
     YFinanceStockFetcher,
 )
@@ -152,6 +158,7 @@ _indicator_job_manager: InMemoryIndicatorJobManager | None = None
 _indicator_job_runner: CachedPriceIndicatorJobRunner | None = None
 _optimization_job_manager: InMemoryOptimizationJobManager | None = None
 _optimizer: GridSearchOptimizer | None = None
+_walk_forward_optimizer: WalkForwardOptimizer | None = None
 _indicator_calc: PandasTaIndicatorCalculator | None = None
 _bar_frame_converter: PandasBarFrameConverter | None = None
 _bt_runner: BacktestRunner | None = None
@@ -367,6 +374,32 @@ def _make_start_optimization_job_use_case() -> StartOptimizationJobUseCase:
         _get_optimization_job_manager(),
         _get_optimizer(),
     )
+
+
+def _make_start_walk_forward_job_use_case() -> StartWalkForwardJobUseCase:
+    """Create a use case for starting walk-forward optimization jobs."""
+    return StartWalkForwardJobUseCase(
+        _get_optimization_job_manager(),
+        _get_walk_forward_optimizer(),
+    )
+
+
+def _get_walk_forward_optimizer() -> WalkForwardOptimizer:
+    """Return the shared walk-forward optimizer."""
+    global _walk_forward_optimizer
+    if _walk_forward_optimizer is None:
+        config = OptimizerConfig(
+            parser=_get_parser(),
+            engine=_get_backtest_runner(),
+            converter=_get_bar_frame_converter(),
+            strategy_factory=_get_json_strategy_factory(),
+            manager=_get_optimization_job_manager(),
+            artifact_provider=_get_indicator_job_manager(),
+            timeframe_merger=_get_timeframe_bar_merger(),
+            feature_calculator=_get_strategy_feature_calculator(),
+        )
+        _walk_forward_optimizer = WalkForwardOptimizer(config)
+    return _walk_forward_optimizer
 
 
 def _make_get_optimization_job_progress_use_case() -> GetOptimizationJobProgressUseCase:

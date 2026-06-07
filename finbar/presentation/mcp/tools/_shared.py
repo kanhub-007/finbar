@@ -33,6 +33,7 @@ from finbar.startup.service_factory import (  # noqa: F401
     _make_run_backtest_use_case,
     _make_start_indicator_job_use_case,
     _make_start_optimization_job_use_case,
+    _make_start_walk_forward_job_use_case,
     _make_validate_strategy_definition_use_case,
     _resolve_strategy,
     _validate_interval,

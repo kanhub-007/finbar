@@ -17,3 +17,5 @@ class OptimizationJobResultsResult:
     total_combinations: int = 0
     results: list[dict[str, Any]] = field(default_factory=list)
     error: str | None = None
+    walk_forward_result: dict[str, Any] | None = None
+    """Walk-forward aggregation result, if this was a walk-forward job."""
