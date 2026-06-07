@@ -19,6 +19,16 @@ from finbar.core.domain.services.backtest_metrics import (
     calculate_sortino,
     calculate_total_return,
 )
+from finbar.core.domain.services.rolling_metrics import (
+    calculate_exposure,
+    calculate_monthly_returns,
+    calculate_rolling_drawdown,
+    calculate_rolling_pnl,
+    calculate_rolling_sharpe,
+    calculate_rolling_win_rate,
+    calculate_trade_distribution,
+    calculate_yearly_returns,
+)
 from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
 
 
@@ -50,6 +60,10 @@ class BacktestResultBuilder:
         meta = strategy.meta()
         dates = [e["date"] for e in state.equity_curve]
 
+        analytics = self._compute_analytics(
+            state, metrics["annualization_factor"], metrics.get("total_trades", 0)
+        )
+
         return {
             "strategy_name": meta.name,
             "symbol": "",
@@ -67,6 +81,7 @@ class BacktestResultBuilder:
             "equity_curve": state.equity_curve,
             **metrics,
             **reconciliation,
+            "analytics": analytics,
             "trust_diagnostics": trust,
             "diagnostics": _diagnostics_to_dicts(state.diagnostics),
         }
@@ -198,6 +213,57 @@ class BacktestResultBuilder:
             "annualization_warning": annualization_warning,
             "diagnostics": _diagnostics_to_dicts(state.diagnostics),
         }
+
+    @staticmethod
+    def _compute_analytics(
+        state: BacktestLoopState,
+        periods_per_year: float,
+        total_trades: int,
+    ) -> dict:
+        """Compute rolling and distribution analytics."""
+        equity_values = [e["value"] for e in state.equity_curve]
+        if not equity_values:
+            return _ANALYTICS_EMPTY
+
+        return {
+            "rolling_sharpe_60": calculate_rolling_sharpe(
+                equity_values, window=60, periods_per_year=periods_per_year
+            ),
+            "rolling_win_rate_60": calculate_rolling_win_rate(
+                state.trades, state.equity_curve, window=60
+            ),
+            "rolling_drawdown": calculate_rolling_drawdown(equity_values),
+            "rolling_pnl_60": calculate_rolling_pnl(equity_values, window=60),
+            "monthly_returns": calculate_monthly_returns(state.equity_curve),
+            "yearly_returns": calculate_yearly_returns(state.equity_curve),
+            "exposure": calculate_exposure(state.equity_curve),
+            "trade_distribution": (
+                calculate_trade_distribution(state.trades)
+                if total_trades > 0
+                else calculate_trade_distribution([])
+            ),
+        }
+
+
+_ANALYTICS_EMPTY: dict = {
+    "rolling_sharpe_60": [],
+    "rolling_win_rate_60": [],
+    "rolling_drawdown": [],
+    "rolling_pnl_60": [],
+    "monthly_returns": {},
+    "yearly_returns": {},
+    "exposure": [],
+    "trade_distribution": {
+        "pnl_bins": [],
+        "pnl_counts": [],
+        "pnl_percentiles": {},
+        "duration_bins": [],
+        "duration_counts": [],
+        "duration_percentiles": {},
+        "avg_pnl": 0.0,
+        "avg_duration": 0.0,
+    },
+}
 
 
 def _diagnostics_to_dicts(items: list[BacktestDiagnostic]) -> list[dict]:

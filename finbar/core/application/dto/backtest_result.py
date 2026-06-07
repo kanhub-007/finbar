@@ -133,6 +133,14 @@ class BacktestResultDTO:
     diagnostics: list[dict] = field(default_factory=list)
     """Structured execution diagnostics such as capped or rejected orders."""
 
+    analytics: dict = field(default_factory=dict)
+    """Rolling metrics, monthly/yearly returns, trade distribution.
+
+    Contains: rolling_sharpe_60, rolling_win_rate_60, rolling_drawdown,
+    rolling_pnl_60, monthly_returns, yearly_returns, exposure,
+    trade_distribution.
+    """
+
     error: str | None = None
     """Error message if the backtest failed."""
 

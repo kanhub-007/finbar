@@ -336,6 +336,7 @@ def _backtest_result_to_json(result) -> str:
             "slippage_pct": result.slippage_pct,
             "trust_diagnostics": result.trust_diagnostics,
             "diagnostics": result.diagnostics,
+            "analytics": result.analytics,
             "trades": result.trades,
             "equity_curve": result.equity_curve,
             "error": result.error,

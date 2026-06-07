@@ -44,5 +44,6 @@ def result_dto_from_raw(raw_result: dict) -> BacktestResultDTO:
         equity_curve=raw_result.get("equity_curve", []),
         trust_diagnostics=raw_result.get("trust_diagnostics", {}),
         diagnostics=raw_result.get("diagnostics", []),
+        analytics=raw_result.get("analytics", {}),
         error=raw_result.get("error"),
     )
