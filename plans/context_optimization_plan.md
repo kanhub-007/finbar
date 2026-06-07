@@ -35,9 +35,14 @@ Optimize Finbar's MCP interface for AI agents by reducing large JSON dumps while
 - Updated the MCP usage guide to document compact result workflows.
 - Added compact result access tests.
 
+### Completed in Phase 3 Slice
+
+- Added `compute_strategy_indicators` — validates a strategy JSON and starts indicator jobs across all required timeframes in one call.
+- Added `run_strategy_pipeline` — one-call orchestration: validate → check price cache → compute indicators → await jobs → backtest → compact summary.
+- Updated the MCP usage guide to prefer orchestrated workflows.
+
 ### Remaining
 
-- Strategy pipeline orchestration.
 - Query-optimized artifact storage beyond JSON blobs.
 - Optional persistent backtest result storage beyond in-memory cache.
 

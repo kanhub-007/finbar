@@ -29,6 +29,9 @@ from finbar.core.application.use_cases.cancel_indicator_job import (
 from finbar.core.application.use_cases.cancel_optimization_job import (
     CancelOptimizationJobUseCase,
 )
+from finbar.core.application.use_cases.compute_strategy_indicators import (
+    ComputeStrategyIndicatorsUseCase,
+)
 from finbar.core.application.use_cases.delete_artifact import DeleteArtifactUseCase
 from finbar.core.application.use_cases.delete_cached_prices import (
     DeleteCachedPricesUseCase,
@@ -80,6 +83,9 @@ from finbar.core.application.use_cases.query_cached_prices import (
 from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
 from finbar.core.application.use_cases.run_portfolio_backtest import (
     RunPortfolioBacktestUseCase,
+)
+from finbar.core.application.use_cases.run_strategy_pipeline import (
+    RunStrategyPipelineUseCase,
 )
 from finbar.core.application.use_cases.save_strategy_definition import (
     SaveStrategyDefinitionUseCase,
@@ -388,6 +394,27 @@ def _make_query_artifact_bars_use_case() -> QueryArtifactBarsUseCase:
 def _make_delete_artifact_use_case() -> DeleteArtifactUseCase:
     """Create a use case for explicit artifact deletion."""
     return DeleteArtifactUseCase(_get_indicator_job_manager())
+
+
+def _make_compute_strategy_indicators_use_case() -> ComputeStrategyIndicatorsUseCase:
+    """Create a use case for computing indicators from a strategy definition."""
+    return ComputeStrategyIndicatorsUseCase(
+        _get_parser(),
+        _get_indicator_job_manager(),
+        _get_indicator_job_runner(),
+    )
+
+
+def _make_run_strategy_pipeline_use_case() -> RunStrategyPipelineUseCase:
+    """Create a use case for the one-call validate→compute→backtest pipeline."""
+    return RunStrategyPipelineUseCase(
+        parser=_get_parser(),
+        manager=_get_indicator_job_manager(),
+        runner=_get_indicator_job_runner(),
+        backtest_use_case=_make_backtest_strategy_definition_use_case(),
+        store=_get_backtest_result_store(),
+        price_cache_factory=lambda: SqlPriceCacheRepository(SessionLocal()),
+    )
 
 
 def _get_optimization_job_manager() -> InMemoryOptimizationJobManager:

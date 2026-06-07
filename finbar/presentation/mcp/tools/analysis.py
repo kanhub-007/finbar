@@ -18,12 +18,14 @@ from finbar.startup.service_factory import (
     _get_db,
     _get_indicator_calculator,
     _make_apply_indicators_use_case,
+    _make_compute_strategy_indicators_use_case,
     _make_get_backtest_equity_use_case,
     _make_get_backtest_summary_use_case,
     _make_get_backtest_trades_use_case,
     _make_list_backtest_results_use_case,
     _make_run_backtest_use_case,
     _make_run_portfolio_backtest_use_case,
+    _make_run_strategy_pipeline_use_case,
     _make_store_backtest_result_use_case,
     _resolve_strategy,
 )
@@ -34,6 +36,7 @@ logger = logging.getLogger(__name__)
 def register_analysis_tools(mcp: FastMCP) -> None:
     """Register indicator and backtest MCP tools."""
     _register_backtest_result_tools(mcp)
+    _register_pipeline_tools(mcp)
 
     @mcp.tool(
         name="apply_indicators",
@@ -441,6 +444,72 @@ def _register_backtest_result_tools(mcp: FastMCP) -> None:
             mode,
             page,
             page_size,
+        )
+        return json.dumps(asdict(result), indent=2, default=str)
+
+
+def _register_pipeline_tools(mcp: FastMCP) -> None:
+    @mcp.tool(
+        name="compute_strategy_indicators",
+        description=(
+            "Validate a strategy JSON and start indicator computation jobs for "
+            "every timeframe (primary + informative) the strategy requires. "
+            "Returns job IDs for each timeframe and the list of required "
+            "indicators. Poll with get_indicator_job_progress, then use "
+            "backtest_strategy_json with the returned artifact IDs."
+        ),
+    )
+    def compute_strategy_indicators(
+        definition_json: str,
+        symbol: str,
+        source: str = "yfinance",
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> str:
+        result = _make_compute_strategy_indicators_use_case().execute(
+            definition_json,
+            symbol,
+            source,
+            params_json={},
+            start_date=start_date,
+            end_date=end_date,
+        )
+        return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="run_strategy_pipeline",
+        description=(
+            "One-call convenience pipeline: validate strategy, check price "
+            "cache, compute required indicators for all timeframes, run "
+            "backtest, and return a compact summary with result_id. "
+            "Accepts execution controls (initial_cash, risk_per_trade, "
+            "leverage, detail_level). "
+            "Use this when you want a single call instead of orchestrating "
+            "validate → compute → poll → backtest manually."
+        ),
+    )
+    async def run_strategy_pipeline(
+        definition_json: str,
+        symbol: str,
+        source: str = "yfinance",
+        start_date: str | None = None,
+        end_date: str | None = None,
+        initial_cash: float = 10000.0,
+        risk_per_trade: float = 0.02,
+        leverage: float = 1.0,
+        detail_level: str = "summary",
+    ) -> str:
+        result = await _make_run_strategy_pipeline_use_case().execute(
+            definition_json,
+            symbol,
+            source,
+            params_json={},
+            start_date=start_date,
+            end_date=end_date,
+            initial_cash=initial_cash,
+            risk_per_trade=risk_per_trade,
+            leverage=leverage,
+            detail_level=detail_level,
         )
         return json.dumps(asdict(result), indent=2, default=str)
 
