@@ -453,11 +453,11 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="compute_strategy_indicators",
         description=(
-            "Validate a strategy JSON and start indicator computation jobs for "
+            "Validate a strategy definition and start indicator computation jobs for "
             "every timeframe (primary + informative) the strategy requires. "
             "Returns job IDs for each timeframe and the list of required "
             "indicators. Poll with get_indicator_job_progress, then use "
-            "backtest_strategy_json with the returned artifact IDs."
+            "backtest_strategy_definition with the returned artifact IDs."
         ),
     )
     def compute_strategy_indicators(

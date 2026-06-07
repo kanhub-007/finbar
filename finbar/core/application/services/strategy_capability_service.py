@@ -49,11 +49,11 @@ class StrategyCapabilityService:
         return {
             "schema_version": "2.0",
             "orchestration": [
-                "validate_strategy_json",
+                "validate_strategy_definition",
                 "fetch/query prices",
                 "apply_indicators separately",
-                "features auto-computed by backtest_strategy_json",
-                "backtest_strategy_json with enriched bars",
+                "features auto-computed by backtest_strategy_definition",
+                "backtest_strategy_definition with enriched bars",
             ],
             "backtest_calculates_indicators": False,
             "backtest_calculates_features": True,
@@ -131,7 +131,7 @@ class StrategyCapabilityService:
                     "fetch informative bars",
                     "apply primary indicators to primary bars",
                     "apply informative indicators to informative bars",
-                    "call backtest_strategy_json with informative_bars_json",
+                    "call backtest_strategy_definition with informative_bars_json",
                 ],
             },
             "risk": {

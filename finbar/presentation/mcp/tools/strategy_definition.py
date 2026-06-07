@@ -1,4 +1,4 @@
-"""Strategy JSON SDK MCP tools for strategies."""
+"""Strategy definition MCP tools."""
 
 import json
 from dataclasses import asdict
@@ -32,8 +32,8 @@ from finbar.startup.service_factory import (
 )
 
 
-def register_strategy_json_tools(mcp: FastMCP) -> None:
-    """Register strategy JSON SDK tools."""
+def register_strategy_definition_tools(mcp: FastMCP) -> None:
+    """Register strategy definition tools."""
 
     @mcp.tool(
         name="get_strategy_capabilities",
@@ -57,15 +57,15 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         description=(
             "Return a JSON Schema describing the structure of a valid strategy "
             "definition. Use this for pre-validation or to understand required "
-            "and optional fields before calling validate_strategy_json."
+            "and optional fields before calling validate_strategy_definition."
         ),
     )
     def get_strategy_schema() -> str:
-        """Return a compact JSON Schema for strategy JSON."""
+        """Return a compact JSON Schema for strategy definitions."""
         return json.dumps(_get_schema_provider().get_schema(), indent=2)
 
     @mcp.tool(
-        name="validate_strategy_json",
+        name="validate_strategy_definition",
         description=(
             "Validate a strategy definition (JSON or YAML). Returns whether the "
             "definition is valid, any path-specific validation errors, "
@@ -76,7 +76,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "indicators — the agent must do those separately."
         ),
     )
-    def validate_strategy_json(definition_json: str, params_json: str = "{}") -> str:
+    def validate_strategy_definition(definition_json: str, params_json: str = "{}") -> str:
         """Validate a strategy definition string (JSON or YAML)."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
@@ -87,7 +87,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         return json.dumps(StrategyJsonPresenter().validation_result(result), indent=2)
 
     @mcp.tool(
-        name="explain_strategy_json",
+        name="explain_strategy_definition",
         description=(
             "Explain a strategy definition (JSON or YAML) in plain language. "
             "Returns a Markdown-formatted explanation with sections for "
@@ -97,7 +97,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "before running a backtest."
         ),
     )
-    def explain_strategy_json(definition_json: str, params_json: str = "{}") -> str:
+    def explain_strategy_definition(definition_json: str, params_json: str = "{}") -> str:
         """Explain a strategy definition string (JSON or YAML)."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
@@ -118,7 +118,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "can have a window and a lookback shift. Formula features use "
             "expression trees with ops like >, <, +, -, *, /, and, or, not. "
             "Returns indicator bars with feature columns added. Call this "
-            "BEFORE backtest_strategy_json if the strategy declares features."
+            "BEFORE backtest_strategy_definition if the strategy declares features."
         ),
     )
     def apply_strategy_features(
@@ -147,7 +147,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool(
-        name="backtest_strategy_json",
+        name="backtest_strategy_definition",
         description=(
             "Run a backtest with a strategy JSON definition against "
             "already-enriched bars. Features declared in the strategy "
@@ -164,7 +164,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "for paginated details. Set detail_level='full' only for export."
         ),
     )
-    def backtest_strategy_json(
+    def backtest_strategy_definition(
         definition_json: str,
         bars_json: str = "",
         symbol: str = "",
@@ -238,7 +238,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool(
-        name="save_strategy_json",
+        name="save_strategy_definition",
         description=(
             "Validate and persist a strategy definition (JSON or YAML) to the database. "
             "The definition is validated before saving. On success, the "
@@ -248,7 +248,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "a different name than the one in the definition."
         ),
     )
-    def save_strategy_json(
+    def save_strategy_definition(
         definition_json: str,
         name_override: str = "",
     ) -> str:
@@ -283,14 +283,14 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             db.close()
 
     @mcp.tool(
-        name="delete_strategy_json",
+        name="delete_strategy_definition",
         description=(
-            "Delete a previously saved strategy JSON document by name. "
+            "Delete a previously saved strategy definition by name. "
             "Returns confirmation with the deleted name or an error if "
             "not found. Built-in strategies cannot be deleted."
         ),
     )
-    def delete_strategy_json(name: str) -> str:
+    def delete_strategy_definition(name: str) -> str:
         """Delete a saved strategy document."""
         db = _get_db()
         try:
