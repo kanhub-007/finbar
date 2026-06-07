@@ -66,6 +66,8 @@ def register_optimization_tools(mcp: FastMCP) -> None:
         reject_oversized_explicit_orders: bool = False,
         allow_negative_cash: bool = False,
         market_calendar: str = "equity_regular_hours",
+        borrow_fee_annual_pct: float = 0.0,
+        margin_mode: str = "simplified",
     ) -> str:
         """Start a grid search optimization job and return its job id."""
         parsed = _parse_optimization_inputs(
@@ -92,6 +94,8 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             reject_oversized_explicit_orders=reject_oversized_explicit_orders,
             allow_negative_cash=allow_negative_cash,
             market_calendar=market_calendar,
+            borrow_fee_annual_pct=borrow_fee_annual_pct,
+            margin_mode=margin_mode,
         )
         job = _make_start_optimization_job_use_case().execute(request)
         return json.dumps(

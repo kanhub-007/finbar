@@ -31,6 +31,7 @@ def result_dto_from_raw(raw_result: dict) -> BacktestResultDTO:
         warmup_bars=raw_result.get("warmup_bars", 0),
         first_tradable=raw_result.get("first_tradable", ""),
         total_commission=raw_result.get("total_commission", 0.0),
+        total_borrow_cost=raw_result.get("total_borrow_cost", 0.0),
         total_fees=raw_result.get("total_fees", 0.0),
         total_slippage=raw_result.get("total_slippage", 0.0),
         realized_pnl=raw_result.get("realized_pnl", 0.0),

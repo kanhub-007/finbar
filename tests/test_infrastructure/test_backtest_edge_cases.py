@@ -566,6 +566,49 @@ class TestAnnualizationPolicy:
         )
 
 
+class TestShortBorrowCost:
+    def test_short_borrow_cost_reduces_net_pnl(self):
+        """Short borrow cost is deducted from net PnL and cash."""
+        sig = SignalResult(action="sell", direction="short", position_size=10)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 90.0],
+                "high": [100.0, 100.0, 90.0],
+                "low": [100.0, 100.0, 90.0],
+                "close": [100.0, 100.0, 90.0],
+                "volume": [1000000, 1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        no_cost = BacktestRunner().run(
+            df, _StaticSignalStrategy(sig), 10000, borrow_fee_annual_pct=0.0
+        )
+        with_cost = BacktestRunner().run(
+            df, _StaticSignalStrategy(sig), 10000, borrow_fee_annual_pct=0.05
+        )
+
+        assert no_cost["trades"][0]["pnl"] > with_cost["trades"][0]["pnl"]
+        assert with_cost["trades"][0]["borrow_cost"] > 0
+        assert with_cost["total_borrow_cost"] > 0
+        assert with_cost["final_value"] < no_cost["final_value"]
+
+    def test_long_positions_have_zero_borrow_cost(self):
+        """Long positions are never charged borrow fees."""
+        sig = SignalResult(action="buy", direction="long", position_size=10)
+        result = BacktestRunner().run(
+            _make_flat_df(3),
+            _StaticSignalStrategy(sig),
+            10000,
+            borrow_fee_annual_pct=0.05,
+        )
+
+        for trade in result["trades"]:
+            assert trade["borrow_cost"] == 0
+        assert result["total_borrow_cost"] == 0
+
+
 class TestBacktestDataValidation:
     def test_invalid_high_below_low_returns_error(self):
         sig = SignalResult(action="buy", direction="long")

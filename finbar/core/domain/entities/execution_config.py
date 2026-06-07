@@ -31,6 +31,12 @@ class ExecutionConfig:
     market_calendar: str = "equity_regular_hours"
     """Calendar used for annualization assumptions."""
 
+    borrow_fee_annual_pct: float = 0.0
+    """Annual borrow fee for short positions, expressed as a decimal."""
+
+    margin_mode: str = "simplified"
+    """Margin accounting mode: simplified or full."""
+
     def risk_budget_multiplier(self) -> float:
         """Return the multiplier applied to the equity risk budget."""
         if self.risk_mode == "leverage_scaled_risk":

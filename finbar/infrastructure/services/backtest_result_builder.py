@@ -111,6 +111,7 @@ def build_result(
         "warmup_bars": warmup_bars,
         "first_tradable": first_tradable,
         "total_commission": round(state.total_commission, 2),
+        "total_borrow_cost": round(state.total_borrow_cost, 2),
         "total_fees": round(total_fees, 2),
         "total_slippage": round(state.total_slippage, 2),
         "realized_pnl": round(realized_pnl, 2),
@@ -145,6 +146,8 @@ def build_result(
                 config.reject_oversized_explicit_orders
             ),
             "allow_negative_cash": config.allow_negative_cash,
+            "borrow_fee_annual_pct": config.borrow_fee_annual_pct,
+            "margin_mode": config.margin_mode,
             "market_calendar": config.market_calendar,
             "annualization_factor": annualization_factor,
             "annualization_warning": annualization_warning,

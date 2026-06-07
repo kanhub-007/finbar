@@ -153,6 +153,33 @@ Costs are tracked cumulatively as `total_commission` and `total_slippage`.
 `total_slippage` includes both entry and exit slippage impact. Both defaults
 are zero.
 
+## Short borrow cost
+
+When enabled via `borrow_fee_annual_pct`, short positions accrue a
+simplified borrow cost based on the entry notional and days held:
+
+```
+borrow_cost = entry_notional * borrow_fee_annual_pct * (days_held / 365)
+```
+
+The borrow cost is deducted from cash at exit and included in the trade's
+net PnL. Long positions are never charged borrow fees. The cost is tracked
+cumulatively as `total_borrow_cost` in the result output.
+
+### Margin mode
+
+The engine supports two margin accounting modes:
+
+- `simplified` (default): short proceeds add to cash at entry. Borrow
+  cost is applied at exit. Leveraged positions use a liquidation-price
+  model derived from the multiplier.
+- `full` (future): full margin accounting with initial/maintenance margin
+  tracking and funding-rate integration.
+
+The simplified model is documented as a deliberate approximation. It is
+suitable for strategy comparison but may understate costs for extended
+hold periods or highly leveraged positions.
+
 ## Annualization
 
 Periodic returns are annualized using interval- and calendar-aware factors.

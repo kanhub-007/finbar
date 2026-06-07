@@ -149,6 +149,8 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         reject_oversized_explicit_orders: bool = False,
         allow_negative_cash: bool = False,
         market_calendar: str = "equity_regular_hours",
+        borrow_fee_annual_pct: float = 0.0,
+        margin_mode: str = "simplified",
     ) -> str:
         """Run a backtest and return structured results.
 
@@ -203,6 +205,8 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                     reject_oversized_explicit_orders=(reject_oversized_explicit_orders),
                     allow_negative_cash=allow_negative_cash,
                     market_calendar=market_calendar,
+                    borrow_fee_annual_pct=borrow_fee_annual_pct,
+                    margin_mode=margin_mode,
                 )
             )
             return _backtest_result_to_json(result)
@@ -316,6 +320,7 @@ def _backtest_result_to_json(result) -> str:
             "profit_factor": result.profit_factor,
             "calmar_ratio": result.calmar_ratio,
             "total_commission": result.total_commission,
+            "total_borrow_cost": result.total_borrow_cost,
             "total_fees": result.total_fees,
             "total_slippage": result.total_slippage,
             "realized_pnl": result.realized_pnl,

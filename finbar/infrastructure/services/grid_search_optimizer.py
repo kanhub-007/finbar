@@ -337,6 +337,10 @@ def _execution_params(metadata: dict) -> dict:
         "market_calendar": str(
             metadata.get("market_calendar", "equity_regular_hours") or ""
         ),
+        "borrow_fee_annual_pct": float(
+            metadata.get("borrow_fee_annual_pct", 0.0) or 0.0
+        ),
+        "margin_mode": str(metadata.get("margin_mode", "simplified") or "simplified"),
     }
 
 

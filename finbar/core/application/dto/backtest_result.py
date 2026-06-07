@@ -90,6 +90,9 @@ class BacktestResultDTO:
     total_commission: float = 0.0
     """Total absolute commission costs across all trades."""
 
+    total_borrow_cost: float = 0.0
+    """Total short borrow costs across all trades."""
+
     total_fees: float = 0.0
     """Total fee costs across all trades."""
 

@@ -275,6 +275,8 @@ def _run_backtest(
             reject_oversized_explicit_orders=(request.reject_oversized_explicit_orders),
             allow_negative_cash=request.allow_negative_cash,
             market_calendar=request.market_calendar,
+            borrow_fee_annual_pct=request.borrow_fee_annual_pct,
+            margin_mode=request.margin_mode,
             interval=request.interval,
             warmup_bars=warmup.get("warmup_bars", 0) if warmup else 0,
             first_tradable=warmup.get("first_tradable", "") if warmup else "",

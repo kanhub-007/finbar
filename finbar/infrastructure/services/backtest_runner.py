@@ -103,6 +103,8 @@ def _execution_config_from_params(
         market_calendar=str(
             params.pop("market_calendar", "equity_regular_hours") or ""
         ),
+        borrow_fee_annual_pct=float(params.pop("borrow_fee_annual_pct", 0.0) or 0.0),
+        margin_mode=str(params.pop("margin_mode", "simplified") or "simplified"),
     )
 
 

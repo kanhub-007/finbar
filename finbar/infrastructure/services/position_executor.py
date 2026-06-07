@@ -91,8 +91,18 @@ class PositionExecutor:
             state.position.size, entry_price, fill_price, abs_size
         )
         entry_commission = state.position.entry_commission
-        net_pnl = gross_pnl - entry_commission - commission
-        state.cash += self._cash_settlement(state.position.size, fill_cost, commission)
+        borrow_cost = self._borrow_cost(
+            abs_size,
+            entry_price,
+            direction,
+            entry_date,
+            bar_date,
+        )
+        net_pnl = gross_pnl - entry_commission - commission - borrow_cost
+        state.total_borrow_cost += borrow_cost
+        state.cash += self._cash_settlement(
+            state.position.size, fill_cost, commission, borrow_cost
+        )
         self._release_margin(state, abs_size, entry_price)
         self._record_trade(
             state,
@@ -105,13 +115,15 @@ class PositionExecutor:
             net_pnl,
             entry_commission,
             commission,
+            borrow_cost,
             direction,
             exit_reason,
         )
         logger.info(
             "[EXIT]  %s | %s | exit=%.2f entry=%.2f size=%s | "
             "NetPnL=%.2f GrossPnL=%.2f (%.2f%%) | "
-            "cash: %.2f->%.2f (d=%.2f) | bars=%d reason=%s margin=%.2f",
+            "cash: %.2f->%.2f (d=%.2f) | bars=%d reason=%s margin=%.2f "
+            "borrow=%.2f",
             bar_date,
             direction.upper(),
             exit_price,
@@ -126,6 +138,7 @@ class PositionExecutor:
             state.position.bars_held,
             exit_reason,
             state.used_margin,
+            borrow_cost,
         )
         state.position.reset()
 
@@ -362,10 +375,15 @@ class PositionExecutor:
         return (entry_price - exit_price) * abs_size
 
     @staticmethod
-    def _cash_settlement(size: float, fill_cost: float, commission: float) -> float:
+    def _cash_settlement(
+        size: float,
+        fill_cost: float,
+        commission: float,
+        borrow_cost: float = 0.0,
+    ) -> float:
         if size > 0:
             return fill_cost - commission
-        return -(fill_cost + commission)
+        return -(fill_cost + commission + borrow_cost)
 
     def _release_margin(
         self, state: BacktestLoopState, abs_size: float, entry_price: float
@@ -386,6 +404,7 @@ class PositionExecutor:
         net_pnl: float,
         entry_commission: float,
         exit_commission: float,
+        borrow_cost: float,
         direction: str,
         exit_reason: str,
     ) -> None:
@@ -407,6 +426,7 @@ class PositionExecutor:
                 "gross_pnl": round(gross_pnl, 2),
                 "entry_commission": round(entry_commission, 2),
                 "exit_commission": round(exit_commission, 2),
+                "borrow_cost": round(borrow_cost, 2),
                 "total_commission": round(total_commission, 2),
                 "pnl_pct": round(pnl_pct, 4),
                 "duration_bars": state.position.bars_held,
@@ -473,6 +493,26 @@ class PositionExecutor:
             self._config.reject_oversized_explicit_orders
             or not self._config.cap_explicit_size
         )
+
+    def _borrow_cost(
+        self,
+        abs_size: float,
+        entry_price: float,
+        direction: str,
+        entry_date: str,
+        exit_date: str,
+    ) -> float:
+        """Compute borrow cost for short positions."""
+        if (
+            direction != "short"
+            or self._config.borrow_fee_annual_pct <= 0
+            or abs_size <= 0
+            or entry_price <= 0
+        ):
+            return 0.0
+        days = _days_held(entry_date, exit_date)
+        notional = abs_size * entry_price
+        return notional * self._config.borrow_fee_annual_pct * (days / 365.0)
 
     @staticmethod
     def _add_diagnostic(
@@ -550,3 +590,21 @@ class PositionExecutor:
         if target > 0 and low <= target:
             return target, "take_profit"
         return None
+
+
+def _days_held(entry_date: str, exit_date: str) -> float:
+    """Return the number of calendar days between two ISO date strings."""
+    try:
+        entry = _parse_date(entry_date)
+        exit_ = _parse_date(exit_date)
+        return max(0.0, (exit_ - entry).total_seconds() / 86400.0)
+    except (ValueError, TypeError, OSError):
+        return 0.0
+
+
+def _parse_date(raw: str):
+    """Parse a YYYY-MM-DD or ISO datetime string to a naive date."""
+    from datetime import datetime
+
+    raw = raw.strip()[:10]
+    return datetime.strptime(raw, "%Y-%m-%d")

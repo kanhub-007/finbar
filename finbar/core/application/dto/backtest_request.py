@@ -55,3 +55,9 @@ class BacktestRequest:
 
     market_calendar: str = "equity_regular_hours"
     """Market calendar used by annualization assumptions."""
+
+    borrow_fee_annual_pct: float = 0.0
+    """Annual borrow fee for short positions, expressed as a decimal."""
+
+    margin_mode: str = "simplified"
+    """Margin accounting mode: simplified or full."""

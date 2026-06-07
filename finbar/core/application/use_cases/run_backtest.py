@@ -98,6 +98,8 @@ class RunBacktestUseCase:
                 ),
                 allow_negative_cash=request.allow_negative_cash,
                 market_calendar=request.market_calendar,
+                borrow_fee_annual_pct=request.borrow_fee_annual_pct,
+                margin_mode=request.margin_mode,
                 interval=request.interval,
                 **request.params,
             )
