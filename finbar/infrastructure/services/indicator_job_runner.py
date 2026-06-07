@@ -56,6 +56,14 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         except asyncio.CancelledError:
             self._manager.update(job, status="cancelled", error="Cancelled by user")
             raise
+        except Exception as exc:
+            self._manager.update(
+                job,
+                status="failed",
+                progress_pct=100,
+                stage="failed",
+                error=f"Internal error: {exc}",
+            )
 
     def _sync_run(self, job: IndicatorJob) -> None:
         # Check for existing artifact with matching content hash
