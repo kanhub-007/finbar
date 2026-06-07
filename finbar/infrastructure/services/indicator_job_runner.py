@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 from finbar.core.domain.entities.indicator_job import IndicatorJob
 from finbar.core.domain.entities.price_bar import PriceBar
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar.core.domain.interfaces.indicator_calculator import IndicatorCalculator
 from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
 from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
-from finbar.core.domain.interfaces.indicator_calculator import IndicatorCalculator
 from finbar.core.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
@@ -46,7 +46,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         self._parser = parser
 
     async def run(self, job: IndicatorJob) -> None:
-        """Run indicator computation in a thread so pandas work does not block asyncio."""
+        """Run indicator computation without blocking the event loop."""
         try:
             await asyncio.to_thread(self._sync_run, job)
         except asyncio.CancelledError:

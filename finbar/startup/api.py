@@ -23,8 +23,8 @@ def create_app() -> FastAPI:
     )
 
     from finbar.presentation.api.routes.analysis import router as analysis_router
-    from finbar.presentation.api.routes.indicators import router as indicator_router
     from finbar.presentation.api.routes.health import router as health_router
+    from finbar.presentation.api.routes.indicators import router as indicator_router
     from finbar.presentation.api.routes.jobs import router as jobs_router
     from finbar.presentation.api.routes.optimization import (
         router as optimization_router,

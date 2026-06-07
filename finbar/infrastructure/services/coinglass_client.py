@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import requests
@@ -72,12 +72,15 @@ class CoinGlassClient(DerivativesDataProvider):
         if self._pairs_loaded:
             return
         raw = self._get("/api/futures/supported-exchange-pairs", {})
-        pairs_data = raw[0] if isinstance(raw, list) and raw and isinstance(raw[0], dict) else {}
+        pairs_data = (
+            raw[0] if isinstance(raw, list) and raw and isinstance(raw[0], dict) else {}
+        )
         if not pairs_data and isinstance(raw, list):
             # Response might be nested differently
             pairs_data = {}
 
-        # Re-fetch with correct parsing — the endpoint returns {code, data: {exchange: [pairs]}}
+        # Re-fetch with correct parsing. The endpoint returns:
+        # {code, data: {exchange: [pairs]}}
         self._supported_pairs.clear()
         self._symbol_exchange_map.clear()
         # We already called _get which returns data.data — let's do a raw call
@@ -103,7 +106,8 @@ class CoinGlassClient(DerivativesDataProvider):
         total = sum(len(v) for v in self._supported_pairs.values())
         logger.info(
             "CoinGlass: loaded %d pairs from %d exchanges",
-            total, len(self._supported_pairs),
+            total,
+            len(self._supported_pairs),
         )
 
     def get_supported_exchanges(self, symbol: str) -> list[str]:
@@ -201,7 +205,8 @@ class CoinGlassClient(DerivativesDataProvider):
                 resp.raise_for_status()
                 data = resp.json()
                 if data.get("code") != "0":
-                    raise RuntimeError(f"CoinGlass API error: {data.get('msg', 'unknown')}")
+                    message = data.get("msg", "unknown")
+                    raise RuntimeError(f"CoinGlass API error: {message}")
                 return data.get("data", [])
             except requests.RequestException as exc:
                 last_error = exc
@@ -210,7 +215,10 @@ class CoinGlassClient(DerivativesDataProvider):
                 backoff = _BASE_BACKOFF ** (attempt + 1)
                 logger.warning(
                     "CoinGlass request failed (attempt %d/%d): %s — retrying in %.1fs",
-                    attempt + 1, _MAX_RETRIES, exc, backoff,
+                    attempt + 1,
+                    _MAX_RETRIES,
+                    exc,
+                    backoff,
                 )
                 time.sleep(backoff)
         raise RuntimeError(
@@ -246,7 +254,11 @@ def _params(
     return p
 
 
-def _parse_funding(raw: list[dict], symbol: str, interval: str) -> list[DerivativesMetrics]:
+def _parse_funding(
+    raw: list[dict],
+    symbol: str,
+    interval: str,
+) -> list[DerivativesMetrics]:
     of = _opt_float
     return [
         DerivativesMetrics(
@@ -288,7 +300,7 @@ def _parse_oi(raw: list[dict], symbol: str, interval: str) -> list[DerivativesMe
 def _parse_ts(item: dict) -> str:
     ts = item.get("createTime") or item.get("time") or 0
     try:
-        return datetime.fromtimestamp(int(ts) / 1000, tz=timezone.utc).isoformat()
+        return datetime.fromtimestamp(int(ts) / 1000, tz=UTC).isoformat()
     except (ValueError, OSError):
         return str(ts)
 

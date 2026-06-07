@@ -72,9 +72,7 @@ def get_indicator_job_progress(job_id: str):
 @router.get("/jobs/{job_id}/results", summary="Get indicator job results")
 def get_indicator_job_results(job_id: str, page: int = 0, page_size: int = 500):
     """Return paginated enriched bars from a completed indicator job."""
-    result = _make_get_indicator_job_results_use_case().execute(
-        job_id, page, page_size
-    )
+    result = _make_get_indicator_job_results_use_case().execute(job_id, page, page_size)
     if not result.found:
         raise HTTPException(status_code=404, detail="Job not found")
     if result.error:

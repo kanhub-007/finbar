@@ -1,7 +1,6 @@
 """BuiltinStrategyProvider — built-in strategies (none — use JSON SDK)."""
 
 from collections.abc import Callable
-from typing import Any
 
 from finbar.core.domain.entities.strategy_meta import StrategyMeta
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider

@@ -5,8 +5,6 @@ from collections.abc import Callable
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
-
 from finbar.core.domain.entities.feature_spec import FeatureSpec
 from finbar.core.domain.interfaces.formula_feature_calculator import (
     FormulaFeatureCalculator,
@@ -14,6 +12,8 @@ from finbar.core.domain.interfaces.formula_feature_calculator import (
 from finbar.core.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
+
+logger = logging.getLogger(__name__)
 
 FeatureHandler = Callable[[pd.DataFrame, FeatureSpec], pd.Series]
 

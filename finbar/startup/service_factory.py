@@ -4,6 +4,8 @@ This module is the composition-root helper used by REST and MCP adapters. It
 keeps concrete infrastructure construction out of presentation modules.
 """
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy.orm import Session
 
 from finbar.core.application.services.strategy_capability_service import (
@@ -87,9 +89,6 @@ from finbar.infrastructure.services.backtest_runner import BacktestRunner
 from finbar.infrastructure.services.builtin_strategy_provider import (
     BuiltinStrategyProvider,
 )
-from finbar.infrastructure.services.indicator_job_runner import (
-    CachedPriceIndicatorJobRunner,
-)
 from finbar.infrastructure.services.composite_strategy_provider import (
     CompositeStrategyProvider,
 )
@@ -105,6 +104,9 @@ from finbar.infrastructure.services.in_memory_indicator_job_manager import (
 )
 from finbar.infrastructure.services.in_memory_optimization_job_manager import (
     InMemoryOptimizationJobManager,
+)
+from finbar.infrastructure.services.indicator_job_runner import (
+    CachedPriceIndicatorJobRunner,
 )
 from finbar.infrastructure.services.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
@@ -128,6 +130,20 @@ from finbar.infrastructure.services.strategy_definition_factory import (
 from finbar.infrastructure.services.yfinance_stock_fetcher import (
     YFinanceStockFetcher,
 )
+
+if TYPE_CHECKING:
+    from finbar.core.application.use_cases.compute_signals import (
+        ComputeSignalsUseCase,
+    )
+    from finbar.core.application.use_cases.fetch_derivatives import (
+        FetchDerivativesUseCase,
+    )
+    from finbar.core.domain.interfaces.derivatives_data_provider import (
+        DerivativesDataProvider,
+    )
+    from finbar.infrastructure.services.pandas_signal_calculator import (
+        PandasSignalCalculator,
+    )
 
 _fetcher: YFinanceStockFetcher | None = None
 _hl_fetcher: object | None = None

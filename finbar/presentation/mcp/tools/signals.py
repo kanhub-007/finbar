@@ -40,6 +40,4 @@ def register_signal_tools(mcp: FastMCP) -> None:
         result = _make_compute_signals_use_case().execute(
             ComputeSignalsRequest(bars=bars, symbol=symbol, interval=interval)
         )
-        return json.dumps(
-            SignalPresenter.compute_result(result), indent=2, default=str
-        )
+        return json.dumps(SignalPresenter.compute_result(result), indent=2, default=str)

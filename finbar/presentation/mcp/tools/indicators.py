@@ -18,25 +18,56 @@ from ._shared import (
 
 # ── TA indicators ──
 _TA_INDICATORS = [
-    "sma", "ema", "rsi", "macd", "macd_signal", "macd_hist",
-    "atr", "adx", "bb_upper", "bb_middle", "bb_lower",
-    "ker", "kama", "trend_direction", "trend_strength",
-    "swing_high_20", "swing_low_20",
+    "sma",
+    "ema",
+    "rsi",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "atr",
+    "adx",
+    "bb_upper",
+    "bb_middle",
+    "bb_lower",
+    "ker",
+    "kama",
+    "trend_direction",
+    "trend_strength",
+    "swing_high_20",
+    "swing_low_20",
 ]
 
 # ── Trading Metrics ──
 _TM_METRICS = [
-    "vwap", "ibs", "rvol", "ib_high", "ib_low", "ib_range", "ib_midpoint",
-    "price_vs_sma20", "breakout_signal", "is_power_zone", "breakout_quality",
-    "vol_buffer_high", "vol_buffer_low",
+    "vwap",
+    "ibs",
+    "rvol",
+    "ib_high",
+    "ib_low",
+    "ib_range",
+    "ib_midpoint",
+    "price_vs_sma20",
+    "breakout_signal",
+    "is_power_zone",
+    "breakout_quality",
+    "vol_buffer_high",
+    "vol_buffer_low",
 ]
 
 # ── Proxies (industry-standard, daily-bar substitutes) ──
 _PROXIES = [
-    "proxy_vwap", "proxy_atr", "proxy_ibs", "proxy_parkinson",
-    "proxy_garman_klass", "proxy_rogers_satchell",
-    "proxy_typical_price", "proxy_ohlc4", "proxy_iv",
-    "proxy_expected_move", "proxy_ib_high", "proxy_ib_low",
+    "proxy_vwap",
+    "proxy_atr",
+    "proxy_ibs",
+    "proxy_parkinson",
+    "proxy_garman_klass",
+    "proxy_rogers_satchell",
+    "proxy_typical_price",
+    "proxy_ohlc4",
+    "proxy_iv",
+    "proxy_expected_move",
+    "proxy_ib_high",
+    "proxy_ib_low",
 ]
 
 
@@ -53,6 +84,7 @@ def register_indicator_tools(mcp: FastMCP) -> None:
 # TA Indicators
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _register_ta_tool(mcp: FastMCP) -> None:
     @mcp.tool(
         name="compute_indicators",
@@ -68,8 +100,13 @@ def _register_ta_tool(mcp: FastMCP) -> None:
         end_date: str | None = None,
     ) -> str:
         return _start_job(
-            symbol, source, interval, indicators_json,
-            timeframe_alias, start_date, end_date,
+            symbol,
+            source,
+            interval,
+            indicators_json,
+            timeframe_alias,
+            start_date,
+            end_date,
         )
 
 
@@ -78,7 +115,7 @@ def _ta_description() -> str:
         "Start a BACKGROUND job to compute Technical Analysis indicators "
         "(SMA, EMA, RSI, MACD, ATR, ADX, Bollinger Bands, Keltner, KAMA, "
         "swing points, trend direction/strength) on cached OHLCV bars. "
-        "Pass indicators_json like '[\"sma_20\",\"sma_50\",\"rsi_14\",\"atr\"]'. "
+        'Pass indicators_json like \'["sma_20","sma_50","rsi_14","atr"]\'. '
         "Supports arbitrary periods within catalog ranges. "
         "For multi-timeframe strategies, call once per timeframe. "
         "Poll with get_indicator_job_progress(job_id), then page results "
@@ -89,6 +126,7 @@ def _ta_description() -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # Trading Metrics + Proxies
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _register_tm_tool(mcp: FastMCP) -> None:
     @mcp.tool(
@@ -105,8 +143,13 @@ def _register_tm_tool(mcp: FastMCP) -> None:
         end_date: str | None = None,
     ) -> str:
         return _start_job(
-            symbol, source, interval, metrics_json,
-            timeframe_alias, start_date, end_date,
+            symbol,
+            source,
+            interval,
+            metrics_json,
+            timeframe_alias,
+            start_date,
+            end_date,
         )
 
 
@@ -123,8 +166,8 @@ def _tm_description() -> str:
         "Proxies: proxy_vwap (typical price), proxy_ibs, proxy_atr, "
         "proxy_parkinson, proxy_garman_klass, proxy_rogers_satchell, "
         "proxy_expected_move, proxy_ib_high/low, proxy_iv.\n\n"
-        "Example: metrics_json='[\"vwap\",\"ibs\",\"rvol\",\"proxy_vwap\","
-        "\"proxy_ibs\",\"proxy_parkinson\"]'. "
+        'Example: metrics_json=\'["vwap","ibs","rvol","proxy_vwap",'
+        '"proxy_ibs","proxy_parkinson"]\'. '
         "On intraday data use real metrics (vwap, ibs); on daily data use "
         "proxies (proxy_vwap, proxy_ibs). "
         "Poll with get_indicator_job_progress(job_id), then page results "
@@ -135,6 +178,7 @@ def _tm_description() -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 # Shared helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def _start_job(
     symbol: str,

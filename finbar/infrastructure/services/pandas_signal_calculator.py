@@ -26,7 +26,9 @@ class PandasSignalCalculator(SignalCalculator):
         result = frame.copy()
         result["rsi_zone"] = self._compute_rsi_zone(result)
         result["is_extreme_oversold"] = result["rsi_zone"] == RsiZone.EXTREME_OVERSOLD
-        result["is_extreme_overbought"] = result["rsi_zone"] == RsiZone.EXTREME_OVERBOUGHT
+        result["is_extreme_overbought"] = (
+            result["rsi_zone"] == RsiZone.EXTREME_OVERBOUGHT
+        )
         result["is_overextended"] = (
             result["is_extreme_oversold"] | result["is_extreme_overbought"]
         )

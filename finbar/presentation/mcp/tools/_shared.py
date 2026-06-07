@@ -7,11 +7,11 @@ adapters do not depend on each other.
 from finbar.startup.service_factory import (  # noqa: F401
     _get_bar_frame_converter,
     _get_db,
-    _get_indicator_job_manager,
     _get_fetcher,
     _get_hl_fetcher,
     _get_hl_tickers,
     _get_indicator_calculator,
+    _get_indicator_job_manager,
     _get_job_manager,
     _get_optimization_job_manager,
     _make_apply_indicators_use_case,

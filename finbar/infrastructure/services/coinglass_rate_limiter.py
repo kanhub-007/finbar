@@ -26,7 +26,9 @@ class CoinGlassRateLimiter:
         max_retries: int = 3,
         base_backoff: float = 2.0,
     ):
-        self.min_interval = 1.0 / requests_per_second if requests_per_second > 0 else 0.0
+        self.min_interval = (
+            1.0 / requests_per_second if requests_per_second > 0 else 0.0
+        )
         self.max_per_minute = requests_per_minute
         self.max_retries = max_retries
         self.base_backoff = base_backoff
@@ -56,8 +58,13 @@ class CoinGlassRateLimiter:
 
             if self._rate_limit_backoff > 0:
                 if now < self._last_request_time + self._rate_limit_backoff:
-                    sleep_time = self._last_request_time + self._rate_limit_backoff - now
-                    logger.debug("CoinGlass rate limit backoff: sleeping %.1fs", sleep_time)
+                    sleep_time = (
+                        self._last_request_time + self._rate_limit_backoff - now
+                    )
+                    logger.debug(
+                        "CoinGlass rate limit backoff: sleeping %.1fs",
+                        sleep_time,
+                    )
                     time.sleep(sleep_time)
                     now = time.time()
                 self._rate_limit_backoff = 0.0
@@ -89,7 +96,11 @@ class CoinGlassRateLimiter:
         """Called on HTTP 429 — applies exponential backoff."""
         backoff = self.base_backoff * (2 ** min(attempt, 10))
         self._rate_limit_backoff = backoff
-        logger.warning("CoinGlass rate limited! Backoff %.1fs (attempt %d)", backoff, attempt)
+        logger.warning(
+            "CoinGlass rate limited! Backoff %.1fs (attempt %d)",
+            backoff,
+            attempt,
+        )
         return backoff
 
     def reset(self) -> None:
