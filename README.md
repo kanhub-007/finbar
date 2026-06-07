@@ -33,18 +33,21 @@ python run_mcp.py
 | **[Architecture](docs/ARCHITECTURE.md)** | Clean architecture, layers, patterns, one class per file |
 | **[Execution Model](docs/backtest_execution_model.md)** | Fill accounting, slippage, margin, annualization, crossover determinism |
 
-## MCP Tools (32+)
+## MCP Tools (44+)
 
 | Category | Tools |
 |----------|-------|
 | **Data** | `fetch_price_history`, `get_cached_prices`, `get_latest_quote`, `get_symbol_info`, `list_cached_symbols`, `delete_cached_prices`, `list_hyperliquid_tickers` |
 | **Jobs** | `get_job_progress`, `get_job_results`, `cancel_job` |
-| **TA** | `compute_indicators`, `apply_indicators`, `compute_trading_metrics` |
+| **TA** | `compute_indicators`, `apply_indicators`, `compute_trading_metrics`, `get_indicator_job_progress`, `get_indicator_job_results`, `cancel_indicator_job` |
+| **Artifacts** | `list_artifacts`, `describe_artifact`, `query_artifact_bars`, `delete_artifact` |
 | **Signals** | `compute_signals` (confidence scores, risk flags) |
 | **Derivatives** | `fetch_derivatives` (funding rates, OI, CVD — crypto) |
 | **Strategy** | `get_strategy_capabilities`, `get_strategy_schema`, `validate_strategy_json`, `explain_strategy_json`, `backtest_strategy_json`, `apply_strategy_features`, `save_strategy_json`, `delete_strategy_json` |
 | **Optimization** | `start_optimization_job`, `start_walk_forward_job`, `get_optimization_job_progress`, `get_optimization_job_results`, `cancel_optimization_job` |
 | **Analysis** | `run_backtest`, `list_backtest_strategies`, `merge_and_backtest`, `run_portfolio_backtest` |
+| **Pipeline** | `compute_strategy_indicators`, `run_strategy_pipeline` |
+| **Results** | `list_backtest_results`, `get_backtest_summary`, `get_backtest_trades`, `get_backtest_equity` |
 
 Call `get_usage_guide` for the full workflow reference.
 
@@ -62,22 +65,31 @@ Call `get_usage_guide` for the full workflow reference.
 
 ## Backtest output
 
+Backtest tools return compact summaries by default. Full trades, equity curves,
+and analytics are stored server-side and retrieved on demand.
+
+**Default summary response:**
+
 ```json
 {
-  "total_return": 0.1235, "sharpe_ratio": 1.42, "max_drawdown": -0.0523,
-  "win_rate": 0.625, "profit_factor": 2.31, "total_trades": 42,
-  "trades": [{"entry_date":"...", "exit_date":"...", "pnl":321.01}],
-  "equity_curve": [{"date":"...", "value":10000, "drawdown":0.0}],
-  "analytics": {
-    "rolling_sharpe_60": [...], "monthly_returns": {"2024-01":0.03},
-    "trade_distribution": {"avg_pnl":150.5, "pnl_percentiles":{"p50":120}}
+  "status": "completed",
+  "summary": {
+    "total_return": 0.1235, "sharpe_ratio": 1.42, "max_drawdown": -0.0523,
+    "win_rate": 0.625, "profit_factor": 2.31, "total_trades": 42,
+    "trade_summary": {"count": 42, "avg_pnl": 150.5, "top_winners": [...], "top_losers": [...]}
   },
-  "trust_diagnostics": {
-    "gap_aware_fills": true, "net_trade_metrics": true,
-    "entry_model": "next_bar_open", "margin_mode": "simplified"
+  "ids": {"result_id": "bt_a1b2c3d4e5f6"},
+  "counts": {"trades": 42, "equity_points": 500},
+  "returned": {"trades": 0, "equity_points": 0},
+  "access": {
+    "trades": "get_backtest_trades('bt_a1b2c3d4e5f6', page=0)",
+    "equity": "get_backtest_equity('bt_a1b2c3d4e5f6', mode='daily')"
   }
 }
 ```
+
+Use `detail_level='full'` to get the complete result inline (legacy behavior).
+Use `list_backtest_results` to discover prior results.
 
 ## Execution controls
 
@@ -86,6 +98,25 @@ All backtest and optimization tools accept: `leverage`, `risk_mode`,
 `reject_oversized_explicit_orders`, `allow_negative_cash`, `market_calendar`,
 `borrow_fee_annual_pct`, `margin_mode` (`simplified`|`full`),
 `maintenance_margin_pct`, `enable_funding`, `funding_rate`.
+
+Backtest tools accept `detail_level`:
+
+| detail_level | Behavior |
+|--------------|----------|
+| `summary` (default) | Metrics + trade summary + result ID, no large arrays |
+| `sample` | Summary + first/last 5 trades and equity points |
+| `full` | Complete inline result with all trades/equity/analytics |
+
+## Context efficiency
+
+Finbar is optimized for AI agents with limited context windows:
+
+- **Artifact IDs**: Compute indicators once, reuse via `list_artifacts` + `describe_artifact`
+- **Compact summaries**: Backtests return metrics + access pointers by default
+- **Paginated detail**: `get_backtest_trades` and `get_backtest_equity` fetch large arrays on demand
+- **Pipeline orchestration**: `run_strategy_pipeline` handles validate→compute→backtest in one call
+- **Hash-based reuse**: Identical indicator requests reuse existing artifacts
+- **Durable storage**: Artifacts and backtest results persist across MCP restarts
 
 ## Configuration
 
@@ -101,7 +132,7 @@ FINBAR_API_PORT=8000
 
 ```bash
 ruff check finbar/ && black finbar/ && pytest tests/
-# 361 tests in ~4.5s
+# 376 tests in ~8s
 ```
 
 ## Architecture

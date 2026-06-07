@@ -238,7 +238,8 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "For strategies like auction_drive that need intraday entries "
             "plus daily trend context. Merges columns with interval "
             "suffix (e.g., sma_50 → sma_50_1d). Applies required "
-            "indicators automatically."
+            "indicators automatically. Returns compact summary with "
+            "result_id; use detail_level='full' for full export."
         ),
     )
     def merge_and_backtest(
