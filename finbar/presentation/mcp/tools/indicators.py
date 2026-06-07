@@ -11,8 +11,12 @@ from finbar.core.application.dto.start_indicator_job_request import (
 
 from ._shared import (
     _make_cancel_indicator_job_use_case,
+    _make_delete_artifact_use_case,
+    _make_describe_artifact_use_case,
     _make_get_indicator_job_progress_use_case,
     _make_get_indicator_job_results_use_case,
+    _make_list_artifacts_use_case,
+    _make_query_artifact_bars_use_case,
     _make_start_indicator_job_use_case,
 )
 
@@ -77,6 +81,7 @@ def register_indicator_tools(mcp: FastMCP) -> None:
     _register_tm_tool(mcp)
     _register_progress_tool(mcp)
     _register_results_tool(mcp)
+    _register_artifact_tools(mcp)
     _register_cancel_tool(mcp)
 
 
@@ -252,6 +257,91 @@ def _register_results_tool(mcp: FastMCP) -> None:
             job_id, page, page_size
         )
         return json.dumps(asdict(result), indent=2, default=str)
+
+
+def _register_artifact_tools(mcp: FastMCP) -> None:
+    @mcp.tool(
+        name="list_artifacts",
+        description=(
+            "List stored indicator/trading-metric artifacts without returning "
+            "bar payloads. Use this to discover reusable enriched datasets "
+            "before recomputing indicators. Optional filters: symbol, source, "
+            "interval. Returns artifact IDs, date ranges, columns, counts, "
+            "and retention metadata."
+        ),
+    )
+    def list_artifacts(
+        symbol: str | None = None,
+        source: str | None = None,
+        interval: str | None = None,
+    ) -> str:
+        result = _make_list_artifacts_use_case().execute(symbol, source, interval)
+        return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="describe_artifact",
+        description=(
+            "Describe one artifact without returning bars. Returns metadata, "
+            "columns, date range, indicator/feature lists, null counts, and "
+            "retention metadata. Use before querying large artifacts."
+        ),
+    )
+    def describe_artifact(artifact_id: str) -> str:
+        result = _make_describe_artifact_use_case().execute(artifact_id)
+        return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="query_artifact_bars",
+        description=(
+            "Return a filtered page of bars from a stored artifact. Supports "
+            "column selection via columns_json, date filters, and pagination. "
+            "Use this instead of dumping full enriched bar payloads into chat."
+        ),
+    )
+    def query_artifact_bars(
+        artifact_id: str,
+        columns_json: str = "[]",
+        start_date: str | None = None,
+        end_date: str | None = None,
+        page: int = 0,
+        page_size: int = 500,
+    ) -> str:
+        columns = _parse_columns(columns_json)
+        if isinstance(columns, dict):
+            return json.dumps(columns, indent=2)
+        result = _make_query_artifact_bars_use_case().execute(
+            artifact_id,
+            columns or None,
+            start_date,
+            end_date,
+            page,
+            page_size,
+        )
+        return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="delete_artifact",
+        description=(
+            "Explicitly delete a stored indicator/trading-metric artifact by "
+            "artifact_id. Artifacts are durable by default and are not deleted "
+            "unless this tool is called or an explicit retention policy applies."
+        ),
+    )
+    def delete_artifact(artifact_id: str) -> str:
+        result = _make_delete_artifact_use_case().execute(artifact_id)
+        return json.dumps(asdict(result), indent=2, default=str)
+
+
+def _parse_columns(columns_json: str) -> list[str] | dict:
+    if not columns_json:
+        return []
+    try:
+        value = json.loads(columns_json)
+    except json.JSONDecodeError as exc:
+        return {"error": f"Invalid columns_json: {exc}"}
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        return {"error": "columns_json must be a JSON list of strings"}
+    return value
 
 
 def _register_cancel_tool(mcp: FastMCP) -> None:

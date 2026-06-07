@@ -29,12 +29,14 @@ from finbar.core.application.use_cases.cancel_indicator_job import (
 from finbar.core.application.use_cases.cancel_optimization_job import (
     CancelOptimizationJobUseCase,
 )
+from finbar.core.application.use_cases.delete_artifact import DeleteArtifactUseCase
 from finbar.core.application.use_cases.delete_cached_prices import (
     DeleteCachedPricesUseCase,
 )
 from finbar.core.application.use_cases.delete_strategy_definition import (
     DeleteStrategyDefinitionUseCase,
 )
+from finbar.core.application.use_cases.describe_artifact import DescribeArtifactUseCase
 from finbar.core.application.use_cases.explain_strategy_definition import (
     ExplainStrategyDefinitionUseCase,
 )
@@ -53,8 +55,12 @@ from finbar.core.application.use_cases.get_optimization_job_results import (
     GetOptimizationJobResultsUseCase,
 )
 from finbar.core.application.use_cases.get_symbol_info import GetSymbolInfoUseCase
+from finbar.core.application.use_cases.list_artifacts import ListArtifactsUseCase
 from finbar.core.application.use_cases.list_cached_symbols import (
     ListCachedSymbolsUseCase,
+)
+from finbar.core.application.use_cases.query_artifact_bars import (
+    QueryArtifactBarsUseCase,
 )
 from finbar.core.application.use_cases.query_cached_prices import (
     QueryCachedPricesUseCase,
@@ -343,6 +349,26 @@ def _make_get_indicator_job_results_use_case() -> GetIndicatorJobResultsUseCase:
 def _make_cancel_indicator_job_use_case() -> CancelIndicatorJobUseCase:
     """Create a use case for cancelling indicator jobs."""
     return CancelIndicatorJobUseCase(_get_indicator_job_manager())
+
+
+def _make_list_artifacts_use_case() -> ListArtifactsUseCase:
+    """Create a use case for artifact discovery."""
+    return ListArtifactsUseCase(_get_indicator_job_manager())
+
+
+def _make_describe_artifact_use_case() -> DescribeArtifactUseCase:
+    """Create a use case for artifact metadata inspection."""
+    return DescribeArtifactUseCase(_get_indicator_job_manager())
+
+
+def _make_query_artifact_bars_use_case() -> QueryArtifactBarsUseCase:
+    """Create a use case for paginated artifact bar queries."""
+    return QueryArtifactBarsUseCase(_get_indicator_job_manager())
+
+
+def _make_delete_artifact_use_case() -> DeleteArtifactUseCase:
+    """Create a use case for explicit artifact deletion."""
+    return DeleteArtifactUseCase(_get_indicator_job_manager())
 
 
 def _get_optimization_job_manager() -> InMemoryOptimizationJobManager:
