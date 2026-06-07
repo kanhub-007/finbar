@@ -8,6 +8,7 @@ from collections.abc import Sequence
 
 from finbar.core.domain.entities.walk_forward_fold import WalkForwardFold
 from finbar.core.domain.entities.walk_forward_result import WalkForwardResult
+from finbar.core.domain.services.correlation import pearson as _pearson
 
 
 def compute_fold_indices(
@@ -122,21 +123,6 @@ def aggregate_folds(folds: Sequence[WalkForwardFold]) -> WalkForwardResult:
     )
 
 
-def _pearson(xs: list[float], ys: list[float]) -> float:
-    """Compute Pearson correlation between two equal-length lists."""
-    if len(xs) != len(ys) or len(xs) < 2:
-        return 0.0
-    n = len(xs)
-    mean_x = sum(xs) / n
-    mean_y = sum(ys) / n
-    cov = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys))
-    var_x = sum((x - mean_x) ** 2 for x in xs)
-    var_y = sum((y - mean_y) ** 2 for y in ys)
-    if var_x == 0 or var_y == 0:
-        return 0.0
-    return cov / ((var_x * var_y) ** 0.5)
-
-
 def _compute_stability(folds: Sequence[WalkForwardFold]) -> float:
     """Measure parameter stability: fraction of best params within 20% of avg."""
     if len(folds) < 2:
@@ -235,3 +221,47 @@ def _spearman(xs: list[float], ys: list[float]) -> float:
     if var_x == 0 or var_y == 0:
         return 0.0
     return cov / ((var_x * var_y) ** 0.5)
+
+
+def compute_sensitivity(
+    results: list,
+    metric: str,
+    ranges: dict,
+) -> dict[str, float]:
+    """Compute per-parameter sensitivity from grid search results.
+
+    For each parameter, measures how much the objective varies across
+    that parameter's values (holding others at their best). Normalizes
+    so values sum to 1.0.
+
+    Returns empty dict for fewer than 2 params or less than 2 results.
+    """
+    from finbar.core.domain.services.correlation import resolve_metric
+
+    param_names = list(ranges.keys())
+    if len(param_names) < 2 or len(results) < 2:
+        return {}
+
+    m = resolve_metric(metric)
+
+    sensitivity: dict[str, float] = {}
+    for name in param_names:
+        values: set[float] = set()
+        scores: dict[float, list[float]] = {}
+        for r in results:
+            if r.error:
+                continue
+            val = r.params.get(name)
+            if val is not None:
+                values.add(val)
+                scores.setdefault(val, []).append(getattr(r, m, 0) or 0)
+        if len(values) < 2:
+            sensitivity[name] = 0.0
+            continue
+        means = [sum(v) / len(v) for v in scores.values()]
+        sensitivity[name] = max(means) - min(means)
+
+    total = sum(sensitivity.values())
+    if total <= 0:
+        return {}
+    return {k: round(v / total, 4) for k, v in sensitivity.items()}

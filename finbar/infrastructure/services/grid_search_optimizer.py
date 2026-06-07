@@ -17,23 +17,15 @@ from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
 )
 from finbar.core.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
+from finbar.core.domain.services.correlation import (
+    is_ranking_metric,
+    sort_ascending,
+)
 from finbar.infrastructure.services.backtest_data_validator import (
     validate_required_data,
 )
 
 _MAX_COMBINATIONS = 100
-_RANKING_METRICS = frozenset(
-    {
-        "sharpe_ratio",
-        "sortino_ratio",
-        "total_return",
-        "profit_factor",
-        "win_rate",
-        "calmar_ratio",
-    }
-)
-
-_METRIC_ASCENDING = frozenset({"max_drawdown"})
 
 
 class GridSearchOptimizer(OptimizationJobRunner):
@@ -89,7 +81,7 @@ class GridSearchOptimizer(OptimizationJobRunner):
         )
         definition = job.metadata.get("definition", {})
         metric = job.metric
-        if metric not in _RANKING_METRICS:
+        if not is_ranking_metric(metric):
             metric = "sharpe_ratio"
 
         results: list[OptimizationResult] = []
@@ -110,7 +102,7 @@ class GridSearchOptimizer(OptimizationJobRunner):
 
         results.sort(
             key=lambda r: (getattr(r, metric, 0) or 0),
-            reverse=metric not in _METRIC_ASCENDING,
+            reverse=not sort_ascending(metric),
         )
         for rank, result in enumerate(results, 1):
             results[rank - 1] = OptimizationResult(

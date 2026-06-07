@@ -1,7 +1,5 @@
 """RunPortfolioBacktestUseCase — execute a multi-asset portfolio backtest."""
 
-import math
-
 from finbar.core.application.dto.portfolio_backtest_request import (
     PortfolioBacktestRequest,
 )
@@ -9,6 +7,10 @@ from finbar.core.domain.entities.portfolio_result import PortfolioResult
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
+from finbar.core.domain.services.annualization import (
+    annualization_factor as _annualization_factor,
+)
+from finbar.core.domain.services.correlation import pearson as _pearson
 
 
 class RunPortfolioBacktestUseCase:
@@ -78,7 +80,7 @@ class RunPortfolioBacktestUseCase:
                     ),
                     allow_negative_cash=request.execution.allow_negative_cash,
                     market_calendar=request.execution.market_calendar,
-                    borrow_fee_annual_pct=request.execution.borrow_fee_annual_pct,
+                    borrow_fee_annual_pct=(request.execution.borrow_fee_annual_pct),
                     margin_mode=request.execution.margin_mode,
                 )
                 per_asset[asset.symbol] = raw
@@ -135,7 +137,7 @@ def _aggregate_equity(
     interval: str,
     market_calendar: str,
 ) -> tuple[list[dict], dict]:
-    """Sum individual equity curves into a portfolio curve and compute metrics."""
+    """Sum individual equity curves into a portfolio curve."""
     dates = _all_dates(curves)
     if not dates:
         return [], {}
@@ -170,10 +172,6 @@ def _aggregate_equity(
 
     dr = calculate_daily_returns(values) if len(values) > 1 else []
     max_dd = calculate_max_drawdown(values) if values else 0.0
-
-    from finbar.infrastructure.services.backtest_result_builder import (
-        _annualization_factor,
-    )
 
     ann_factor, _ = _annualization_factor(interval, market_calendar)
     sharpe = calculate_sharpe(dr, annualization_factor=ann_factor) if dr else 0.0
@@ -226,20 +224,3 @@ def _correlation_matrix(returns_list: list[list[float]]) -> list[list[float]]:
                 row.append(_pearson(returns_list[i], returns_list[j]))
         matrix.append(row)
     return matrix
-
-
-def _pearson(xs: list[float], ys: list[float]) -> float:
-    """Pearson correlation between two lists."""
-    n = min(len(xs), len(ys))
-    if n < 2:
-        return 0.0
-    xs = xs[:n]
-    ys = ys[:n]
-    mx = sum(xs) / n
-    my = sum(ys) / n
-    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
-    vx = sum((x - mx) ** 2 for x in xs)
-    vy = sum((y - my) ** 2 for y in ys)
-    if vx == 0 or vy == 0:
-        return 0.0
-    return cov / math.sqrt(vx * vy)

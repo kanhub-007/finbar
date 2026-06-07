@@ -21,6 +21,7 @@ from finbar.core.domain.interfaces.optimization_job_runner import (
 from finbar.infrastructure.services.walk_forward_fold_helpers import (
     aggregate_folds,
     compute_fold_indices,
+    compute_sensitivity,
 )
 
 logger = logging.getLogger(__name__)
@@ -271,23 +272,20 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             result = self._backtest_with_bars(definition, params, bars, metadata)
             results.append(result)
 
-        ranking_metrics = {
-            "sharpe_ratio",
-            "sortino_ratio",
-            "total_return",
-            "profit_factor",
-            "win_rate",
-            "calmar_ratio",
-        }
-        m = metric if metric in ranking_metrics else "sharpe_ratio"
+        from finbar.core.domain.services.correlation import (
+            resolve_metric,
+            sort_ascending,
+        )
+
+        m = resolve_metric(metric)
         results.sort(
             key=lambda r: (getattr(r, m, 0) or 0),
-            reverse=m != "max_drawdown",
+            reverse=not sort_ascending(m),
         )
 
         if not results:
             return None, {}
-        return results[0], _compute_sensitivity(results, metric, ranges)
+        return results[0], compute_sensitivity(results, metric, ranges)
 
     def _backtest_with_bars(
         self,
@@ -452,60 +450,3 @@ def _bar_timestamp(bar: dict) -> str:
         if val:
             return str(val)
     return ""
-
-
-def _safe_get(metadata: dict, key: str, default):
-    val = metadata.get(key, default)
-    return val if val is not None else default
-
-
-def _compute_sensitivity(
-    results: list,
-    metric: str,
-    ranges: dict,
-) -> dict[str, float]:
-    """Compute per-parameter sensitivity from grid search results.
-
-    For each parameter, measures how much the objective varies across
-    that parameter's values (holding others at their best). Normalizes
-    so values sum to 1.0.
-
-    Returns empty dict for fewer than 2 params or less than 2 results.
-    """
-    param_names = list(ranges.keys())
-    if len(param_names) < 2 or len(results) < 2:
-        return {}
-
-    _ranking_metrics = frozenset(
-        {
-            "sharpe_ratio",
-            "sortino_ratio",
-            "total_return",
-            "profit_factor",
-            "win_rate",
-            "calmar_ratio",
-        }
-    )
-    m = metric if metric in _ranking_metrics else "sharpe_ratio"
-
-    sensitivity: dict[str, float] = {}
-    for name in param_names:
-        values = set()
-        scores: dict[float, list[float]] = {}
-        for r in results:
-            if r.error:
-                continue
-            val = r.params.get(name)
-            if val is not None:
-                values.add(val)
-                scores.setdefault(val, []).append(getattr(r, m, 0) or 0)
-        if len(values) < 2:
-            sensitivity[name] = 0.0
-            continue
-        means = [sum(v) / len(v) for v in scores.values()]
-        sensitivity[name] = max(means) - min(means)
-
-    total = sum(sensitivity.values())
-    if total <= 0:
-        return {}
-    return {k: round(v / total, 4) for k, v in sensitivity.items()}

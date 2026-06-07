@@ -27,11 +27,9 @@ class MarginAccountManager:
             initial_cash: Starting capital transferred to margin_account.cash.
         """
         self._config = config
-        self._maint_pct = float(
-            getattr(config, "maintenance_margin_pct", 0.005) or 0.005
-        )
-        self._funding_enabled = bool(getattr(config, "enable_funding", False))
-        self._funding_rate = 0.0001  # default 0.01% per 8h
+        self._maint_pct = config.maintenance_margin_pct
+        self._funding_enabled = config.enable_funding
+        self._funding_rate = config.funding_rate
         self.account = MarginAccount(cash=initial_cash)
 
     # -- Public API -----------------------------------------------------
@@ -110,7 +108,6 @@ class MarginAccountManager:
     def check_margin_call(self, position: BacktestPosition, close: float) -> str | None:
         """Check if position is in margin-call territory.
 
-        Returns "warning" when equity < maintenance margin plus margin_book.
         Returns "liquidation" when price crosses liquidation boundary.
         Returns None when safe.
         """
@@ -120,12 +117,6 @@ class MarginAccountManager:
         entry_price = position.entry_price
         if entry_price <= 0 or abs_size <= 0:
             return None
-        notional = abs_size * entry_price
-        maint_margin = notional * self._maint_pct
-        equity = self.account.equity
-        margin_locked = notional / self._config.leverage_multiplier
-        if equity < margin_locked + maint_margin:
-            return "warning"
         if position.liquidation_price > 0:
             if position.size > 0 and close <= position.liquidation_price:
                 return "liquidation"
