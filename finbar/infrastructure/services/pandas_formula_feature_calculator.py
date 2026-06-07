@@ -5,12 +5,12 @@ from typing import Any
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
-
 from finbar.core.domain.entities.formula_node import FormulaNode
 from finbar.core.domain.interfaces.formula_feature_calculator import (
     FormulaFeatureCalculator,
 )
+
+logger = logging.getLogger(__name__)
 
 _COMPARISON_OPS = frozenset({">", "<", ">=", "<=", "==", "!="})
 _ARITHMETIC_OPS = frozenset({"+", "-", "*", "/"})
@@ -59,6 +59,8 @@ def _parse_node(raw: dict) -> FormulaNode:
         )
     if op in _LOGICAL_OPS:
         children = raw.get("children", raw.get("operands", []))
+        if not children and "left" in raw and "right" in raw:
+            children = [raw["left"], raw["right"]]
         return FormulaNode(
             op=op,
             children=[

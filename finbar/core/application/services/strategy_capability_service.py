@@ -17,6 +17,7 @@ _FEATURE_TYPES = [
     "range_pct",
     "typical_price",
     "ohlc4",
+    "formula",
 ]
 _OPERATORS = [
     "<",
@@ -58,6 +59,46 @@ class StrategyCapabilityService:
             "backtest_calculates_features": True,
             "fields": ["timestamp", "open", "high", "low", "close", "volume"],
             "features": {"supported_types": _FEATURE_TYPES},
+            "side_rules_format": {
+                "canonical": {
+                    "entry": {"condition": {"operator": "is_true", "left": "signal"}},
+                    "exit": {"condition": {"operator": "is_true", "left": "signal"}},
+                },
+                "shorthand_accepted": {
+                    "entry": {"operator": "<", "left": "rsi_14", "right": 30},
+                    "exit": {
+                        "operator": "crosses_above",
+                        "left": "rsi_14",
+                        "right": 55,
+                    },
+                },
+                "condition_operators": [
+                    "<",
+                    ">",
+                    "<=",
+                    ">=",
+                    "==",
+                    "!=",
+                    "crosses_above",
+                    "crosses_below",
+                    "between",
+                    "not_between",
+                    "is_true",
+                    "is_false",
+                    "exists",
+                    "missing",
+                ],
+                "group_kinds": ["all", "any", "not"],
+            },
+            "parameters_format": {
+                "keys": {
+                    "type": "int | float | bool | string",
+                    "default": "required",
+                    "minimum": "optional lower bound (not 'min')",
+                    "maximum": "optional upper bound (not 'max')",
+                    "description": "optional human-readable string",
+                }
+            },
             "multi_timeframe": {
                 "supported": True,
                 "max_informative_timeframes": 3,
