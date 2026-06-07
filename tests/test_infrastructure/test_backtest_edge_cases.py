@@ -518,6 +518,54 @@ class TestExecutionCorrectness:
         assert result["trades"][0]["entry_date"] == "2024-01-01T11:00:00"
 
 
+class TestAnnualizationPolicy:
+    def test_equity_hourly_annualization_uses_regular_hours(self):
+        sig = SignalResult(action="buy", direction="long", position_size=1)
+        result = BacktestRunner().run(
+            _make_flat_df(3),
+            _StaticSignalStrategy(sig),
+            10000,
+            interval="1h",
+            market_calendar="equity_regular_hours",
+        )
+
+        assert result["annualization_factor"] == 252 * 6.5
+        assert result["trust_diagnostics"]["market_calendar"] == (
+            "equity_regular_hours"
+        )
+        assert result["annualization_warning"] == ""
+
+    def test_crypto_hourly_annualization_uses_twenty_four_seven_calendar(self):
+        sig = SignalResult(action="buy", direction="long", position_size=1)
+        result = BacktestRunner().run(
+            _make_flat_df(3),
+            _StaticSignalStrategy(sig),
+            10000,
+            interval="1h",
+            market_calendar="crypto_24_7",
+        )
+
+        assert result["annualization_factor"] == 365 * 24
+        assert result["trust_diagnostics"]["market_calendar"] == "crypto_24_7"
+        assert result["annualization_warning"] == ""
+
+    def test_unknown_interval_reports_annualization_warning(self):
+        sig = SignalResult(action="buy", direction="long", position_size=1)
+        result = BacktestRunner().run(
+            _make_flat_df(3),
+            _StaticSignalStrategy(sig),
+            10000,
+            interval="2h",
+            market_calendar="crypto_24_7",
+        )
+
+        assert result["annualization_factor"] == 365
+        assert "Unknown interval" in result["annualization_warning"]
+        assert (
+            "Unknown interval" in result["trust_diagnostics"]["annualization_warning"]
+        )
+
+
 class TestBacktestDataValidation:
     def test_invalid_high_below_low_returns_error(self):
         sig = SignalResult(action="buy", direction="long")

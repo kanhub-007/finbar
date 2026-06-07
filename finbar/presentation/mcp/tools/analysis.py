@@ -283,6 +283,8 @@ def _backtest_result_to_json(result) -> str:
             "final_value": result.final_value,
             "total_return": result.total_return,
             "annualized_return": result.annualized_return,
+            "annualization_factor": result.annualization_factor,
+            "annualization_warning": result.annualization_warning,
             "total_trades": result.total_trades,
             "winning_trades": result.winning_trades,
             "losing_trades": result.losing_trades,

@@ -35,7 +35,10 @@ def build_result(
     config = execution_config or ExecutionConfig()
     equity_values = [e["value"] for e in state.equity_curve]
     final_value = equity_values[-1] if equity_values else initial_cash
-    annualization_factor, annualization_warning = _annualization_factor(interval)
+    annualization_factor, annualization_warning = _annualization_factor(
+        interval,
+        config.market_calendar,
+    )
 
     daily_returns = (
         calculate_daily_returns(equity_values) if len(equity_values) > 1 else []
@@ -92,6 +95,7 @@ def build_result(
         "total_return": round(total_return, 4),
         "annualized_return": round(annualised_return, 4),
         "annualization_factor": annualization_factor,
+        "annualization_warning": annualization_warning,
         "position_sizing": "risk-based-v3-fill-price",
         "total_trades": total_trades,
         "winning_trades": winning,
@@ -155,14 +159,37 @@ def _diagnostics_to_dicts(items: list[BacktestDiagnostic]) -> list[dict]:
     return [item.to_dict() for item in items]
 
 
-def _annualization_factor(interval: str) -> tuple[float, str]:
+def _annualization_factor(interval: str, market_calendar: str) -> tuple[float, str]:
     """Return approximate periods per year and warning for an interval."""
     normalized = interval.lower().strip()
-    factors = {
+    calendar = (market_calendar or "equity_regular_hours").lower().strip()
+    factors = _calendar_factors(calendar)
+    if normalized in factors:
+        return factors[normalized], ""
+    if not normalized:
+        return factors["1d"], "No interval supplied; annualized metrics use 1d bars."
+    return (
+        factors["1d"],
+        "Unknown interval; annualized metrics use 1d "
+        f"{calendar} calendar assumption.",
+    )
+
+
+def _calendar_factors(market_calendar: str) -> dict[str, float]:
+    """Return annualization factors for a supported market calendar."""
+    if market_calendar == "crypto_24_7":
+        return _crypto_24_7_factors()
+    return _equity_regular_hours_factors()
+
+
+def _equity_regular_hours_factors() -> dict[str, float]:
+    """Return periods/year for regular-hours equity bars."""
+    return {
         "1d": 252.0,
         "1w": 52.0,
         "1h": 252.0 * 6.5,
         "1m": 252.0 * 390.0,
+        "1min": 252.0 * 390.0,
         "5m": 252.0 * 78.0,
         "5min": 252.0 * 78.0,
         "15m": 252.0 * 26.0,
@@ -171,6 +198,21 @@ def _annualization_factor(interval: str) -> tuple[float, str]:
         "30min": 252.0 * 13.0,
         "4h": 252.0 * 1.625,
     }
-    if normalized in factors:
-        return factors[normalized], ""
-    return 252.0, "Unknown interval; annualized metrics use 1d equity assumption."
+
+
+def _crypto_24_7_factors() -> dict[str, float]:
+    """Return periods/year for continuously traded crypto bars."""
+    return {
+        "1d": 365.0,
+        "1w": 365.0 / 7.0,
+        "1h": 365.0 * 24.0,
+        "1m": 365.0 * 24.0 * 60.0,
+        "1min": 365.0 * 24.0 * 60.0,
+        "5m": 365.0 * 24.0 * 12.0,
+        "5min": 365.0 * 24.0 * 12.0,
+        "15m": 365.0 * 24.0 * 4.0,
+        "15min": 365.0 * 24.0 * 4.0,
+        "30m": 365.0 * 24.0 * 2.0,
+        "30min": 365.0 * 24.0 * 2.0,
+        "4h": 365.0 * 6.0,
+    }

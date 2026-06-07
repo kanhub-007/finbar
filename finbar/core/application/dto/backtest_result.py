@@ -48,6 +48,9 @@ class BacktestResultDTO:
     annualization_factor: float = 252.0
     """Number of return periods per year used for annualized metrics."""
 
+    annualization_warning: str = ""
+    """Warning describing fallback annualization assumptions, if any."""
+
     total_trades: int = 0
     """Total number of completed trades."""
 

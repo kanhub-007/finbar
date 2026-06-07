@@ -155,18 +155,29 @@ are zero.
 
 ## Annualization
 
-Periodic returns are annualized using interval-aware factors:
+Periodic returns are annualized using interval- and calendar-aware factors.
+The default market calendar is `equity_regular_hours`:
 
-| Interval | Periods per year |
-|----------|-----------------|
+| Interval | Equity periods per year |
+|----------|-------------------------|
 | `1d` | 252 |
 | `1w` | 52 |
 | `1h` | 1,638 (252 × 6.5) |
 | `30min` | 3,276 (252 × 13) |
 | `5min` | 19,656 (252 × 78) |
 
-These assume standard equity market hours (6.5 hours/day, 252 days/year).
-Crypto markets with 24/7 trading would need different factors.
+For continuously traded crypto, pass `market_calendar="crypto_24_7"`:
+
+| Interval | Crypto periods per year |
+|----------|-------------------------|
+| `1d` | 365 |
+| `1w` | 365 / 7 |
+| `1h` | 8,760 (365 × 24) |
+| `30min` | 17,520 (365 × 24 × 2) |
+| `5min` | 105,120 (365 × 24 × 12) |
+
+If the interval is unknown or omitted, results include an
+`annualization_warning` describing the fallback assumption.
 
 ## Warmup validation
 
