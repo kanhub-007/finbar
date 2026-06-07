@@ -10,7 +10,7 @@ import logging
 
 import pandas as pd
 
-from finbar.core.domain.entities.leverage_config import LeverageConfig
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.core.domain.entities.pending_exit import PendingExit
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
@@ -62,13 +62,13 @@ class BacktestRunner(BacktestEngine):
         first_tradable = str(params.pop("first_tradable", "") or "")
         commission_pct = float(params.pop("commission_pct", 0.0) or 0.0)
         slippage_pct = float(params.pop("slippage_pct", 0.0) or 0.0)
-        leverage_mult = float(params.pop("leverage", 1.0) or 1.0)
-
-        executor = PositionExecutor(
+        execution_config = _execution_config_from_params(
+            params,
             commission_pct,
             slippage_pct,
-            leverage=LeverageConfig(multiplier=leverage_mult),
         )
+
+        executor = PositionExecutor(execution_config=execution_config)
         state = _run_loop(df, strategy, initial_cash, risk_per_trade, executor)
 
         return build_result(
@@ -78,9 +78,41 @@ class BacktestRunner(BacktestEngine):
             interval,
             warmup_bars,
             first_tradable,
-            commission_pct,
-            slippage_pct,
+            execution_config,
         )
+
+
+def _execution_config_from_params(
+    params: dict,
+    commission_pct: float,
+    slippage_pct: float,
+) -> ExecutionConfig:
+    """Build execution config from engine params."""
+    return ExecutionConfig(
+        commission_pct=commission_pct,
+        slippage_pct=slippage_pct,
+        leverage_multiplier=float(params.pop("leverage", 1.0) or 1.0),
+        risk_mode=str(
+            params.pop("risk_mode", "fixed_equity_risk") or "fixed_equity_risk"
+        ),
+        cap_explicit_size=_bool_param(params.pop("cap_explicit_size", True)),
+        reject_oversized_explicit_orders=_bool_param(
+            params.pop("reject_oversized_explicit_orders", False)
+        ),
+        allow_negative_cash=_bool_param(params.pop("allow_negative_cash", False)),
+        market_calendar=str(
+            params.pop("market_calendar", "equity_regular_hours") or ""
+        ),
+    )
+
+
+def _bool_param(value) -> bool:
+    """Parse bool-like params from JSON/MCP payloads."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
 
 
 # ---------------------------------------------------------------------------

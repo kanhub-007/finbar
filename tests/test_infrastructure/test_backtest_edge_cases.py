@@ -420,6 +420,62 @@ class TestExecutionCorrectness:
         assert one_x["final_value"] == 9800.0
         assert three_x["final_value"] == 9800.0
 
+    def test_oversized_explicit_order_can_be_rejected(self):
+        sig = SignalResult(action="buy", direction="long", position_size=500)
+        df = _make_flat_df(3, price=100.0)
+
+        result = BacktestRunner().run(
+            df,
+            _StaticSignalStrategy(sig),
+            10000,
+            reject_oversized_explicit_orders=True,
+        )
+
+        assert result["total_trades"] == 0
+        assert result["final_value"] == 10000
+        assert result["diagnostics"][0]["code"] == "explicit_size_rejected"
+
+    def test_allow_negative_cash_preserves_requested_explicit_size(self):
+        sig = SignalResult(action="buy", direction="long", position_size=500)
+        df = _make_flat_df(3, price=100.0)
+
+        result = BacktestRunner().run(
+            df,
+            _StaticSignalStrategy(sig),
+            10000,
+            allow_negative_cash=True,
+        )
+
+        assert result["total_trades"] == 1
+        assert result["trades"][0]["size"] == 500
+        assert result["diagnostics"] == []
+
+    def test_leverage_scaled_risk_mode_is_explicit(self):
+        sig = SignalResult(action="buy", direction="long", stop_price=90.0)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 90.0],
+                "high": [100.0, 100.0, 90.0],
+                "low": [100.0, 100.0, 90.0],
+                "close": [100.0, 100.0, 90.0],
+                "volume": [1000000, 1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(
+            df,
+            _StaticSignalStrategy(sig),
+            10000,
+            leverage=3,
+            risk_mode="leverage_scaled_risk",
+        )
+
+        assert result["trades"][0]["size"] == 60.0
+        assert result["final_value"] == 9400.0
+        assert result["trust_diagnostics"]["risk_mode"] == "leverage_scaled_risk"
+
     def test_open_position_is_liquidated_on_final_close(self):
         sig = SignalResult(action="buy", direction="long", position_size=10)
         dates = pd.date_range("2024-01-01", periods=3, freq="D")

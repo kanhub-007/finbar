@@ -83,6 +83,12 @@ the requested size. The filled size is still capped by available buying power
 using the effective slipped fill price plus entry commission. When a requested
 size is capped, the result diagnostics include an `affordability_cap` entry.
 
+Explicit-size behavior is controlled by execution config:
+
+- `cap_explicit_size=true` (default): cap oversized explicit orders.
+- `reject_oversized_explicit_orders=true`: reject oversized explicit orders.
+- `allow_negative_cash=true`: allow advanced simulations that overdraw cash.
+
 ### Risk-based sizing (engine default)
 
 When no explicit size is given and a stop price is set:
@@ -94,6 +100,9 @@ size = (portfolio_value * risk_per_trade) / |fill_price - stop_price|
 Sizing uses the **actual next-open fill price**, including entry slippage, not
 the signal-bar open. `risk_per_trade` is fixed-equity risk by default: leverage
 expands buying power, but does not multiply the stop-loss risk budget.
+
+The default `risk_mode` is `fixed_equity_risk`. Advanced users can explicitly
+select `leverage_scaled_risk`, which multiplies the risk budget by leverage.
 
 ### Fallback
 
@@ -175,7 +184,9 @@ indicator and feature columns are eventually valid:
 
 Every backtest result includes a `trust_diagnostics` section documenting the
 active execution model. This makes it possible to audit result quality without
-reading engine source code.
+reading engine source code. Order capping/rejection and other execution issues
+are emitted as structured diagnostics with `severity`, `code`, `date`, and
+`message` fields.
 
 ## Summary table
 

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 
+from finbar.core.domain.entities.backtest_diagnostic import BacktestDiagnostic
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.leverage_config import LeverageConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
@@ -27,11 +29,18 @@ class PositionExecutor:
         commission_pct: float = 0.0,
         slippage_pct: float = 0.0,
         leverage: LeverageConfig | None = None,
+        execution_config: ExecutionConfig | None = None,
     ):
         """Create an executor with per-run cost and leverage settings."""
-        self._commission_pct = commission_pct
-        self._slippage_pct = slippage_pct
-        self._leverage = leverage or LeverageConfig()
+        leverage_multiplier = leverage.multiplier if leverage is not None else 1.0
+        self._config = execution_config or ExecutionConfig(
+            commission_pct=commission_pct,
+            slippage_pct=slippage_pct,
+            leverage_multiplier=leverage_multiplier,
+        )
+        self._commission_pct = self._config.commission_pct
+        self._slippage_pct = self._config.slippage_pct
+        self._leverage = LeverageConfig(multiplier=self._config.leverage_multiplier)
 
     # -- Public API used by the bar loop --------------------------------
 
@@ -214,7 +223,11 @@ class PositionExecutor:
         if entry.explicit_size and entry.position_size > 0:
             return float(entry.position_size)
         if entry.stop_price > 0:
-            risk_amount = portfolio_value * entry.risk_per_trade
+            risk_amount = (
+                portfolio_value
+                * entry.risk_per_trade
+                * self._config.risk_budget_multiplier()
+            )
             risk_per_share = abs(entry_price - entry.stop_price)
             if risk_per_share > 0.001:
                 return risk_amount / risk_per_share
@@ -228,7 +241,7 @@ class PositionExecutor:
         price: float,
     ) -> float:
         """Cap position size to available margin / buying power."""
-        if price <= 0:
+        if price <= 0 or self._config.allow_negative_cash:
             return size
         cap = self._max_affordable_size(state.cash, price)
         if cap <= 0:
@@ -241,15 +254,26 @@ class PositionExecutor:
             )
             return 0.0
         capped = min(size, cap)
-        if capped < size:
+        if capped >= size:
+            return capped
+        if entry.explicit_size and self._should_reject_oversized_explicit_order():
             self._add_diagnostic(
                 state,
-                "order_resized",
-                "affordability_cap",
+                "order_rejected",
+                "explicit_size_rejected",
                 "",
-                f"Requested size {size:.8f} capped to {capped:.8f}.",
-                {"requested_size": size, "filled_size": capped},
+                f"Explicit size {size:.8f} exceeds max affordable {cap:.8f}.",
+                {"requested_size": size, "max_affordable_size": cap},
             )
+            return 0.0
+        self._add_diagnostic(
+            state,
+            "order_resized",
+            "affordability_cap",
+            "",
+            f"Requested size {size:.8f} capped to {capped:.8f}.",
+            {"requested_size": size, "filled_size": capped},
+        )
         return capped
 
     def _open_position(
@@ -443,6 +467,13 @@ class PositionExecutor:
             return 0.0
         return abs(gross) * self._commission_pct
 
+    def _should_reject_oversized_explicit_order(self) -> bool:
+        """Return True when oversized explicit orders should be rejected."""
+        return (
+            self._config.reject_oversized_explicit_orders
+            or not self._config.cap_explicit_size
+        )
+
     @staticmethod
     def _add_diagnostic(
         state: BacktestLoopState,
@@ -453,15 +484,15 @@ class PositionExecutor:
         extra: dict | None = None,
     ) -> None:
         """Append a structured backtest diagnostic to loop state."""
-        diagnostic = {
-            "severity": severity,
-            "code": code,
-            "date": date,
-            "message": message,
-        }
-        if extra:
-            diagnostic.update(extra)
-        state.diagnostics.append(diagnostic)
+        state.diagnostics.append(
+            BacktestDiagnostic(
+                severity=severity,
+                code=code,
+                date=date,
+                message=message,
+                metadata=extra or {},
+            )
+        )
 
     # -- Private: intrabar exit resolution ------------------------------
 

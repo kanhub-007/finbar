@@ -6,6 +6,8 @@ output dict. No side effects, no pandas, no framework dependencies.
 
 from __future__ import annotations
 
+from finbar.core.domain.entities.backtest_diagnostic import BacktestDiagnostic
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.core.domain.services.backtest_metrics import (
     calculate_annualised_return,
@@ -27,10 +29,10 @@ def build_result(
     interval: str = "",
     warmup_bars: int = 0,
     first_tradable: str = "",
-    commission_pct: float = 0.0,
-    slippage_pct: float = 0.0,
+    execution_config: ExecutionConfig | None = None,
 ) -> dict:
     """Compute metrics and assemble the backtest result dict."""
+    config = execution_config or ExecutionConfig()
     equity_values = [e["value"] for e in state.equity_curve]
     final_value = equity_values[-1] if equity_values else initial_cash
     annualization_factor, annualization_warning = _annualization_factor(interval)
@@ -111,8 +113,8 @@ def build_result(
         "cash": round(state.cash, 2),
         "ending_position_size": ending_position_size,
         "reconciliation_error": reconciliation_error,
-        "commission_pct": round(commission_pct, 6),
-        "slippage_pct": round(slippage_pct, 6),
+        "commission_pct": round(config.commission_pct, 6),
+        "slippage_pct": round(config.slippage_pct, 6),
         "trades": state.trades,
         "equity_curve": state.equity_curve,
         "trust_diagnostics": {
@@ -125,19 +127,32 @@ def build_result(
             "exit_model": "next_bar_open",
             "cost_model": (
                 "commission_and_slippage"
-                if commission_pct > 0 or slippage_pct > 0
+                if config.commission_pct > 0 or config.slippage_pct > 0
                 else "zero_cost"
             ),
             "warmup_bars": warmup_bars,
             "first_tradable": first_tradable,
-            "commission_pct": round(commission_pct, 6),
-            "slippage_pct": round(slippage_pct, 6),
+            "commission_pct": round(config.commission_pct, 6),
+            "slippage_pct": round(config.slippage_pct, 6),
+            "risk_mode": config.risk_mode,
+            "leverage": config.leverage_multiplier,
+            "cap_explicit_size": config.cap_explicit_size,
+            "reject_oversized_explicit_orders": (
+                config.reject_oversized_explicit_orders
+            ),
+            "allow_negative_cash": config.allow_negative_cash,
+            "market_calendar": config.market_calendar,
             "annualization_factor": annualization_factor,
             "annualization_warning": annualization_warning,
-            "diagnostics": state.diagnostics,
+            "diagnostics": _diagnostics_to_dicts(state.diagnostics),
         },
-        "diagnostics": state.diagnostics,
+        "diagnostics": _diagnostics_to_dicts(state.diagnostics),
     }
+
+
+def _diagnostics_to_dicts(items: list[BacktestDiagnostic]) -> list[dict]:
+    """Return JSON-serializable diagnostic dictionaries."""
+    return [item.to_dict() for item in items]
 
 
 def _annualization_factor(interval: str) -> tuple[float, str]:

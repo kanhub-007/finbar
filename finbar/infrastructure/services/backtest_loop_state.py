@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from finbar.core.domain.entities.backtest_diagnostic import BacktestDiagnostic
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.core.domain.entities.pending_exit import PendingExit
 from finbar.infrastructure.services.backtest_position import BacktestPosition
@@ -36,4 +37,4 @@ class BacktestLoopState:
         self.total_commission: float = 0.0
         self.total_slippage: float = 0.0
         self.used_margin: float = 0.0
-        self.diagnostics: list[dict] = []
+        self.diagnostics: list[BacktestDiagnostic] = []
