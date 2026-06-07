@@ -47,6 +47,9 @@ class StubStrategyProvider(StrategyProvider):
 class StubEngine:
     """Returns a fixed result dict."""
 
+    def __init__(self):
+        self.params_seen = None
+
     def run(
         self,
         df,
@@ -54,6 +57,7 @@ class StubEngine:
         initial_cash: float = 10000.0,
         **params,
     ) -> dict:
+        self.params_seen = params
         return {
             "strategy_name": strategy.meta().name,
             "symbol": "",
@@ -165,6 +169,43 @@ class TestRunBacktestUseCase:
         )
         assert result.error is None
         assert provider.params_seen == {"fast_period": 5, "slow_period": 10}
+
+    def test_execution_controls_forwarded_to_engine(self):
+        bars = [
+            {
+                "timestamp": "2024-01-01",
+                "open": 100,
+                "high": 105,
+                "low": 98,
+                "close": 102,
+                "volume": 1000000,
+            }
+        ]
+
+        result = self.use_case.execute(
+            BacktestRequest(
+                bars=bars,
+                strategy_name="stub",
+                leverage=3,
+                risk_mode="leverage_scaled_risk",
+                commission_pct=0.001,
+                slippage_pct=0.002,
+                cap_explicit_size=False,
+                reject_oversized_explicit_orders=True,
+                allow_negative_cash=True,
+                market_calendar="crypto_24_7",
+            )
+        )
+
+        assert result.error is None
+        assert self.engine.params_seen["leverage"] == 3
+        assert self.engine.params_seen["risk_mode"] == "leverage_scaled_risk"
+        assert self.engine.params_seen["commission_pct"] == 0.001
+        assert self.engine.params_seen["slippage_pct"] == 0.002
+        assert self.engine.params_seen["cap_explicit_size"] is False
+        assert self.engine.params_seen["reject_oversized_explicit_orders"] is True
+        assert self.engine.params_seen["allow_negative_cash"] is True
+        assert self.engine.params_seen["market_calendar"] == "crypto_24_7"
 
     def test_symbol_interval_passthrough(self):
         bars = [

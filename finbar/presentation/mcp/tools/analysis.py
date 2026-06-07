@@ -142,6 +142,13 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         params_json: str = "{}",
         initial_cash: float = 10000.0,
         leverage: float = 1.0,
+        risk_mode: str = "fixed_equity_risk",
+        commission_pct: float = 0.0,
+        slippage_pct: float = 0.0,
+        cap_explicit_size: bool = True,
+        reject_oversized_explicit_orders: bool = False,
+        allow_negative_cash: bool = False,
+        market_calendar: str = "equity_regular_hours",
     ) -> str:
         """Run a backtest and return structured results.
 
@@ -153,6 +160,13 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             params_json: JSON string with strategy parameters.
             initial_cash: Starting capital.
             leverage: Leverage multiplier. 1.0 = spot, 3.0 = 3x.
+            risk_mode: fixed_equity_risk or leverage_scaled_risk.
+            commission_pct: Percentage commission per side as decimal.
+            slippage_pct: Directional slippage percentage as decimal.
+            cap_explicit_size: Cap explicit strategy sizes to buying power.
+            reject_oversized_explicit_orders: Reject oversized explicit orders.
+            allow_negative_cash: Allow cash overdrafts for advanced simulations.
+            market_calendar: equity_regular_hours or crypto_24_7.
 
         Returns:
             JSON string with BacktestResultDTO fields.
@@ -182,6 +196,13 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                     params=params,
                     initial_cash=initial_cash,
                     leverage=leverage,
+                    risk_mode=risk_mode,
+                    commission_pct=commission_pct,
+                    slippage_pct=slippage_pct,
+                    cap_explicit_size=cap_explicit_size,
+                    reject_oversized_explicit_orders=(reject_oversized_explicit_orders),
+                    allow_negative_cash=allow_negative_cash,
+                    market_calendar=market_calendar,
                 )
             )
             return _backtest_result_to_json(result)

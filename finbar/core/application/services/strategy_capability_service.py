@@ -59,6 +59,27 @@ class StrategyCapabilityService:
             "backtest_calculates_features": True,
             "fields": ["timestamp", "open", "high", "low", "close", "volume"],
             "features": {"supported_types": _FEATURE_TYPES},
+            "execution_controls": {
+                "risk_per_trade": "Fraction of equity risked at protective stop.",
+                "leverage": "Buying-power multiplier; default 1.0 spot.",
+                "risk_mode": ["fixed_equity_risk", "leverage_scaled_risk"],
+                "commission_pct": "Per-side commission percentage as decimal.",
+                "slippage_pct": "Directional fill slippage percentage as decimal.",
+                "cap_explicit_size": "Cap explicit position_size to buying power.",
+                "reject_oversized_explicit_orders": (
+                    "Reject oversized explicit orders instead of capping."
+                ),
+                "allow_negative_cash": (
+                    "Allow cash overdrafts only for advanced simulations."
+                ),
+                "market_calendar": ["equity_regular_hours", "crypto_24_7"],
+            },
+            "result_diagnostics": {
+                "trust_diagnostics": "Execution model and assumption metadata.",
+                "diagnostics": "Structured order capping/rejection diagnostics.",
+                "reconciliation_error": "Final value reconciliation check.",
+                "annualization_warning": "Metric annualization fallback warning.",
+            },
             "side_rules_format": {
                 "canonical": {
                     "entry": {"condition": {"operator": "is_true", "left": "signal"}},
