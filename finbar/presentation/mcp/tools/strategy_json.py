@@ -154,7 +154,9 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "pass informative_bars_json or informative_bars_artifact_ids_json. "
             "You MUST call compute_indicators (and optionally compute_signals) "
             "on each timeframe BEFORE this tool. "
-            "Returns: total_return, sharpe_ratio, max_drawdown, win_rate, "
+            "Supports execution controls including leverage, risk mode, "
+            "commission, slippage, and explicit-size policy. Returns: "
+            "total_return, sharpe_ratio, max_drawdown, win_rate, "
             "profit_factor, trades (entry/exit dates, prices, PnL, direction), "
             "and equity_curve (date, close, value, drawdown, position)."
         ),
@@ -168,6 +170,13 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         initial_cash: float = 10000.0,
         risk_per_trade: float = 0.02,
         leverage: float = 1.0,
+        risk_mode: str = "fixed_equity_risk",
+        commission_pct: float = 0.0,
+        slippage_pct: float = 0.0,
+        cap_explicit_size: bool = True,
+        reject_oversized_explicit_orders: bool = False,
+        allow_negative_cash: bool = False,
+        market_calendar: str = "equity_regular_hours",
         informative_bars_json: str = "",
         bars_artifact_id: str = "",
         informative_bars_artifact_ids_json: str = "{}",
@@ -200,6 +209,13 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
                 initial_cash=initial_cash,
                 risk_per_trade=risk_per_trade,
                 leverage=leverage,
+                risk_mode=risk_mode,
+                commission_pct=commission_pct,
+                slippage_pct=slippage_pct,
+                cap_explicit_size=cap_explicit_size,
+                reject_oversized_explicit_orders=reject_oversized_explicit_orders,
+                allow_negative_cash=allow_negative_cash,
+                market_calendar=market_calendar,
                 informative_bars=informative_bars,
                 bars_artifact_id=bars_artifact_id,
                 informative_bars_artifact_ids=informative_artifacts,
