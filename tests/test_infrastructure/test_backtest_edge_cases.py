@@ -110,8 +110,8 @@ def _make_flat_df(periods: int = 20, price: float = 100.0) -> pd.DataFrame:
 
 
 class TestPositionSizing:
-    def test_strategy_provided_size_used(self):
-        """When strategy sets position_size, engine uses it directly."""
+    def test_strategy_provided_size_capped_to_affordability(self):
+        """Explicit position_size is capped when cash cannot support it."""
         sig = SignalResult(
             action="buy",
             direction="long",
@@ -134,7 +134,11 @@ class TestPositionSizing:
         result = runner.run(df, _StaticSignalStrategy(sig), 10000)
         assert result["total_trades"] > 0
         for trade in result["trades"]:
-            assert trade["size"] == 500
+            assert trade["size"] <= 500
+            assert trade["size"] <= 10000 / trade["entry_price"]
+        assert any(
+            item["code"] == "affordability_cap" for item in result["diagnostics"]
+        )
 
     def test_risk_based_sizing_no_stop(self):
         """Without stop, falls back to default 100 shares."""
@@ -351,7 +355,70 @@ class TestExecutionCorrectness:
 
         assert result["total_trades"] == 1
         assert result["trades"][0]["entry_price"] == 200.0
-        assert result["trades"][0]["size"] == 1
+        assert result["trades"][0]["size"] == 200 / (200 - 90)
+
+    def test_commission_changes_gross_winner_into_net_loser(self):
+        sig = SignalResult(action="buy", direction="long", position_size=100)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 100.05],
+                "high": [100.0, 100.0, 100.05],
+                "low": [100.0, 100.0, 100.05],
+                "close": [100.0, 100.0, 100.05],
+                "volume": [1000000, 1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        result = BacktestRunner().run(
+            df, _StaticSignalStrategy(sig), 10000, commission_pct=0.001
+        )
+
+        trade = result["trades"][0]
+        assert trade["gross_pnl"] > 0
+        assert trade["pnl"] < 0
+        assert result["winning_trades"] == 0
+        assert result["losing_trades"] == 1
+        assert result["final_value"] < 10000
+
+    def test_entry_and_exit_slippage_are_both_counted(self):
+        sig = SignalResult(action="buy", direction="long", position_size=100)
+        df = _make_flat_df(3, price=100.0)
+
+        result = BacktestRunner().run(
+            df, _StaticSignalStrategy(sig), 10000, slippage_pct=0.01
+        )
+
+        trade = result["trades"][0]
+        assert trade["entry_price"] == 101.0
+        assert trade["exit_price"] == 99.0
+        assert result["total_slippage"] == 198.02
+        assert result["final_value"] == 9801.98
+
+    def test_leverage_does_not_multiply_fixed_equity_risk(self):
+        sig = SignalResult(action="buy", direction="long", stop_price=90.0)
+        dates = pd.date_range("2024-01-01", periods=3, freq="D")
+        df = pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 90.0],
+                "high": [100.0, 100.0, 90.0],
+                "low": [100.0, 100.0, 90.0],
+                "close": [100.0, 100.0, 90.0],
+                "volume": [1000000, 1000000, 1000000],
+            },
+            index=dates,
+        )
+
+        one_x = BacktestRunner().run(df, _StaticSignalStrategy(sig), 10000)
+        three_x = BacktestRunner().run(
+            df, _StaticSignalStrategy(sig), 10000, leverage=3
+        )
+
+        assert one_x["trades"][0]["size"] == 20.0
+        assert three_x["trades"][0]["size"] == 20.0
+        assert one_x["final_value"] == 9800.0
+        assert three_x["final_value"] == 9800.0
 
     def test_open_position_is_liquidated_on_final_close(self):
         sig = SignalResult(action="buy", direction="long", position_size=10)

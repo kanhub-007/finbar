@@ -87,8 +87,23 @@ class BacktestResultDTO:
     total_commission: float = 0.0
     """Total absolute commission costs across all trades."""
 
+    total_fees: float = 0.0
+    """Total fee costs across all trades."""
+
     total_slippage: float = 0.0
     """Total absolute slippage impact across all trades."""
+
+    realized_pnl: float = 0.0
+    """Net realized PnL across closed trades."""
+
+    cash: float = 0.0
+    """Ending cash balance after all settlements."""
+
+    ending_position_size: float = 0.0
+    """Open position size at the end of the result."""
+
+    reconciliation_error: float = 0.0
+    """Difference between final value and initial cash plus realized PnL."""
 
     commission_pct: float = 0.0
     """Commission percentage used for this backtest."""
@@ -108,6 +123,9 @@ class BacktestResultDTO:
     """Execution-model assumptions active during this backtest.
     Includes fill model, lookahead safety, cost model, warmup, and
     annualization metadata."""
+
+    diagnostics: list[dict] = field(default_factory=list)
+    """Structured execution diagnostics such as capped or rejected orders."""
 
     error: str | None = None
     """Error message if the backtest failed."""

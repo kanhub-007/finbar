@@ -69,26 +69,31 @@ Any open position at the end of the backtest is **liquidated at the final
 bar's close** with reason `end_of_backtest`. This ensures:
 
 - Total trades reflect all position activity.
-- Final equity reconciles: `cash = initial_cash + sum(trade_pnl) - total_commission ± total_slippage`.
+- Trade `pnl` is net of entry and exit commissions.
+- Final equity reconciles with `initial_cash + sum(net_trade_pnl)` for
+  liquidated backtests.
 - Open positions do not silently inflate returns.
 
 ## Position sizing
 
 ### Explicit size
 
-If the strategy provides `position_size > 0`, the engine uses that value.
-Cash constraints still apply unless `explicit_size` is set.
+If the strategy provides `position_size > 0`, the engine treats that value as
+the requested size. The filled size is still capped by available buying power
+using the effective slipped fill price plus entry commission. When a requested
+size is capped, the result diagnostics include an `affordability_cap` entry.
 
 ### Risk-based sizing (engine default)
 
 When no explicit size is given and a stop price is set:
 
 ```
-size = floor((portfolio_value * risk_per_trade) / |fill_price - stop_price|)
+size = (portfolio_value * risk_per_trade) / |fill_price - stop_price|
 ```
 
-Sizing uses the **actual next-open fill price**, not the signal-bar open.
-This prevents risk misestimation from overnight gaps.
+Sizing uses the **actual next-open fill price**, including entry slippage, not
+the signal-bar open. `risk_per_trade` is fixed-equity risk by default: leverage
+expands buying power, but does not multiply the stop-loss risk budget.
 
 ### Fallback
 
@@ -121,6 +126,9 @@ Applied as a percentage of trade gross value per side. Deducted from cash:
 - Exit (long): `cash += proceeds - commission`
 - Exit (short): `cash -= cost + commission`
 
+Closed trades record both `gross_pnl` and `net_pnl`. The canonical trade
+`pnl`, win/loss counts, win rate, and profit factor all use net PnL.
+
 ### Slippage
 
 Applied directionally to fill prices:
@@ -133,7 +141,8 @@ Applied directionally to fill prices:
 | Short | Exit | `price * (1 + slippage_pct)` |
 
 Costs are tracked cumulatively as `total_commission` and `total_slippage`.
-Both default to zero.
+`total_slippage` includes both entry and exit slippage impact. Both defaults
+are zero.
 
 ## Annualization
 
@@ -158,8 +167,9 @@ indicator and feature columns are eventually valid:
 1. The first bar where all required columns are non-NaN is the **first
    tradable bar**.
 2. Warmup bars before this point are counted and reported.
-3. If required columns are never all valid (all rows NaN), the backtest
-   still executes but produces zero trades with diagnostics.
+3. If required columns are never all valid, or become missing again after the
+   first tradable bar, JSON strategy backtests are rejected before execution
+   with structured validation errors.
 
 ## Diagnostics
 

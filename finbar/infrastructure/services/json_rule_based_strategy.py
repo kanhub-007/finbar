@@ -44,21 +44,27 @@ class JsonRuleBasedStrategy(TradingStrategy):
         """Evaluate the strategy rules for one enriched OHLCV bar."""
         direction = str(position.get("direction", ""))
         size = float(position.get("size", 0) or 0)
+        pending_values: PrevValues = {}
 
         if size != 0:
-            return self._exit_signal(bar, direction)
-        return self._entry_signal(bar)
+            signal = self._exit_signal(bar, direction, pending_values)
+        else:
+            signal = self._entry_signal(bar, pending_values)
+        self._evaluator.commit(self._previous_values, pending_values)
+        return signal
 
     def on_reset(self) -> None:
         """Reset crossover state before a backtest run."""
         self._previous_values.clear()
 
-    def _entry_signal(self, bar: dict) -> SignalResult:
+    def _entry_signal(self, bar: dict, pending_values: PrevValues) -> SignalResult:
         for side in ("long", "short"):
             rules = self._definition.sides.get(side)
             if rules is None:
                 continue
-            if self._evaluator.evaluate(rules.entry, bar, self._previous_values):
+            if self._evaluator.evaluate(
+                rules.entry, bar, self._previous_values, pending_values
+            ):
                 stop, target = self._risk_calculator.calculate(
                     self._definition.risk,
                     bar,
@@ -73,11 +79,15 @@ class JsonRuleBasedStrategy(TradingStrategy):
                 )
         return SignalResult(action="hold")
 
-    def _exit_signal(self, bar: dict, direction: str) -> SignalResult:
+    def _exit_signal(
+        self, bar: dict, direction: str, pending_values: PrevValues
+    ) -> SignalResult:
         rules = self._definition.sides.get(direction)
         if rules is None or rules.exit is None:
             return SignalResult(action="hold")
-        if not self._evaluator.evaluate(rules.exit, bar, self._previous_values):
+        if not self._evaluator.evaluate(
+            rules.exit, bar, self._previous_values, pending_values
+        ):
             return SignalResult(action="hold")
         return SignalResult(
             action="sell" if direction == "long" else "buy",

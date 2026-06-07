@@ -141,6 +141,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         interval: str = "",
         params_json: str = "{}",
         initial_cash: float = 10000.0,
+        leverage: float = 1.0,
     ) -> str:
         """Run a backtest and return structured results.
 
@@ -151,6 +152,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             interval: Bar interval (e.g. "1d", "1h").
             params_json: JSON string with strategy parameters.
             initial_cash: Starting capital.
+            leverage: Leverage multiplier. 1.0 = spot, 3.0 = 3x.
 
         Returns:
             JSON string with BacktestResultDTO fields.
@@ -179,6 +181,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                     interval=interval,
                     params=params,
                     initial_cash=initial_cash,
+                    leverage=leverage,
                 )
             )
             return _backtest_result_to_json(result)

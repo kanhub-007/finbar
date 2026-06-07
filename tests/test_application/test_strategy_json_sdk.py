@@ -1213,7 +1213,7 @@ class TestWarmupAndRequiredData:
             )
         )
 
-        assert result.valid is True
-        assert result.result is not None
-        assert result.result.total_trades == 0
-        assert result.result.first_tradable == ""
+        assert result.valid is False
+        assert result.result is None
+        assert result.errors[0].code == "no_tradable_bars"
+        assert "sma_20" in result.missing_columns

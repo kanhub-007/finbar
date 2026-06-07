@@ -33,7 +33,7 @@ def build_result(
     """Compute metrics and assemble the backtest result dict."""
     equity_values = [e["value"] for e in state.equity_curve]
     final_value = equity_values[-1] if equity_values else initial_cash
-    annualization_factor = _annualization_factor(interval)
+    annualization_factor, annualization_warning = _annualization_factor(interval)
 
     daily_returns = (
         calculate_daily_returns(equity_values) if len(equity_values) > 1 else []
@@ -68,6 +68,11 @@ def build_result(
     total_trades = len(state.trades)
     win_rate = winning / total_trades if total_trades > 0 else 0.0
 
+    realized_pnl = sum(t["pnl"] for t in state.trades)
+    total_fees = state.total_commission
+    ending_position_size = state.position.size
+    reconciliation_error = round(final_value - initial_cash - realized_pnl, 2)
+
     meta = strategy.meta()
     dates = [e["date"] for e in state.equity_curve]
     start_date = dates[0] if dates else ""
@@ -100,7 +105,12 @@ def build_result(
         "warmup_bars": warmup_bars,
         "first_tradable": first_tradable,
         "total_commission": round(state.total_commission, 2),
+        "total_fees": round(total_fees, 2),
         "total_slippage": round(state.total_slippage, 2),
+        "realized_pnl": round(realized_pnl, 2),
+        "cash": round(state.cash, 2),
+        "ending_position_size": ending_position_size,
+        "reconciliation_error": reconciliation_error,
         "commission_pct": round(commission_pct, 6),
         "slippage_pct": round(slippage_pct, 6),
         "trades": state.trades,
@@ -109,6 +119,8 @@ def build_result(
             "gap_aware_fills": True,
             "lookahead_safe_mtf": True,
             "liquidated_on_close": True,
+            "net_trade_metrics": True,
+            "entry_slippage_accounted": True,
             "entry_model": "next_bar_open",
             "exit_model": "next_bar_open",
             "cost_model": (
@@ -121,18 +133,29 @@ def build_result(
             "commission_pct": round(commission_pct, 6),
             "slippage_pct": round(slippage_pct, 6),
             "annualization_factor": annualization_factor,
+            "annualization_warning": annualization_warning,
+            "diagnostics": state.diagnostics,
         },
+        "diagnostics": state.diagnostics,
     }
 
 
-def _annualization_factor(interval: str) -> float:
-    """Return approximate periods per year for the supplied bar interval."""
+def _annualization_factor(interval: str) -> tuple[float, str]:
+    """Return approximate periods per year and warning for an interval."""
     normalized = interval.lower().strip()
     factors = {
         "1d": 252.0,
         "1w": 52.0,
         "1h": 252.0 * 6.5,
-        "30min": 252.0 * 13.0,
+        "1m": 252.0 * 390.0,
+        "5m": 252.0 * 78.0,
         "5min": 252.0 * 78.0,
+        "15m": 252.0 * 26.0,
+        "15min": 252.0 * 26.0,
+        "30m": 252.0 * 13.0,
+        "30min": 252.0 * 13.0,
+        "4h": 252.0 * 1.625,
     }
-    return factors.get(normalized, 252.0)
+    if normalized in factors:
+        return factors[normalized], ""
+    return 252.0, "Unknown interval; annualized metrics use 1d equity assumption."

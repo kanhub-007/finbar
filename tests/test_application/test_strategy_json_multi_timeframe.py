@@ -145,10 +145,10 @@ def test_backtest_does_not_leak_same_day_daily_bar_into_intraday():
         )
     )
 
-    assert result.valid is True
-    assert result.result is not None
-    assert result.result.total_trades == 0
-    assert result.result.final_value == 10000.0
+    assert result.valid is False
+    assert result.result is None
+    assert result.errors[0].code == "no_tradable_bars"
+    assert "sma_50_1d" in result.missing_columns
 
 
 def _make_use_case() -> BacktestStrategyDefinitionUseCase:

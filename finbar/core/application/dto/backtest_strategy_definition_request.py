@@ -38,5 +38,8 @@ class BacktestStrategyDefinitionRequest:
     risk_per_trade: float = 0.02
     """Fraction of portfolio to risk per trade (0.0-1.0). Default 2%."""
 
+    leverage: float = 1.0
+    """Leverage multiplier. 1.0 = spot, 3.0 = 3x. Default 1.0."""
+
     params: dict[str, Any] = field(default_factory=dict)
     """Runtime strategy parameter overrides."""

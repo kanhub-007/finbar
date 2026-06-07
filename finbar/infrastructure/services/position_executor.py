@@ -1,21 +1,22 @@
-"""PositionExecutor — entry, exit, stop/target, cost, and sizing logic.
+"""PositionExecutor — entry, exit, stop/target, cost, margin, and sizing logic.
 
 All position-mutation functions live here. The executor is instantiated
-per run with cost parameters so the bar loop does not need to thread
-commission and slippage through every call site.
+per run with cost and leverage parameters so the bar loop does not need
+to thread commission, slippage, and margin through every call site.
 """
 
 from __future__ import annotations
 
 import logging
 
+from finbar.core.domain.entities.leverage_config import LeverageConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
 from finbar.infrastructure.services.backtest_position import BacktestPosition
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_POSITION_SIZE = 100
+_DEFAULT_POSITION_SIZE = 100.0
 
 
 class PositionExecutor:
@@ -25,10 +26,12 @@ class PositionExecutor:
         self,
         commission_pct: float = 0.0,
         slippage_pct: float = 0.0,
+        leverage: LeverageConfig | None = None,
     ):
-        """Create an executor with per-run cost settings."""
+        """Create an executor with per-run cost and leverage settings."""
         self._commission_pct = commission_pct
         self._slippage_pct = slippage_pct
+        self._leverage = leverage or LeverageConfig()
 
     # -- Public API used by the bar loop --------------------------------
 
@@ -40,64 +43,20 @@ class PositionExecutor:
         date: str,
     ) -> None:
         """Enter a new position from a pending entry signal."""
-        if not self._protective_stop_valid(entry, price):
-            logger.info(
-                "[ENTRY-SKIP] %s | %s | price=%.2f invalid stop=%.2f",
+        fill_price = self._apply_slippage(price, entry.direction, "entry")
+        if not self._entry_stop_valid(entry, fill_price, date):
+            return
+        size = self._resolve_entry_size(state, entry, fill_price)
+        if size <= 0:
+            self._add_diagnostic(
+                state,
+                "order_rejected",
+                "entry_size_zero",
                 date,
-                entry.direction.upper(),
-                price,
-                entry.stop_price,
+                "Entry skipped because resolved position size was zero.",
             )
             return
-
-        size = self._resolve_size(entry, price, self._portfolio_value(state, price))
-        if size <= 0:
-            return
-
-        cash_before = state.cash
-        if not entry.explicit_size and entry.direction == "long" and price > 0:
-            max_affordable = int(state.cash / price) if state.cash > 0 else 0
-            if max_affordable <= 0:
-                return
-            size = min(size, max_affordable)
-
-        fill_price = self._apply_slippage(price, entry.direction, "entry")
-        cost = size * fill_price
-        commission = self._commission(cost)
-        state.total_commission += commission
-        state.total_slippage += abs(fill_price - price) * size
-
-        if entry.direction == "long":
-            state.cash -= cost + commission
-            state.position = BacktestPosition()
-            state.position.size = size
-            state.position.direction = "long"
-        elif entry.direction == "short":
-            state.cash += cost - commission
-            state.position = BacktestPosition()
-            state.position.size = -size
-            state.position.direction = "short"
-        else:
-            return
-
-        state.position.entry_price = fill_price
-        state.position.entry_date = date
-        state.position.stop_price = entry.stop_price
-        state.position.target_price = entry.target_price
-        logger.info(
-            "[ENTRY] %s | %s | price=%.2f size=%s cost=%.2f | "
-            "cash: %.2f->%.2f (d=%.2f) | stop=%.2f target=%.2f",
-            date,
-            entry.direction.upper(),
-            fill_price,
-            size,
-            cost,
-            cash_before,
-            state.cash,
-            state.cash - cash_before,
-            entry.stop_price,
-            entry.target_price,
-        )
+        self._open_position(state, entry, size, price, fill_price, date)
 
     def exit_position(
         self,
@@ -119,45 +78,45 @@ class PositionExecutor:
         state.total_commission += commission
         state.total_slippage += abs(fill_price - exit_price) * abs_size
 
-        if state.position.size > 0:
-            pnl = (fill_price - entry_price) * abs_size
-            state.cash += fill_cost - commission
-        else:
-            pnl = (entry_price - fill_price) * abs_size
-            state.cash -= fill_cost + commission
-
-        pnl_pct = (
-            pnl / (entry_price * abs_size) if entry_price > 0 and abs_size > 0 else 0.0
+        gross_pnl = self._calc_pnl(
+            state.position.size, entry_price, fill_price, abs_size
         )
-        state.trades.append(
-            {
-                "entry_date": entry_date,
-                "exit_date": bar_date,
-                "entry_price": entry_price,
-                "exit_price": fill_price,
-                "size": abs_size,
-                "pnl": round(pnl, 2),
-                "pnl_pct": round(pnl_pct, 4),
-                "duration_bars": state.position.bars_held,
-                "metadata": {"direction": direction, "exit_reason": exit_reason},
-            }
+        entry_commission = state.position.entry_commission
+        net_pnl = gross_pnl - entry_commission - commission
+        state.cash += self._cash_settlement(state.position.size, fill_cost, commission)
+        self._release_margin(state, abs_size, entry_price)
+        self._record_trade(
+            state,
+            entry_date,
+            bar_date,
+            entry_price,
+            fill_price,
+            abs_size,
+            gross_pnl,
+            net_pnl,
+            entry_commission,
+            commission,
+            direction,
+            exit_reason,
         )
         logger.info(
             "[EXIT]  %s | %s | exit=%.2f entry=%.2f size=%s | "
-            "PnL=%.2f (%.2f%%) | cash: %.2f->%.2f (d=%.2f) | "
-            "bars=%d reason=%s",
+            "NetPnL=%.2f GrossPnL=%.2f (%.2f%%) | "
+            "cash: %.2f->%.2f (d=%.2f) | bars=%d reason=%s margin=%.2f",
             bar_date,
             direction.upper(),
             exit_price,
             entry_price,
             abs_size,
-            pnl,
-            pnl_pct * 100,
+            net_pnl,
+            gross_pnl,
+            (net_pnl / (entry_price * abs_size) * 100) if entry_price > 0 else 0,
             cash_before,
             state.cash,
             state.cash - cash_before,
             state.position.bars_held,
             exit_reason,
+            state.used_margin,
         )
         state.position.reset()
 
@@ -169,8 +128,12 @@ class PositionExecutor:
         low: float,
         bar_date: str,
     ) -> None:
-        """Check gap-aware stop-loss and take-profit for the open position."""
+        """Check stop-loss, take-profit, and liquidation for the open position."""
         state.position.bars_held += 1
+
+        if self._check_liquidation(state, high, low, bar_date):
+            return
+
         fill = self._resolve_intrabar_exit(state.position, open_price, high, low)
         if fill is not None:
             exit_price, reason = fill
@@ -204,7 +167,241 @@ class PositionExecutor:
     def portfolio_value(state: BacktestLoopState, close: float) -> float:
         return PositionExecutor._portfolio_value(state, close)
 
-    # -- Private helpers -------------------------------------------------
+    # -- Private: entry helpers -----------------------------------------
+
+    def _entry_stop_valid(self, entry: PendingEntry, price: float, date: str) -> bool:
+        """Validate stop direction and (if leveraged) liquidation boundary."""
+        if entry.stop_price <= 0:
+            return True
+        if entry.direction == "long" and entry.stop_price >= price:
+            self._log_skip(date, entry, price, "stop above entry")
+            return False
+        if entry.direction == "short" and entry.stop_price <= price:
+            self._log_skip(date, entry, price, "stop below entry")
+            return False
+        if not self._leverage.is_spot:
+            liq = self._leverage.liquidation_price(price, entry.direction)
+            if not self._leverage.validate_stop(
+                entry.stop_price, price, entry.direction
+            ):
+                logger.warning(
+                    "[ENTRY-SKIP] %s | %s | price=%.2f stop=%.2f "
+                    "beyond liquidation=%.2f (L=%.0fx)",
+                    date,
+                    entry.direction.upper(),
+                    price,
+                    entry.stop_price,
+                    liq,
+                    self._leverage.multiplier,
+                )
+                return False
+        return True
+
+    def _resolve_entry_size(
+        self, state: BacktestLoopState, entry: PendingEntry, price: float
+    ) -> float:
+        """Compute position size and apply affordability cap."""
+        portfolio = self._portfolio_value(state, price)
+        size = self._calc_risk_size(entry, portfolio, price)
+        if size <= 0:
+            return 0.0
+        return self._apply_affordability_cap(state, entry, size, price)
+
+    def _calc_risk_size(
+        self, entry: PendingEntry, portfolio_value: float, entry_price: float
+    ) -> float:
+        """Size position based on risk budget."""
+        if entry.explicit_size and entry.position_size > 0:
+            return float(entry.position_size)
+        if entry.stop_price > 0:
+            risk_amount = portfolio_value * entry.risk_per_trade
+            risk_per_share = abs(entry_price - entry.stop_price)
+            if risk_per_share > 0.001:
+                return risk_amount / risk_per_share
+        return _DEFAULT_POSITION_SIZE
+
+    def _apply_affordability_cap(
+        self,
+        state: BacktestLoopState,
+        entry: PendingEntry,
+        size: float,
+        price: float,
+    ) -> float:
+        """Cap position size to available margin / buying power."""
+        if price <= 0:
+            return size
+        cap = self._max_affordable_size(state.cash, price)
+        if cap <= 0:
+            self._add_diagnostic(
+                state,
+                "order_rejected",
+                "insufficient_cash",
+                "",
+                "Entry skipped because no buying power was available.",
+            )
+            return 0.0
+        capped = min(size, cap)
+        if capped < size:
+            self._add_diagnostic(
+                state,
+                "order_resized",
+                "affordability_cap",
+                "",
+                f"Requested size {size:.8f} capped to {capped:.8f}.",
+                {"requested_size": size, "filled_size": capped},
+            )
+        return capped
+
+    def _open_position(
+        self,
+        state: BacktestLoopState,
+        entry: PendingEntry,
+        size: float,
+        raw_price: float,
+        fill_price: float,
+        date: str,
+    ) -> None:
+        """Create the position, update cash and margin."""
+        cost = size * fill_price
+        commission = self._commission(cost)
+        entry_slippage = abs(fill_price - raw_price) * size
+        state.total_commission += commission
+        state.total_slippage += entry_slippage
+
+        cash_before = state.cash
+        if entry.direction == "long":
+            state.cash -= cost + commission
+            state.position = BacktestPosition()
+            state.position.size = size
+            state.position.direction = "long"
+        elif entry.direction == "short":
+            state.cash += cost - commission
+            state.position = BacktestPosition()
+            state.position.size = -size
+            state.position.direction = "short"
+        else:
+            return
+
+        state.position.entry_price = fill_price
+        state.position.entry_date = date
+        state.position.stop_price = entry.stop_price
+        state.position.target_price = entry.target_price
+        state.position.entry_commission = commission
+        state.position.entry_slippage = entry_slippage
+        state.position.liquidation_price = self._leverage.liquidation_price(
+            fill_price, entry.direction
+        )
+        margin = self._leverage.margin_required(cost)
+        state.used_margin += margin
+
+        logger.info(
+            "[ENTRY] %s | %s | price=%.2f size=%s cost=%.2f margin=%.2f | "
+            "cash: %.2f->%.2f (d=%.2f) | stop=%.2f target=%.2f liq=%.2f",
+            date,
+            entry.direction.upper(),
+            fill_price,
+            size,
+            cost,
+            margin,
+            cash_before,
+            state.cash,
+            state.cash - cash_before,
+            entry.stop_price,
+            entry.target_price,
+            state.position.liquidation_price,
+        )
+
+    # -- Private: exit helpers ------------------------------------------
+
+    def _check_liquidation(
+        self, state: BacktestLoopState, high: float, low: float, date: str
+    ) -> bool:
+        """Check and execute liquidation if price crosses the boundary.
+        Returns True when liquidation occurred."""
+        if self._leverage.is_spot or state.position.size == 0:
+            return False
+        liq = state.position.liquidation_price
+        if state.position.size > 0 and low <= liq:
+            self.exit_position(state, liq, date, exit_reason="liquidation")
+            return True
+        if state.position.size < 0 and high >= liq:
+            self.exit_position(state, liq, date, exit_reason="liquidation")
+            return True
+        return False
+
+    @staticmethod
+    def _calc_pnl(
+        size: float, entry_price: float, exit_price: float, abs_size: float
+    ) -> float:
+        if size > 0:
+            return (exit_price - entry_price) * abs_size
+        return (entry_price - exit_price) * abs_size
+
+    @staticmethod
+    def _cash_settlement(size: float, fill_cost: float, commission: float) -> float:
+        if size > 0:
+            return fill_cost - commission
+        return -(fill_cost + commission)
+
+    def _release_margin(
+        self, state: BacktestLoopState, abs_size: float, entry_price: float
+    ) -> None:
+        if not self._leverage.is_spot and entry_price > 0:
+            released = self._leverage.margin_required(abs_size * entry_price)
+            state.used_margin = max(0.0, state.used_margin - released)
+
+    @staticmethod
+    def _record_trade(
+        state: BacktestLoopState,
+        entry_date: str,
+        exit_date: str,
+        entry_price: float,
+        exit_price: float,
+        abs_size: float,
+        gross_pnl: float,
+        net_pnl: float,
+        entry_commission: float,
+        exit_commission: float,
+        direction: str,
+        exit_reason: str,
+    ) -> None:
+        pnl_pct = (
+            net_pnl / (entry_price * abs_size)
+            if entry_price > 0 and abs_size > 0
+            else 0.0
+        )
+        total_commission = entry_commission + exit_commission
+        state.trades.append(
+            {
+                "entry_date": entry_date,
+                "exit_date": exit_date,
+                "entry_price": round(entry_price, 8),
+                "exit_price": round(exit_price, 8),
+                "size": abs_size,
+                "pnl": round(net_pnl, 2),
+                "net_pnl": round(net_pnl, 2),
+                "gross_pnl": round(gross_pnl, 2),
+                "entry_commission": round(entry_commission, 2),
+                "exit_commission": round(exit_commission, 2),
+                "total_commission": round(total_commission, 2),
+                "pnl_pct": round(pnl_pct, 4),
+                "duration_bars": state.position.bars_held,
+                "metadata": {"direction": direction, "exit_reason": exit_reason},
+            }
+        )
+
+    @staticmethod
+    def _log_skip(date: str, entry: PendingEntry, price: float, reason: str) -> None:
+        logger.info(
+            "[ENTRY-SKIP] %s | %s | price=%.2f stop=%.2f | %s",
+            date,
+            entry.direction.upper(),
+            price,
+            entry.stop_price,
+            reason,
+        )
+
+    # -- Private: portfolio / cost helpers ------------------------------
 
     @staticmethod
     def _portfolio_value(state: BacktestLoopState, close: float) -> float:
@@ -215,31 +412,6 @@ class PositionExecutor:
             return state.cash - abs(state.position.size) * close
         return state.cash
 
-    @staticmethod
-    def _protective_stop_valid(entry: PendingEntry, entry_price: float) -> bool:
-        if entry.stop_price <= 0:
-            return True
-        if entry.direction == "long":
-            return entry.stop_price < entry_price
-        if entry.direction == "short":
-            return entry.stop_price > entry_price
-        return False
-
-    @staticmethod
-    def _resolve_size(
-        entry: PendingEntry,
-        entry_price: float,
-        portfolio_value: float,
-    ) -> int:
-        if entry.explicit_size and entry.position_size > 0:
-            return entry.position_size
-        if entry.stop_price > 0:
-            risk_amount = portfolio_value * entry.risk_per_trade
-            risk_per_share = abs(entry_price - entry.stop_price)
-            if risk_per_share > 0.001:
-                return max(1, int(risk_amount / risk_per_share))
-        return _DEFAULT_POSITION_SIZE
-
     def _apply_slippage(
         self,
         price: float,
@@ -248,26 +420,50 @@ class PositionExecutor:
     ) -> float:
         if self._slippage_pct <= 0:
             return price
-        if direction == "long":
-            factor = (
-                1.0 + self._slippage_pct
-                if side == "entry"
-                else 1.0 - self._slippage_pct
-            )
-        elif direction == "short":
-            factor = (
-                1.0 - self._slippage_pct
-                if side == "entry"
-                else 1.0 + self._slippage_pct
-            )
-        else:
-            return price
+        factor = {
+            ("long", "entry"): 1.0 + self._slippage_pct,
+            ("long", "exit"): 1.0 - self._slippage_pct,
+            ("short", "entry"): 1.0 - self._slippage_pct,
+            ("short", "exit"): 1.0 + self._slippage_pct,
+        }.get((direction, side), 1.0)
         return price * factor
+
+    def _max_affordable_size(self, cash: float, fill_price: float) -> float:
+        """Return max size after accounting for leverage and entry commission."""
+        if fill_price <= 0:
+            return 0.0
+        effective_price = fill_price * (1.0 + max(self._commission_pct, 0.0))
+        if effective_price <= 0:
+            return 0.0
+        buying_power = cash * self._leverage.multiplier
+        return max(0.0, buying_power / effective_price)
 
     def _commission(self, gross: float) -> float:
         if self._commission_pct <= 0:
             return 0.0
         return abs(gross) * self._commission_pct
+
+    @staticmethod
+    def _add_diagnostic(
+        state: BacktestLoopState,
+        severity: str,
+        code: str,
+        date: str,
+        message: str,
+        extra: dict | None = None,
+    ) -> None:
+        """Append a structured backtest diagnostic to loop state."""
+        diagnostic = {
+            "severity": severity,
+            "code": code,
+            "date": date,
+            "message": message,
+        }
+        if extra:
+            diagnostic.update(extra)
+        state.diagnostics.append(diagnostic)
+
+    # -- Private: intrabar exit resolution ------------------------------
 
     @staticmethod
     def _resolve_intrabar_exit(
@@ -300,11 +496,9 @@ class PositionExecutor:
             return open_price, "stop_loss_gap"
         if target > 0 and open_price >= target:
             return open_price, "take_profit_gap"
-        stop_hit = stop > 0 and low <= stop
-        target_hit = target > 0 and high >= target
-        if stop_hit:
+        if stop > 0 and low <= stop:
             return stop, "stop_loss"
-        if target_hit:
+        if target > 0 and high >= target:
             return target, "take_profit"
         return None
 
@@ -320,10 +514,8 @@ class PositionExecutor:
             return open_price, "stop_loss_gap"
         if target > 0 and open_price <= target:
             return open_price, "take_profit_gap"
-        stop_hit = stop > 0 and high >= stop
-        target_hit = target > 0 and low <= target
-        if stop_hit:
+        if stop > 0 and high >= stop:
             return stop, "stop_loss"
-        if target_hit:
+        if target > 0 and low <= target:
             return target, "take_profit"
         return None

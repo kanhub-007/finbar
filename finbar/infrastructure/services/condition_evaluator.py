@@ -10,6 +10,7 @@ from finbar.core.domain.entities.condition_group import ConditionGroup
 from finbar.core.domain.entities.operand import Operand
 
 PrevValues = dict[str, tuple[float, float]]
+PendingValues = dict[str, tuple[float, float]]
 
 
 class ConditionEvaluator:
@@ -20,19 +21,48 @@ class ConditionEvaluator:
         group: ConditionGroup | None,
         bar: dict,
         previous_values: PrevValues,
+        pending_values: PendingValues | None = None,
     ) -> bool:
         """Evaluate a nested condition group against one enriched bar."""
+        own_pending = pending_values is None
+        current_values = pending_values if pending_values is not None else {}
+        result = self._evaluate_group(group, bar, previous_values, current_values)
+        if own_pending:
+            self.commit(previous_values, current_values)
+        return result
+
+    def commit(
+        self,
+        previous_values: PrevValues,
+        pending_values: PendingValues,
+    ) -> None:
+        """Commit crossover values collected during one bar evaluation."""
+        previous_values.update(pending_values)
+
+    def _evaluate_group(
+        self,
+        group: ConditionGroup | None,
+        bar: dict,
+        previous_values: PrevValues,
+        pending_values: PendingValues,
+    ) -> bool:
+        """Evaluate a condition group using a per-bar crossover snapshot."""
         if group is None:
             return False
         if group.kind in ("all", "any"):
             results = [
-                self.evaluate(child, bar, previous_values) for child in group.children
+                self._evaluate_group(child, bar, previous_values, pending_values)
+                for child in group.children
             ]
             return all(results) if group.kind == "all" else any(results)
         if group.kind == "not":
-            return not self.evaluate(group.children[0], bar, previous_values)
+            return not self._evaluate_group(
+                group.children[0], bar, previous_values, pending_values
+            )
         if group.kind == "condition" and group.condition is not None:
-            return self._evaluate_condition(group.condition, bar, previous_values)
+            return self._evaluate_condition(
+                group.condition, bar, previous_values, pending_values
+            )
         return False
 
     def _evaluate_condition(
@@ -40,6 +70,7 @@ class ConditionEvaluator:
         condition: Condition,
         bar: dict,
         previous_values: PrevValues,
+        pending_values: PendingValues,
     ) -> bool:
         left = self._resolve_operand(condition.left, bar)
         operator = condition.operator
@@ -69,7 +100,9 @@ class ConditionEvaluator:
         if operator in ("<", ">", "<=", ">=", "==", "!="):
             return self._compare(left_number, operator, right_number)
         if operator in ("crosses_above", "crosses_below"):
-            return self._crossed(condition, left_number, right_number, previous_values)
+            return self._crossed(
+                condition, left_number, right_number, previous_values, pending_values
+            )
         return False
 
     @staticmethod
@@ -131,11 +164,12 @@ class ConditionEvaluator:
         left: float,
         right: float,
         previous_values: PrevValues,
+        pending_values: PendingValues,
     ) -> bool:
         right_label = condition.right.label if condition.right is not None else ""
         key = f"{condition.left.label}:{right_label}:{condition.operator}"
         previous = previous_values.get(key)
-        previous_values[key] = (left, right)
+        pending_values[key] = (left, right)
         if previous is None:
             return False
         previous_left, previous_right = previous

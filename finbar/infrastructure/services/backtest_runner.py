@@ -10,6 +10,7 @@ import logging
 
 import pandas as pd
 
+from finbar.core.domain.entities.leverage_config import LeverageConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.core.domain.entities.pending_exit import PendingExit
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
@@ -61,8 +62,13 @@ class BacktestRunner(BacktestEngine):
         first_tradable = str(params.pop("first_tradable", "") or "")
         commission_pct = float(params.pop("commission_pct", 0.0) or 0.0)
         slippage_pct = float(params.pop("slippage_pct", 0.0) or 0.0)
+        leverage_mult = float(params.pop("leverage", 1.0) or 1.0)
 
-        executor = PositionExecutor(commission_pct, slippage_pct)
+        executor = PositionExecutor(
+            commission_pct,
+            slippage_pct,
+            leverage=LeverageConfig(multiplier=leverage_mult),
+        )
         state = _run_loop(df, strategy, initial_cash, risk_per_trade, executor)
 
         return build_result(

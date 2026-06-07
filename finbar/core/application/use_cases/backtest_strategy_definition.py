@@ -142,6 +142,18 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         warmup = validate_required_data(frame, validation.required_columns)
+        warmup_errors = _warmup_errors(warmup)
+        if warmup_errors:
+            return BacktestStrategyDefinitionResult(
+                valid=False,
+                errors=warmup_errors,
+                required_indicators=validation.required_indicators,
+                primary_required_indicators=validation.primary_required_indicators,
+                informative_required_indicators=(
+                    validation.informative_required_indicators
+                ),
+                missing_columns=warmup.get("missing_after_warmup", []),
+            )
 
         return _run_backtest(
             request,
@@ -246,12 +258,16 @@ def _run_backtest(
     warmup: dict | None = None,
 ) -> BacktestStrategyDefinitionResult:
     strategy = strategy_factory.create(validation.definition)
+    executable_frame = frame
+    if warmup and warmup.get("warmup_bars", 0) > 0:
+        executable_frame = frame.iloc[int(warmup["warmup_bars"]) :]
     try:
         raw_result = engine.run(
-            df=frame,
+            df=executable_frame,
             strategy=strategy,
             initial_cash=request.initial_cash,
             risk_per_trade=request.risk_per_trade,
+            leverage=request.leverage,
             interval=request.interval,
             warmup_bars=warmup.get("warmup_bars", 0) if warmup else 0,
             first_tradable=warmup.get("first_tradable", "") if warmup else "",
@@ -306,6 +322,30 @@ def _missing_columns(bars: list[dict], required: list[str]) -> list[str]:
     for bar in bars:
         available.update(bar.keys())
     return [column for column in required if column not in available]
+
+
+def _warmup_errors(warmup: dict) -> list[StrategyValidationError]:
+    """Convert required-data warmup diagnostics into blocking errors."""
+    errors: list[StrategyValidationError] = []
+    if warmup.get("no_tradable_bars"):
+        errors.append(
+            _err(
+                "$.bars",
+                "No tradable bars remain after indicator/feature warmup.",
+                "no_tradable_bars",
+            )
+        )
+    missing = warmup.get("missing_after_warmup", [])
+    if missing:
+        errors.append(
+            _err(
+                "$.bars",
+                "Required columns contain missing values after warmup: "
+                + ", ".join(missing),
+                "missing_after_warmup",
+            )
+        )
+    return errors
 
 
 def _err(path: str, message: str, code: str) -> StrategyValidationError:

@@ -31,3 +31,6 @@ class BacktestRequest:
 
     initial_cash: float = 10000.0
     """Starting capital."""
+
+    leverage: float = 1.0
+    """Leverage multiplier. 1.0 = spot."""

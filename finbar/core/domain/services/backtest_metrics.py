@@ -30,8 +30,9 @@ def calculate_sharpe(
     if n < 2:
         return 0.0
 
+    periodic_risk_free_rate = risk_free_rate / annualization_factor
     mean_all = sum(daily_returns) / n
-    mean_ret = mean_all - risk_free_rate
+    mean_ret = mean_all - periodic_risk_free_rate
     variance = sum((r - mean_all) ** 2 for r in daily_returns) / (n - 1)
     std_ret = math.sqrt(variance) if variance > 0 else 0.0
 
@@ -59,8 +60,13 @@ def calculate_sortino(
     if n < 2:
         return 0.0
 
-    mean_ret = sum(daily_returns) / n - risk_free_rate
-    downside = [r for r in daily_returns if r < 0]
+    periodic_risk_free_rate = risk_free_rate / annualization_factor
+    mean_ret = sum(daily_returns) / n - periodic_risk_free_rate
+    downside = [
+        r - periodic_risk_free_rate
+        for r in daily_returns
+        if r < periodic_risk_free_rate
+    ]
 
     if not downside:
         return 0.0
