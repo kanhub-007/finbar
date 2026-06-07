@@ -1,6 +1,7 @@
 """Strategy JSON SDK MCP tools for strategies."""
 
 import json
+from dataclasses import asdict
 
 from fastmcp import FastMCP
 
@@ -26,6 +27,7 @@ from finbar.startup.service_factory import (
     _make_delete_strategy_definition_use_case,
     _make_explain_strategy_definition_use_case,
     _make_save_strategy_definition_use_case,
+    _make_store_backtest_result_use_case,
     _make_validate_strategy_definition_use_case,
 )
 
@@ -156,10 +158,10 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             "You MUST call compute_indicators (and optionally compute_signals) "
             "on each timeframe BEFORE this tool. "
             "Supports execution controls including leverage, risk mode, "
-            "commission, slippage, and explicit-size policy. Returns: "
-            "total_return, sharpe_ratio, max_drawdown, win_rate, "
-            "profit_factor, trades (entry/exit dates, prices, PnL, direction), "
-            "and equity_curve (date, close, value, drawdown, position)."
+            "commission, slippage, and explicit-size policy. Stores the full "
+            "result server-side and returns a compact summary with result_id "
+            "by default. Use get_backtest_trades() and get_backtest_equity() "
+            "for paginated details. Set detail_level='full' only for export."
         ),
     )
     def backtest_strategy_json(
@@ -183,6 +185,7 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
         informative_bars_json: str = "",
         bars_artifact_id: str = "",
         informative_bars_artifact_ids_json: str = "{}",
+        detail_level: str = "summary",
     ) -> str:
         """Backtest a strategy using bars supplied by the agent or artifact id."""
         bars = _loads_array(bars_json, "bars_json") if bars_json else []
@@ -228,7 +231,11 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
                 informative_bars_artifact_ids=informative_artifacts,
             )
         )
-        return json.dumps(StrategyJsonPresenter().backtest_result(result), indent=2)
+        return json.dumps(
+            _strategy_backtest_response(result, detail_level),
+            indent=2,
+            default=str,
+        )
 
     @mcp.tool(
         name="save_strategy_json",
@@ -303,6 +310,31 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             )
         finally:
             db.close()
+
+
+def _strategy_backtest_response(result, detail_level: str) -> dict:
+    """Return validation metadata plus a compact stored backtest response."""
+    payload = {
+        "valid": result.valid,
+        "required_indicators": result.required_indicators,
+        "primary_required_indicators": result.primary_required_indicators,
+        "informative_required_indicators": result.informative_required_indicators,
+        "missing_columns": result.missing_columns,
+        "errors": [
+            StrategyJsonPresenter().diagnostic(error) for error in result.errors
+        ],
+        "result": None,
+    }
+    if result.result is None:
+        return payload
+    stored = _make_store_backtest_result_use_case().execute(
+        asdict(result.result),
+        detail_level,
+    )
+    payload["result_id"] = stored.result_id
+    payload["result"] = stored.response
+    payload["store_error"] = stored.error
+    return payload
 
 
 def _loads_object(raw: str, name: str) -> dict:

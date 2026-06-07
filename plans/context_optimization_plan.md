@@ -20,12 +20,26 @@ Optimize Finbar's MCP interface for AI agents by reducing large JSON dumps while
 - Updated the MCP usage guide to prefer artifact discovery and selective bar queries.
 - Added persistence/query/retention tests.
 
+### Completed in Phase 2 Slice
+
+- Added server-side in-memory backtest result store.
+- Added compact backtest response envelopes with `result_id`.
+- Updated `run_backtest`, `merge_and_backtest`, and `backtest_strategy_json` to return summary responses by default while retaining full results server-side.
+- Added MCP tools:
+  - `list_backtest_results`
+  - `get_backtest_summary`
+  - `get_backtest_trades`
+  - `get_backtest_equity`
+- Added paginated/sortable trade access.
+- Added downsampled equity access modes: `none`, `daily`, `weekly`, `drawdown_events`, `page`, `full`.
+- Updated the MCP usage guide to document compact result workflows.
+- Added compact result access tests.
+
 ### Remaining
 
-- Compact backtest result summaries with `result_id`.
-- Paginated trade/equity access.
 - Strategy pipeline orchestration.
 - Query-optimized artifact storage beyond JSON blobs.
+- Optional persistent backtest result storage beyond in-memory cache.
 
 ## Core Principle
 

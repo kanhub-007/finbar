@@ -41,6 +41,15 @@ from finbar.core.application.use_cases.explain_strategy_definition import (
     ExplainStrategyDefinitionUseCase,
 )
 from finbar.core.application.use_cases.fetch_prices import FetchPricesUseCase
+from finbar.core.application.use_cases.get_backtest_equity import (
+    GetBacktestEquityUseCase,
+)
+from finbar.core.application.use_cases.get_backtest_summary import (
+    GetBacktestSummaryUseCase,
+)
+from finbar.core.application.use_cases.get_backtest_trades import (
+    GetBacktestTradesUseCase,
+)
 from finbar.core.application.use_cases.get_indicator_job_progress import (
     GetIndicatorJobProgressUseCase,
 )
@@ -56,6 +65,9 @@ from finbar.core.application.use_cases.get_optimization_job_results import (
 )
 from finbar.core.application.use_cases.get_symbol_info import GetSymbolInfoUseCase
 from finbar.core.application.use_cases.list_artifacts import ListArtifactsUseCase
+from finbar.core.application.use_cases.list_backtest_results import (
+    ListBacktestResultsUseCase,
+)
 from finbar.core.application.use_cases.list_cached_symbols import (
     ListCachedSymbolsUseCase,
 )
@@ -80,6 +92,9 @@ from finbar.core.application.use_cases.start_optimization_job import (
 )
 from finbar.core.application.use_cases.start_walk_forward_job import (
     StartWalkForwardJobUseCase,
+)
+from finbar.core.application.use_cases.store_backtest_result import (
+    StoreBacktestResultUseCase,
 )
 from finbar.core.application.use_cases.validate_strategy_definition import (
     ValidateStrategyDefinitionUseCase,
@@ -110,6 +125,9 @@ from finbar.infrastructure.services.database_strategy_provider import (
 from finbar.infrastructure.services.fetch_job_manager import FetchJobManager
 from finbar.infrastructure.services.grid_search_optimizer import (
     GridSearchOptimizer,
+)
+from finbar.infrastructure.services.in_memory_backtest_result_store import (
+    InMemoryBacktestResultStore,
 )
 from finbar.infrastructure.services.in_memory_indicator_job_manager import (
     InMemoryIndicatorJobManager,
@@ -165,6 +183,7 @@ _hl_fetcher: object | None = None
 _job_manager: FetchJobManager | None = None
 _indicator_job_manager: InMemoryIndicatorJobManager | None = None
 _indicator_job_runner: CachedPriceIndicatorJobRunner | None = None
+_backtest_result_store: InMemoryBacktestResultStore | None = None
 _optimization_job_manager: InMemoryOptimizationJobManager | None = None
 _optimizer: GridSearchOptimizer | None = None
 _walk_forward_optimizer: WalkForwardOptimizer | None = None
@@ -481,6 +500,39 @@ def _make_run_backtest_use_case(db: Session | None = None) -> RunBacktestUseCase
         _make_strategy_provider(db),
         _get_bar_frame_converter(),
     )
+
+
+def _get_backtest_result_store() -> InMemoryBacktestResultStore:
+    """Return the shared server-side backtest result store."""
+    global _backtest_result_store
+    if _backtest_result_store is None:
+        _backtest_result_store = InMemoryBacktestResultStore()
+    return _backtest_result_store
+
+
+def _make_store_backtest_result_use_case() -> StoreBacktestResultUseCase:
+    """Create a use case for storing compact-access backtest results."""
+    return StoreBacktestResultUseCase(_get_backtest_result_store())
+
+
+def _make_list_backtest_results_use_case() -> ListBacktestResultsUseCase:
+    """Create a use case for listing stored backtest results."""
+    return ListBacktestResultsUseCase(_get_backtest_result_store())
+
+
+def _make_get_backtest_summary_use_case() -> GetBacktestSummaryUseCase:
+    """Create a use case for retrieving stored backtest summaries."""
+    return GetBacktestSummaryUseCase(_get_backtest_result_store())
+
+
+def _make_get_backtest_trades_use_case() -> GetBacktestTradesUseCase:
+    """Create a use case for retrieving stored backtest trades."""
+    return GetBacktestTradesUseCase(_get_backtest_result_store())
+
+
+def _make_get_backtest_equity_use_case() -> GetBacktestEquityUseCase:
+    """Create a use case for retrieving stored backtest equity."""
+    return GetBacktestEquityUseCase(_get_backtest_result_store())
 
 
 def _make_run_portfolio_backtest_use_case(

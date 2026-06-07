@@ -5,6 +5,7 @@ The AI client composes: get_cached_prices → apply_indicators → run_backtest.
 
 import json
 import logging
+from dataclasses import asdict
 
 from fastmcp import FastMCP
 
@@ -17,8 +18,13 @@ from finbar.startup.service_factory import (
     _get_db,
     _get_indicator_calculator,
     _make_apply_indicators_use_case,
+    _make_get_backtest_equity_use_case,
+    _make_get_backtest_summary_use_case,
+    _make_get_backtest_trades_use_case,
+    _make_list_backtest_results_use_case,
     _make_run_backtest_use_case,
     _make_run_portfolio_backtest_use_case,
+    _make_store_backtest_result_use_case,
     _resolve_strategy,
 )
 
@@ -27,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 def register_analysis_tools(mcp: FastMCP) -> None:
     """Register indicator and backtest MCP tools."""
+    _register_backtest_result_tools(mcp)
 
     @mcp.tool(
         name="apply_indicators",
@@ -128,12 +135,11 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "and optional strategy parameters as a JSON object. "
             "Works with both built-in strategies (sma_crossover, "
             "rsi_mean_reversion, momentum_breakout, auction_drive) "
-            "and saved JSON strategies. Returns full performance "
-            "metrics: total_return, annualized_return, sharpe_ratio, "
-            "sortino_ratio, max_drawdown, win_rate, profit_factor, "
-            "calmar_ratio, trades list (entry/exit dates, prices, "
-            "PnL, direction), and equity_curve (date, close, value, "
-            "drawdown, position)."
+            "and saved JSON strategies. Stores the full result server-side "
+            "and returns a compact summary by default with result_id. "
+            "Use get_backtest_trades() and get_backtest_equity() to page "
+            "large details on demand. Set detail_level='full' only when "
+            "explicitly exporting/debugging."
         ),
     )
     def run_backtest(
@@ -153,6 +159,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         market_calendar: str = "equity_regular_hours",
         borrow_fee_annual_pct: float = 0.0,
         margin_mode: str = "simplified",
+        detail_level: str = "summary",
     ) -> str:
         """Run a backtest and return structured results.
 
@@ -215,7 +222,8 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                     initial_cash=initial_cash,
                 )
             )
-            return _backtest_result_to_json(result)
+            result_dict = _backtest_result_to_dict(result)
+            return _store_backtest_response(result_dict, detail_level)
         finally:
             db.close()
 
@@ -238,6 +246,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         symbol: str = "",
         interval: str = "",
         initial_cash: float = 10000.0,
+        detail_level: str = "summary",
     ) -> str:
         try:
             primary_bars = json.loads(primary_bars_json)
@@ -270,34 +279,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         raw["symbol"] = symbol
         raw["interval"] = interval
 
-        return json.dumps(
-            {
-                "strategy_name": raw.get("strategy_name", ""),
-                "symbol": raw.get("symbol", ""),
-                "interval": raw.get("interval", ""),
-                "start_date": raw.get("start_date", ""),
-                "end_date": raw.get("end_date", ""),
-                "bar_count": raw.get("bar_count", 0),
-                "initial_cash": raw.get("initial_cash", 0),
-                "final_value": raw.get("final_value", 0),
-                "total_return": raw.get("total_return", 0),
-                "annualized_return": raw.get("annualized_return"),
-                "total_trades": raw.get("total_trades", 0),
-                "winning_trades": raw.get("winning_trades", 0),
-                "losing_trades": raw.get("losing_trades", 0),
-                "win_rate": raw.get("win_rate", 0),
-                "max_drawdown": raw.get("max_drawdown", 0),
-                "sharpe_ratio": raw.get("sharpe_ratio", 0),
-                "sortino_ratio": raw.get("sortino_ratio", 0),
-                "profit_factor": raw.get("profit_factor"),
-                "calmar_ratio": raw.get("calmar_ratio", 0),
-                "trades": raw.get("trades", []),
-                "equity_curve": raw.get("equity_curve", []),
-                "error": raw.get("error"),
-            },
-            indent=2,
-            default=str,
-        )
+        return _store_backtest_response(raw, detail_level)
 
     @mcp.tool(
         name="run_portfolio_backtest",
@@ -382,51 +364,134 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         )
 
 
-def _backtest_result_to_json(result) -> str:
-    """Serialize a BacktestResultDTO for MCP responses."""
-    return json.dumps(
-        {
-            "strategy_name": result.strategy_name,
-            "symbol": result.symbol,
-            "interval": result.interval,
-            "start_date": result.start_date,
-            "end_date": result.end_date,
-            "bar_count": result.bar_count,
-            "initial_cash": result.initial_cash,
-            "final_value": result.final_value,
-            "total_return": result.total_return,
-            "annualized_return": result.annualized_return,
-            "annualization_factor": result.annualization_factor,
-            "annualization_warning": result.annualization_warning,
-            "total_trades": result.total_trades,
-            "winning_trades": result.winning_trades,
-            "losing_trades": result.losing_trades,
-            "win_rate": result.win_rate,
-            "max_drawdown": result.max_drawdown,
-            "sharpe_ratio": result.sharpe_ratio,
-            "sortino_ratio": result.sortino_ratio,
-            "profit_factor": result.profit_factor,
-            "calmar_ratio": result.calmar_ratio,
-            "total_commission": result.total_commission,
-            "total_borrow_cost": result.total_borrow_cost,
-            "total_fees": result.total_fees,
-            "total_slippage": result.total_slippage,
-            "realized_pnl": result.realized_pnl,
-            "cash": result.cash,
-            "ending_position_size": result.ending_position_size,
-            "reconciliation_error": result.reconciliation_error,
-            "commission_pct": result.commission_pct,
-            "slippage_pct": result.slippage_pct,
-            "trust_diagnostics": result.trust_diagnostics,
-            "diagnostics": result.diagnostics,
-            "analytics": result.analytics,
-            "trades": result.trades,
-            "equity_curve": result.equity_curve,
-            "error": result.error,
-        },
-        indent=2,
-        default=str,
+def _register_backtest_result_tools(mcp: FastMCP) -> None:
+    @mcp.tool(
+        name="list_backtest_results",
+        description=(
+            "List server-side stored backtest results without returning large "
+            "trades or equity curves. Optional filters: symbol, strategy_name."
+        ),
     )
+    def list_backtest_results(
+        symbol: str | None = None,
+        strategy_name: str | None = None,
+        limit: int = 20,
+    ) -> str:
+        result = _make_list_backtest_results_use_case().execute(
+            symbol,
+            strategy_name,
+            limit,
+        )
+        return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="get_backtest_summary",
+        description=(
+            "Return a compact summary envelope for a stored backtest result. "
+            "Use detail_level='sample' for small first/last samples or "
+            "detail_level='full' only for explicit export/debug."
+        ),
+    )
+    def get_backtest_summary(result_id: str, detail_level: str = "summary") -> str:
+        result = _make_get_backtest_summary_use_case().execute(
+            result_id,
+            detail_level,
+        )
+        return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="get_backtest_trades",
+        description=(
+            "Return a sorted page of trades for a stored backtest result. "
+            "Useful for scalp strategies with thousands of trades."
+        ),
+    )
+    def get_backtest_trades(
+        result_id: str,
+        page: int = 0,
+        page_size: int = 50,
+        sort_by: str = "entry_date",
+        sort_dir: str = "asc",
+    ) -> str:
+        result = _make_get_backtest_trades_use_case().execute(
+            result_id,
+            page,
+            page_size,
+            sort_by,
+            sort_dir,
+        )
+        return json.dumps(asdict(result), indent=2, default=str)
+
+    @mcp.tool(
+        name="get_backtest_equity",
+        description=(
+            "Return downsampled or paginated equity points for a stored "
+            "backtest result. Modes: none, daily, weekly, drawdown_events, "
+            "page, full. Use full only for explicit export/debug."
+        ),
+    )
+    def get_backtest_equity(
+        result_id: str,
+        mode: str = "daily",
+        page: int = 0,
+        page_size: int = 500,
+    ) -> str:
+        result = _make_get_backtest_equity_use_case().execute(
+            result_id,
+            mode,
+            page,
+            page_size,
+        )
+        return json.dumps(asdict(result), indent=2, default=str)
+
+
+def _store_backtest_response(result: dict, detail_level: str) -> str:
+    """Store a full result server-side and return a compact MCP response."""
+    stored = _make_store_backtest_result_use_case().execute(result, detail_level)
+    return json.dumps(asdict(stored), indent=2, default=str)
+
+
+def _backtest_result_to_dict(result) -> dict:
+    """Serialize a BacktestResultDTO into a plain dictionary."""
+    return {
+        "strategy_name": result.strategy_name,
+        "symbol": result.symbol,
+        "interval": result.interval,
+        "start_date": result.start_date,
+        "end_date": result.end_date,
+        "bar_count": result.bar_count,
+        "initial_cash": result.initial_cash,
+        "final_value": result.final_value,
+        "total_return": result.total_return,
+        "annualized_return": result.annualized_return,
+        "annualization_factor": result.annualization_factor,
+        "annualization_warning": result.annualization_warning,
+        "total_trades": result.total_trades,
+        "winning_trades": result.winning_trades,
+        "losing_trades": result.losing_trades,
+        "win_rate": result.win_rate,
+        "max_drawdown": result.max_drawdown,
+        "sharpe_ratio": result.sharpe_ratio,
+        "sortino_ratio": result.sortino_ratio,
+        "profit_factor": result.profit_factor,
+        "calmar_ratio": result.calmar_ratio,
+        "total_commission": result.total_commission,
+        "total_borrow_cost": result.total_borrow_cost,
+        "total_fees": result.total_fees,
+        "total_slippage": result.total_slippage,
+        "realized_pnl": result.realized_pnl,
+        "cash": result.cash,
+        "ending_position_size": result.ending_position_size,
+        "reconciliation_error": result.reconciliation_error,
+        "commission_pct": result.commission_pct,
+        "slippage_pct": result.slippage_pct,
+        "trust_diagnostics": result.trust_diagnostics,
+        "diagnostics": result.diagnostics,
+        "analytics": result.analytics,
+        "trades": result.trades,
+        "equity_curve": result.equity_curve,
+        "error": result.error,
+    }
 
 
 def _bars_to_df(bars: list[dict]):
