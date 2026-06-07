@@ -1,4 +1,4 @@
-"""Strategy JSON SDK API endpoints."""
+"""Strategy definition API endpoints."""
 
 import logging
 
@@ -43,8 +43,8 @@ def get_schema():
     return _get_schema_provider().get_schema()
 
 
-@router.post("/validate", summary="Validate a strategy JSON definition")
-def validate_strategy_json(definition: str, params: dict | None = None):
+@router.post("/validate", summary="Validate a strategy definition")
+def validate_strategy_definition(definition: str, params: dict | None = None):
     """Validate a strategy definition and return diagnostics."""
     result = _make_validate_strategy_definition_use_case().execute(
         definition, params or {}
@@ -72,7 +72,7 @@ def validate_strategy_json(definition: str, params: dict | None = None):
 
 
 @router.post("/explain", summary="Explain a strategy in plain language")
-def explain_strategy_json(definition: str, params: dict | None = None):
+def explain_strategy_definition(definition: str, params: dict | None = None):
     """Return a human-readable explanation of a strategy."""
     result = _make_explain_strategy_definition_use_case().execute(
         definition, params or {}
@@ -80,8 +80,8 @@ def explain_strategy_json(definition: str, params: dict | None = None):
     return result
 
 
-@router.post("/backtest", summary="Backtest a JSON strategy")
-def backtest_strategy_json(
+@router.post("/backtest", summary="Backtest a strategy definition")
+def backtest_strategy_definition(
     definition: str,
     bars: list[dict] | None = None,
     symbol: str = "",
@@ -103,7 +103,7 @@ def backtest_strategy_json(
     informative_bars: list[dict] | None = None,
     informative_bars_artifact_ids: dict[str, str] | None = None,
 ):
-    """Backtest a JSON strategy against enriched bars or artifact IDs."""
+    """Backtest a strategy definition against enriched bars or artifact IDs."""
     use_case = _make_backtest_strategy_definition_use_case()
     result = use_case.execute(
         BacktestStrategyDefinitionRequest(
@@ -149,7 +149,7 @@ def apply_strategy_features(
     bars: list[dict],
     params: dict | None = None,
 ):
-    """Calculate derived features declared in a strategy JSON document."""
+    """Calculate derived features declared in a strategy definition."""
     result = _make_apply_strategy_features_use_case().execute(
         ApplyStrategyFeaturesRequest(
             definition=definition,
@@ -167,8 +167,8 @@ def apply_strategy_features(
 
 
 @router.post("/save", summary="Save a validated strategy")
-def save_strategy_json(definition: str, name_override: str = ""):
-    """Validate and persist a strategy JSON definition."""
+def save_strategy_definition(definition: str, name_override: str = ""):
+    """Validate and persist a strategy definition."""
     db = _get_db()
     try:
         result = _make_save_strategy_definition_use_case(db).execute(
@@ -192,8 +192,8 @@ def save_strategy_json(definition: str, name_override: str = ""):
 
 
 @router.delete("/{name}", summary="Delete a saved strategy")
-def delete_strategy_json(name: str):
-    """Delete a previously saved strategy document by name."""
+def delete_strategy_definition(name: str):
+    """Delete a previously saved strategy definition by name."""
     db = _get_db()
     try:
         from finbar.core.application.dto.delete_strategy_definition_request import (
