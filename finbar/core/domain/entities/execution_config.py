@@ -37,6 +37,15 @@ class ExecutionConfig:
     margin_mode: str = "simplified"
     """Margin accounting mode: simplified or full."""
 
+    maintenance_margin_pct: float = 0.005
+    """Maintenance margin fraction of position notional. Default 0.5%."""
+
+    enable_funding: bool = False
+    """Apply per-bar funding payments to open positions (perpetual swaps)."""
+
+    funding_rate: float = 0.0001
+    """Funding rate per interval. Default 0.01%% per bar."""
+
     def risk_budget_multiplier(self) -> float:
         """Return the multiplier applied to the equity risk budget."""
         if self.risk_mode == "leverage_scaled_risk":

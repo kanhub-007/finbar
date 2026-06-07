@@ -105,6 +105,11 @@ def _execution_config_from_params(
         ),
         borrow_fee_annual_pct=float(params.pop("borrow_fee_annual_pct", 0.0) or 0.0),
         margin_mode=str(params.pop("margin_mode", "simplified") or "simplified"),
+        maintenance_margin_pct=float(
+            params.pop("maintenance_margin_pct", 0.005) or 0.005
+        ),
+        enable_funding=_bool_param(params.pop("enable_funding", False)),
+        funding_rate=float(params.pop("funding_rate", 0.0001) or 0.0001),
     )
 
 
@@ -131,6 +136,7 @@ def _run_loop(
 ) -> BacktestLoopState:
     """Iterate bars, call strategy, execute signals, track positions."""
     state = BacktestLoopState(initial_cash)
+    executor.setup_full_margin(initial_cash)
     final_close = 0.0
     final_date = ""
 
@@ -147,6 +153,8 @@ def _run_loop(
         bar_dict = _row_to_bar(row)
         _execute_pending(state, open_price, bar_date, executor)
         executor.check_exit_conditions(state, open_price, high, low, bar_date)
+        executor.check_margin_call(state, close)
+        executor.apply_funding(state)
         _process_signal(
             state,
             strategy,
@@ -157,6 +165,7 @@ def _run_loop(
             risk_per_trade,
         )
         _track_equity(state, close, bar_date, executor)
+        executor.sync_margin_equity(state)
 
     executor.liquidate_open(state, final_close, final_date)
     _log_run_summary(state)

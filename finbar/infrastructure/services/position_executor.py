@@ -15,6 +15,9 @@ from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
 from finbar.infrastructure.services.intrabar_exit_resolver import (
     IntrabarExitResolver,
 )
+from finbar.infrastructure.services.margin_account_manager import (
+    MarginAccountManager,
+)
 from finbar.infrastructure.services.position_closer import PositionCloser
 from finbar.infrastructure.services.position_opener import PositionOpener
 from finbar.infrastructure.services.position_sizer import PositionSizer
@@ -35,13 +38,52 @@ class PositionExecutor:
     def __init__(self, execution_config: ExecutionConfig | None = None) -> None:
         """Create an executor with per-run execution settings."""
         config = execution_config or ExecutionConfig()
+        self._config = config
         self._sizer = PositionSizer(config)
         self._opener = PositionOpener(config)
         self._closer = PositionCloser(config)
         self._slippage_pct = config.slippage_pct
         self._commission_pct = config.commission_pct
+        self._full_margin = config.margin_mode == "full"
+        self._margin: MarginAccountManager | None = None
 
     # -- Public API used by the bar loop --------------------------------
+
+    def setup_full_margin(self, initial_cash: float) -> None:
+        """Initialize margin account for full-margin mode.
+
+        No-op in simplified mode.
+        """
+        if self._full_margin:
+            self._margin = MarginAccountManager(self._config, initial_cash)
+            self._margin.sync_state_equity(None)  # pending first sync in loop
+
+    def sync_margin_equity(self, state: BacktestLoopState) -> None:
+        """Sync BacktestLoopState.cash to margin account equity.
+
+        No-op in simplified mode.
+        """
+        if self._full_margin and self._margin:
+            self._margin.sync_state_equity(state)
+
+    def apply_funding(self, state: BacktestLoopState) -> None:
+        """Apply per-bar funding payment to open position.
+
+        No-op when funding is disabled or in simplified mode.
+        """
+        if self._full_margin and self._margin:
+            self._margin.apply_funding(state.position)
+
+    def check_margin_call(self, state: BacktestLoopState, close: float) -> None:
+        """Check margin call status and liquidate if needed.
+
+        No-op in simplified mode.
+        """
+        if not self._full_margin or self._margin is None:
+            return
+        result = self._margin.check_margin_call(state.position, close)
+        if result == "liquidation":
+            self.exit_position(state, close, "", exit_reason="margin_call")
 
     def enter(
         self,

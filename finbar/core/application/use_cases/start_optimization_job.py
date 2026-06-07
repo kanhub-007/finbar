@@ -53,4 +53,7 @@ def _params(request: StartOptimizationJobRequest) -> dict:
         "market_calendar": request.execution.market_calendar,
         "borrow_fee_annual_pct": request.execution.borrow_fee_annual_pct,
         "margin_mode": request.execution.margin_mode,
+        "maintenance_margin_pct": request.execution.maintenance_margin_pct,
+        "enable_funding": request.execution.enable_funding,
+        "funding_rate": request.execution.funding_rate,
     }

@@ -341,6 +341,11 @@ def _execution_params(metadata: dict) -> dict:
             metadata.get("borrow_fee_annual_pct", 0.0) or 0.0
         ),
         "margin_mode": str(metadata.get("margin_mode", "simplified") or "simplified"),
+        "maintenance_margin_pct": float(
+            metadata.get("maintenance_margin_pct", 0.005) or 0.005
+        ),
+        "enable_funding": bool(metadata.get("enable_funding", False)),
+        "funding_rate": float(metadata.get("funding_rate", 0.0001) or 0.0001),
     }
 
 

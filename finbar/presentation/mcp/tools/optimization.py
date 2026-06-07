@@ -73,6 +73,9 @@ def register_optimization_tools(mcp: FastMCP) -> None:
         market_calendar: str = "equity_regular_hours",
         borrow_fee_annual_pct: float = 0.0,
         margin_mode: str = "simplified",
+        maintenance_margin_pct: float = 0.005,
+        enable_funding: bool = False,
+        funding_rate: float = 0.0001,
     ) -> str:
         """Start a grid search optimization job and return its job id."""
         parsed = _parse_optimization_inputs(
@@ -95,6 +98,9 @@ def register_optimization_tools(mcp: FastMCP) -> None:
                 market_calendar=market_calendar,
                 borrow_fee_annual_pct=borrow_fee_annual_pct,
                 margin_mode=margin_mode,
+                maintenance_margin_pct=maintenance_margin_pct,
+                enable_funding=enable_funding,
+                funding_rate=funding_rate,
             ),
             metric=parsed["metric"],
             informative_bars_artifact_ids=parsed["informative_artifact_ids"],
