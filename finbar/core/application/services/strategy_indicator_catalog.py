@@ -51,6 +51,20 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         # --- Volume buffer levels ---
         "vol_buffer_high": "vol_buffer_high",
         "vol_buffer_low": "vol_buffer_low",
+        # --- Support / resistance ---
+        "swing_high_20": "swing_high_20",
+        "swing_low_20": "swing_low_20",
+        "breakout_level": "breakout_level",
+        "breakout_signal": "breakout_signal",
+        "is_power_zone": "is_power_zone",
+        "breakout_quality": "breakout_quality",
+        # --- Trend classification ---
+        "price_vs_sma20": "price_vs_sma20",
+        "trend_direction": "trend_direction",
+        "trend_strength": "trend_strength",
+        "trend_status": "trend_status",
+        # --- Initial Balance ---
+        "ib_midpoint": "ib_midpoint",
     }
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:

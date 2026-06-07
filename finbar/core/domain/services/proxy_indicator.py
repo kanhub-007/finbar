@@ -290,6 +290,8 @@ def enrich_bar_with_proxies(bar: dict[str, Any]) -> dict[str, Any]:
         enriched["proxy_expected_move"] = daily_expected_move(c, atr_val)
         enriched["proxy_iv"] = atr_to_iv_proxy(atr_val, c)
 
+    enriched["proxy_vwap"] = enriched["proxy_typical_price"]
+
     enriched["proxy_parkinson"] = parkinson_vol(h, l)
     enriched["proxy_garman_klass"] = garman_klass_vol(o, h, l, c)
     enriched["proxy_rogers_satchell"] = rogers_satchell_vol(o, h, l, c)
@@ -327,6 +329,8 @@ def enrich_dataframe_with_proxies(df: Any) -> Any:
             (atr_col / c) * math.sqrt(TRADING_DAYS_PER_YEAR),
             0.0,
         )
+
+        result["proxy_vwap"] = result["proxy_typical_price"]
 
     # Parkinson: ln(H/L)^2 / (4 * ln(2))
     log_hl = np.where(

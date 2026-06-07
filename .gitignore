@@ -13,4 +13,5 @@ venv/
 Thumbs.db
 docs/plans/
 strategies/
+plans/
 mcp.log

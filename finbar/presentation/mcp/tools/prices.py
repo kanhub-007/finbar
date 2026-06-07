@@ -155,7 +155,10 @@ def register_price_tools(mcp: FastMCP) -> None:
             "Source can be 'yfinance' (stocks) or 'hyperliquid' (crypto). "
             "For Hyperliquid, first discover tickers with "
             "list_hyperliquid_tickers(). For HIP-3 tickers use "
-            "dex:COIN format (e.g., flx:TSLA)."
+            "dex:COIN format (e.g., flx:TSLA). "
+            "DATA LIMITS: yfinance intraday (5min/30min/1h) is limited to "
+            "~60 calendar days. Daily (1d) and weekly (1w) go back years. "
+            "Hyperliquid perp/spot have longer intraday history."
         ),
     )
     async def fetch_price_history(

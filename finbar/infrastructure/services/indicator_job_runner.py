@@ -185,6 +185,33 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         self._manager.update(job, indicators_applied=list(indicators))
         return result, enriched
 
+    def _try_reuse_artifact(self, job: IndicatorJob, content_hash: str) -> bool:
+        """Return True and mark job completed if an artifact with the same
+        hash already exists."""
+        if self._session_factory is None or not content_hash:
+            return False
+        db = self._session_factory()
+        try:
+            existing_id = SqlIndicatorArtifactRepository(db).find_by_hash(content_hash)
+        finally:
+            db.close()
+        if existing_id is None:
+            return False
+        bars = self._manager.get_artifact_bars(existing_id)
+        if not bars:
+            return False
+        self._manager.update(
+            job,
+            status="completed",
+            progress_pct=100,
+            stage="completed",
+            message="Reused existing artifact",
+            total_bar_count=len(bars),
+        )
+        job.metadata["content_hash"] = content_hash
+        self._manager.store_result(job, bars)
+        return True
+
 
 def _apply_features(
     job: IndicatorJob,
@@ -233,33 +260,6 @@ def _load_cached_bars(
         return [_bar_to_dict(bar) for bar in bars]
     finally:
         db.close()
-
-    def _try_reuse_artifact(self, job: IndicatorJob, content_hash: str) -> bool:
-        """Return True and mark job completed if an artifact with the same
-        hash already exists."""
-        if self._session_factory is None or not content_hash:
-            return False
-        db = self._session_factory()
-        try:
-            existing_id = SqlIndicatorArtifactRepository(db).find_by_hash(content_hash)
-        finally:
-            db.close()
-        if existing_id is None:
-            return False
-        bars = self._manager.get_artifact_bars(existing_id)
-        if not bars:
-            return False
-        self._manager.update(
-            job,
-            status="completed",
-            progress_pct=100,
-            stage="completed",
-            message="Reused existing artifact",
-            total_bar_count=len(bars),
-        )
-        job.metadata["content_hash"] = content_hash
-        self._manager.store_result(job, bars)
-        return True
 
 
 def _mark(

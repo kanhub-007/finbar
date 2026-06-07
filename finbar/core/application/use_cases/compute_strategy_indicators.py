@@ -59,16 +59,54 @@ class ComputeStrategyIndicatorsUseCase:
         definition = validation.definition
         timeframes = definition.timeframes
         primary_interval = timeframes.primary if timeframes else "1d"
+        _BASE_COLUMNS = {"open", "high", "low", "close", "volume", "timestamp"}
+
+        # Build a map from interval suffix to timeframe alias for MTF strategies.
+        _informative_map: dict[str, str] = {}
+        if timeframes and timeframes.informative:
+            for info in timeframes.informative:
+                suffix = f"_{info.interval}"
+                _informative_map[suffix] = info.alias
+
+        primary_indicators = list(validation.primary_required_indicators)
+        # Collect condition-referenced columns per timeframe.
+        _info_extras: dict[str, list[str]] = {}
+        for col in validation.required_columns:
+            if col in _BASE_COLUMNS:
+                continue
+            if col in primary_indicators:
+                continue
+            assigned = False
+            for suffix, alias in _informative_map.items():
+                if col.endswith(suffix):
+                    base_name = col[: -len(suffix)]
+                    if base_name not in _info_extras.setdefault(alias, []):
+                        _info_extras[alias].append(base_name)
+                    assigned = True
+                    break
+            if not assigned:
+                primary_indicators.append(col)
+
         inputs = [
             _IndicatorInput(
                 symbol=symbol.upper(),
                 source=source,
                 interval=primary_interval,
                 timeframe_alias="primary",
-                indicators=list(validation.primary_required_indicators),
+                indicators=primary_indicators,
             )
         ]
+        # Build interval lookup for timeframes not covered by declared indicators.
+        _alias_to_interval: dict[str, str] = {}
+        if timeframes and timeframes.informative:
+            for info in timeframes.informative:
+                _alias_to_interval[info.alias] = info.interval
+
         for timeframe in validation.informative_required_indicators:
+            indicators = list(validation.informative_required_indicators[timeframe])
+            for extra in _info_extras.get(timeframe, []):
+                if extra not in indicators:
+                    indicators.append(extra)
             inputs.append(
                 _IndicatorInput(
                     symbol=symbol.upper(),
@@ -81,9 +119,20 @@ class ComputeStrategyIndicatorsUseCase:
                         if hasattr(timeframe, "alias")
                         else str(timeframe)
                     ),
-                    indicators=list(
-                        validation.informative_required_indicators[timeframe]
-                    ),
+                    indicators=indicators,
+                )
+            )
+        # Add timeframes that only have condition-referenced indicators.
+        for alias, indicators in _info_extras.items():
+            if alias in validation.informative_required_indicators:
+                continue
+            inputs.append(
+                _IndicatorInput(
+                    symbol=symbol.upper(),
+                    source=source,
+                    interval=_alias_to_interval.get(alias, "1d"),
+                    timeframe_alias=alias,
+                    indicators=indicators,
                 )
             )
         primary_info: dict[str, Any] = {}

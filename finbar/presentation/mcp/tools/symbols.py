@@ -111,7 +111,9 @@ def _usage_guide_text() -> str:
         "get_job_progress().\n"
         "    CACHED: get_cached_prices() — reads local SQLite. Instant, "
         "no rate limits, paginated. Requires prior fetch.\n\n"
-        "INTERVALS: 5min, 30min, 1h, 1d, 1w\n\n"
+        "INTERVALS: 5min, 30min, 1h, 1d, 1w\n"
+        "LIMITS: yfinance intraday (5min/30min/1h) caps at ~60 days. "
+        "yfinance daily/weekly and hyperliquid have multi-year history.\n\n"
         # ── Price tools ──
         "PRICE TOOLS\n"
         "  fetch_price_history(symbol, interval, source, start_date, "
