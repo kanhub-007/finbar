@@ -21,7 +21,7 @@ class SqlIndicatorArtifactRepository:
         """Create the repository with a database session."""
         self._db = db
 
-    def save(self, job: IndicatorJob, bars: list[dict]) -> None:
+    def save(self, job: IndicatorJob, bars: list[dict], content_hash: str = "") -> None:
         """Upsert an indicator artifact."""
         bars_json = json.dumps(bars)
         indicators_json = json.dumps(job.indicators_applied)
@@ -38,6 +38,8 @@ class SqlIndicatorArtifactRepository:
             existing.indicators_applied_json = indicators_json
             existing.features_applied_json = features_json
             existing.status = job.status
+            if content_hash:
+                existing.content_hash = content_hash
         else:
             self._db.add(
                 OrmArtifact(
@@ -52,6 +54,7 @@ class SqlIndicatorArtifactRepository:
                     total_bar_count=len(bars),
                     indicators_applied_json=indicators_json,
                     features_applied_json=features_json,
+                    content_hash=content_hash,
                     created_at=created_at,
                 )
             )
@@ -128,6 +131,22 @@ class SqlIndicatorArtifactRepository:
         )
         self._db.commit()
         return bool(result.rowcount)
+
+    def find_by_hash(self, content_hash: str) -> str | None:
+        """Return job_id of a completed artifact with this hash, or None."""
+        if not content_hash:
+            return None
+        orm = (
+            self._db.execute(
+                select(OrmArtifact).where(
+                    OrmArtifact.content_hash == content_hash,
+                    OrmArtifact.status == "completed",
+                )
+            )
+            .scalars()
+            .first()
+        )
+        return orm.job_id if orm else None
 
     def cleanup_expired(self, ttl_hours: int = 24) -> int:
         """Delete artifacts older than the TTL. Returns count deleted."""

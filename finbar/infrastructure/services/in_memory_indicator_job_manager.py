@@ -91,7 +91,8 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
         with self._lock:
             self._results[job.job_id] = list(bars)
             job.total_bar_count = len(bars)
-        self._persist_artifact(job, bars)
+        content_hash = job.metadata.get("content_hash", "")
+        self._persist_artifact(job, bars, content_hash)
 
     def store_frame(self, job: IndicatorJob, frame: Any) -> None:
         """Cache a pickled DataFrame for hot-path backtest access."""
@@ -242,10 +243,12 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
                 self._tasks.pop(job.job_id, None)
                 self._results.pop(job.job_id, None)
 
-    def _persist_artifact(self, job: IndicatorJob, bars: list[dict]) -> None:
+    def _persist_artifact(
+        self, job: IndicatorJob, bars: list[dict], content_hash: str = ""
+    ) -> None:
         if self._session_factory is None:
             return
-        self._with_repo(lambda repo: repo.save(job, bars))
+        self._with_repo(lambda repo: repo.save(job, bars, content_hash))
 
     def _load_bars_from_sql(self, job_id: str) -> list[dict] | None:
         if self._session_factory is None:

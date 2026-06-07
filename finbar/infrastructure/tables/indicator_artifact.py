@@ -22,4 +22,5 @@ class IndicatorArtifact(Base):
     total_bar_count = Column(Integer, nullable=False, default=0)
     indicators_applied_json = Column(Text, default="[]")
     features_applied_json = Column(Text, default="[]")
+    content_hash = Column(String, default="")
     created_at = Column(String, nullable=False)

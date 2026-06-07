@@ -20,6 +20,10 @@ from finbar.core.domain.interfaces.strategy_definition_parser import (
 from finbar.core.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
+from finbar.core.domain.services.content_hash import compute_artifact_hash
+from finbar.infrastructure.repositories.sql_indicator_artifact_repository import (
+    SqlIndicatorArtifactRepository,
+)
 from finbar.infrastructure.repositories.sql_price_cache_repository import (
     SqlPriceCacheRepository,
 )
@@ -54,6 +58,20 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             raise
 
     def _sync_run(self, job: IndicatorJob) -> None:
+        # Check for existing artifact with matching content hash
+        content_hash = compute_artifact_hash(
+            job.symbol,
+            job.source,
+            job.interval,
+            job.metadata.get("indicators", []),
+            job.timeframe_alias,
+            job.start_date,
+            job.end_date,
+        )
+        existing = self._try_reuse_artifact(job, content_hash)
+        if existing:
+            return
+
         _mark(self._manager, job, 5, "query_cached_prices", "Loading cached bars")
         bars = _load_cached_bars(job, self._session_factory)
         if not bars:
@@ -90,6 +108,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             total_bar_count=len(enriched_bars),
         )
         self._manager.store_frame(job, frame)
+        job.metadata["content_hash"] = content_hash
         self._manager.store_result(job, enriched_bars)
 
     def _resolve_indicators(self, job: IndicatorJob) -> tuple[list[str] | None, Any]:
@@ -206,6 +225,33 @@ def _load_cached_bars(
         return [_bar_to_dict(bar) for bar in bars]
     finally:
         db.close()
+
+    def _try_reuse_artifact(self, job: IndicatorJob, content_hash: str) -> bool:
+        """Return True and mark job completed if an artifact with the same
+        hash already exists."""
+        if self._session_factory is None or not content_hash:
+            return False
+        db = self._session_factory()
+        try:
+            existing_id = SqlIndicatorArtifactRepository(db).find_by_hash(content_hash)
+        finally:
+            db.close()
+        if existing_id is None:
+            return False
+        bars = self._manager.get_artifact_bars(existing_id)
+        if not bars:
+            return False
+        self._manager.update(
+            job,
+            status="completed",
+            progress_pct=100,
+            stage="completed",
+            message="Reused existing artifact",
+            total_bar_count=len(bars),
+        )
+        job.metadata["content_hash"] = content_hash
+        self._manager.store_result(job, bars)
+        return True
 
 
 def _mark(

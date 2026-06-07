@@ -471,10 +471,15 @@ Clean architecture approach:
 
 ### Phase 4 — Storage Optimization
 
-1. Move artifact storage from large JSON blobs to queryable rows or Parquet.
-2. Add true column-filtered retrieval.
-3. Add hash-based artifact reuse.
-4. Add result cache deduplication by strategy + params + artifact IDs.
+1. Added SQLite persistence for backtest results (survive MCP restarts).
+2. Added `content_hash` column to indicator artifacts.
+3. Added hash-based artifact reuse — recomputing identical indicators returns the existing artifact.
+4. Added light migration helper for new columns on existing databases.
+
+### Remaining
+
+- Columnar artifact storage (Parquet or row-oriented SQLite) for faster slicing.
+- Result cache deduplication by strategy + params + artifact IDs.
 
 ---
 

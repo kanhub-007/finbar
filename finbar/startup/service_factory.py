@@ -533,7 +533,9 @@ def _get_backtest_result_store() -> InMemoryBacktestResultStore:
     """Return the shared server-side backtest result store."""
     global _backtest_result_store
     if _backtest_result_store is None:
-        _backtest_result_store = InMemoryBacktestResultStore()
+        _backtest_result_store = InMemoryBacktestResultStore(
+            session_factory=SessionLocal,
+        )
     return _backtest_result_store
 
 

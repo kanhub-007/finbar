@@ -1,23 +1,34 @@
-"""InMemoryBacktestResultStore — server-side backtest result cache."""
+"""InMemoryBacktestResultStore — server-side backtest result cache with SQLite."""
 
 from __future__ import annotations
 
 import copy
 import threading
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from finbar.core.application.backtest_result_projection import summary_from_result
 from finbar.core.domain.interfaces.backtest_result_store import BacktestResultStore
+from finbar.infrastructure.repositories.sql_backtest_result_repository import (
+    SqlBacktestResultRepository,
+)
 
 
 class InMemoryBacktestResultStore(BacktestResultStore):
-    """Thread-safe in-memory store for full backtest results."""
+    """Thread-safe store for full backtest results with optional SQLite persistence."""
 
-    def __init__(self, max_results: int = 100):
-        """Create a result store with a bounded result count."""
+    def __init__(
+        self,
+        max_results: int = 100,
+        session_factory: Callable[[], Session] | None = None,
+    ):
+        """Create a result store with optional persistent storage."""
         self._max_results = max(1, max_results)
+        self._session_factory = session_factory
         self._records: dict[str, dict[str, Any]] = {}
         self._lock = threading.Lock()
 
@@ -28,15 +39,16 @@ class InMemoryBacktestResultStore(BacktestResultStore):
         with self._lock:
             self._records[result_id] = record
             self._enforce_max_results_locked()
+        self._persist(result_id, result)
         return result_id
 
     def get(self, result_id: str) -> dict[str, Any] | None:
         """Return a full backtest result by ID."""
         with self._lock:
             record = self._records.get(result_id)
-            if record is None:
-                return None
-            return copy.deepcopy(record["result"])
+            if record is not None:
+                return copy.deepcopy(record["result"])
+        return self._load_from_sql(result_id)
 
     def list_results(
         self,
@@ -48,14 +60,31 @@ class InMemoryBacktestResultStore(BacktestResultStore):
         limit = max(1, min(limit, self._max_results))
         with self._lock:
             records = list(self._records.values())
-        filtered = [
+        in_memory = [
             _public_record(record)
             for record in sorted(
                 records, key=lambda item: item["created_at"], reverse=True
             )
             if _matches(record, symbol, strategy_name)
         ]
-        return filtered[:limit]
+        if self._session_factory is not None:
+            sql_results = self._with_repo(
+                lambda repo: repo.list_metadata(symbol, strategy_name, limit)
+            )
+            merged = {r["result_id"]: r for r in sql_results}
+            for r in in_memory:
+                merged[r["result_id"]] = r
+            return list(merged.values())[:limit]
+        return in_memory[:limit]
+
+    def delete(self, result_id: str) -> bool:
+        """Remove a result from memory and persistent storage."""
+        with self._lock:
+            existed = result_id in self._records
+            self._records.pop(result_id, None)
+        if self._session_factory is not None:
+            existed = self._with_repo(lambda repo: repo.delete(result_id)) or existed
+        return existed
 
     def _enforce_max_results_locked(self) -> None:
         if len(self._records) <= self._max_results:
@@ -66,9 +95,25 @@ class InMemoryBacktestResultStore(BacktestResultStore):
                 return
             self._records.pop(record["result_id"], None)
 
+    def _persist(self, result_id: str, result: dict[str, Any]) -> None:
+        if self._session_factory is None:
+            return
+        self._with_repo(lambda repo: repo.save(result_id, result))
+
+    def _load_from_sql(self, result_id: str) -> dict[str, Any] | None:
+        if self._session_factory is None:
+            return None
+        return self._with_repo(lambda repo: repo.get(result_id))
+
+    def _with_repo(self, callback):
+        db = self._session_factory()
+        try:
+            return callback(SqlBacktestResultRepository(db))
+        finally:
+            db.close()
+
 
 def _record_from_result(result_id: str, result: dict[str, Any]) -> dict[str, Any]:
-    """Build an internal stored result record."""
     created_at = datetime.now(UTC).isoformat()
     summary = summary_from_result(result)
     return {
@@ -85,7 +130,6 @@ def _record_from_result(result_id: str, result: dict[str, Any]) -> dict[str, Any
 
 
 def _public_record(record: dict[str, Any]) -> dict[str, Any]:
-    """Return metadata safe for list responses."""
     summary = record["summary"]
     return {
         "result_id": record["result_id"],
@@ -109,7 +153,6 @@ def _matches(
     symbol: str | None,
     strategy_name: str | None,
 ) -> bool:
-    """Return True when a result record matches optional filters."""
     if symbol and record["symbol"].upper() != symbol.upper():
         return False
     if strategy_name and record["strategy_name"] != strategy_name:
