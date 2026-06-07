@@ -8,6 +8,7 @@ from fastmcp import FastMCP
 from finbar.core.application.dto.start_optimization_job_request import (
     StartOptimizationJobRequest,
 )
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 
 from ._shared import (
     _make_cancel_optimization_job_use_case,
@@ -79,6 +80,18 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             definition=definition_json,
             bars_artifact_id=bars_artifact_id,
             param_ranges=parsed["param_ranges"],
+            execution=ExecutionConfig(
+                leverage_multiplier=leverage,
+                risk_mode=risk_mode,
+                commission_pct=commission_pct,
+                slippage_pct=slippage_pct,
+                cap_explicit_size=cap_explicit_size,
+                reject_oversized_explicit_orders=(reject_oversized_explicit_orders),
+                allow_negative_cash=allow_negative_cash,
+                market_calendar=market_calendar,
+                borrow_fee_annual_pct=borrow_fee_annual_pct,
+                margin_mode=margin_mode,
+            ),
             metric=parsed["metric"],
             informative_bars_artifact_ids=parsed["informative_artifact_ids"],
             initial_cash=initial_cash,
@@ -86,16 +99,6 @@ def register_optimization_tools(mcp: FastMCP) -> None:
             random_count=random_count,
             interval=interval,
             risk_per_trade=risk_per_trade,
-            leverage=leverage,
-            risk_mode=risk_mode,
-            commission_pct=commission_pct,
-            slippage_pct=slippage_pct,
-            cap_explicit_size=cap_explicit_size,
-            reject_oversized_explicit_orders=reject_oversized_explicit_orders,
-            allow_negative_cash=allow_negative_cash,
-            market_calendar=market_calendar,
-            borrow_fee_annual_pct=borrow_fee_annual_pct,
-            margin_mode=margin_mode,
         )
         job = _make_start_optimization_job_use_case().execute(request)
         return json.dumps(

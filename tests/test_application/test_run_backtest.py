@@ -3,6 +3,7 @@
 from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
 from finbar.core.application.use_cases.run_backtest import RunBacktestUseCase
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.signal_result import SignalResult
 from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
@@ -186,14 +187,16 @@ class TestRunBacktestUseCase:
             BacktestRequest(
                 bars=bars,
                 strategy_name="stub",
-                leverage=3,
-                risk_mode="leverage_scaled_risk",
-                commission_pct=0.001,
-                slippage_pct=0.002,
-                cap_explicit_size=False,
-                reject_oversized_explicit_orders=True,
-                allow_negative_cash=True,
-                market_calendar="crypto_24_7",
+                execution=ExecutionConfig(
+                    leverage_multiplier=3,
+                    risk_mode="leverage_scaled_risk",
+                    commission_pct=0.001,
+                    slippage_pct=0.002,
+                    cap_explicit_size=False,
+                    reject_oversized_explicit_orders=True,
+                    allow_negative_cash=True,
+                    market_calendar="crypto_24_7",
+                ),
             )
         )
 

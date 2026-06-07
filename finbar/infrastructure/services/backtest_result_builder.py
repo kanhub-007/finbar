@@ -37,11 +37,52 @@ class BacktestResultBuilder:
     ) -> dict:
         """Compute metrics and assemble the backtest result dict."""
         config = execution_config or ExecutionConfig()
+        metrics = self._compute_metrics(state, initial_cash, config, interval)
+        reconciliation = self._compute_reconciliation(state, initial_cash)
+        trust = self._build_trust_diagnostics(
+            config,
+            warmup_bars,
+            first_tradable,
+            metrics["annualization_factor"],
+            metrics["annualization_warning"],
+            state,
+        )
+        meta = strategy.meta()
+        dates = [e["date"] for e in state.equity_curve]
+
+        return {
+            "strategy_name": meta.name,
+            "symbol": "",
+            "interval": "",
+            "start_date": dates[0] if dates else "",
+            "end_date": dates[-1] if dates else "",
+            "bar_count": len(state.equity_curve),
+            "initial_cash": initial_cash,
+            "position_sizing": "risk-based-v3-fill-price",
+            "warmup_bars": warmup_bars,
+            "first_tradable": first_tradable,
+            "commission_pct": round(config.commission_pct, 6),
+            "slippage_pct": round(config.slippage_pct, 6),
+            "trades": state.trades,
+            "equity_curve": state.equity_curve,
+            **metrics,
+            **reconciliation,
+            "trust_diagnostics": trust,
+            "diagnostics": _diagnostics_to_dicts(state.diagnostics),
+        }
+
+    @staticmethod
+    def _compute_metrics(
+        state: BacktestLoopState,
+        initial_cash: float,
+        config: ExecutionConfig,
+        interval: str,
+    ) -> dict:
+        """Compute performance metrics from equity curve and trades."""
         equity_values = [e["value"] for e in state.equity_curve]
         final_value = equity_values[-1] if equity_values else initial_cash
         annualization_factor, annualization_warning = _annualization_factor(
-            interval,
-            config.market_calendar,
+            interval, config.market_calendar
         )
 
         daily_returns = (
@@ -77,30 +118,12 @@ class BacktestResultBuilder:
         total_trades = len(state.trades)
         win_rate = winning / total_trades if total_trades > 0 else 0.0
 
-        realized_pnl = sum(t["pnl"] for t in state.trades)
-        total_fees = state.total_commission
-        ending_position_size = state.position.size
-        reconciliation_error = round(final_value - initial_cash - realized_pnl, 2)
-
-        meta = strategy.meta()
-        dates = [e["date"] for e in state.equity_curve]
-        start_date = dates[0] if dates else ""
-        end_date = dates[-1] if dates else ""
-
         return {
-            "strategy_name": meta.name,
-            "symbol": "",
-            "interval": "",
-            "start_date": start_date,
-            "end_date": end_date,
-            "bar_count": len(state.equity_curve),
-            "initial_cash": initial_cash,
             "final_value": round(final_value, 2),
             "total_return": round(total_return, 4),
             "annualized_return": round(annualised_return, 4),
             "annualization_factor": annualization_factor,
             "annualization_warning": annualization_warning,
-            "position_sizing": "risk-based-v3-fill-price",
             "total_trades": total_trades,
             "winning_trades": winning,
             "losing_trades": losing,
@@ -112,51 +135,67 @@ class BacktestResultBuilder:
                 round(profit_factor, 4) if profit_factor != float("inf") else None
             ),
             "calmar_ratio": round(calmar, 4),
-            "warmup_bars": warmup_bars,
-            "first_tradable": first_tradable,
+        }
+
+    @staticmethod
+    def _compute_reconciliation(
+        state: BacktestLoopState,
+        initial_cash: float,
+    ) -> dict:
+        """Compute accounting reconciliation fields."""
+        equity_values = [e["value"] for e in state.equity_curve]
+        final_value = equity_values[-1] if equity_values else initial_cash
+        realized_pnl = sum(t["pnl"] for t in state.trades)
+        return {
             "total_commission": round(state.total_commission, 2),
             "total_borrow_cost": round(state.total_borrow_cost, 2),
-            "total_fees": round(total_fees, 2),
+            "total_fees": round(state.total_commission, 2),
             "total_slippage": round(state.total_slippage, 2),
             "realized_pnl": round(realized_pnl, 2),
             "cash": round(state.cash, 2),
-            "ending_position_size": ending_position_size,
-            "reconciliation_error": reconciliation_error,
+            "ending_position_size": state.position.size,
+            "reconciliation_error": round(final_value - initial_cash - realized_pnl, 2),
+        }
+
+    @staticmethod
+    def _build_trust_diagnostics(
+        config: ExecutionConfig,
+        warmup_bars: int,
+        first_tradable: str,
+        annualization_factor: float,
+        annualization_warning: str,
+        state: BacktestLoopState,
+    ) -> dict:
+        """Assemble the trust diagnostics block."""
+        return {
+            "gap_aware_fills": True,
+            "lookahead_safe_mtf": True,
+            "liquidated_on_close": True,
+            "net_trade_metrics": True,
+            "entry_slippage_accounted": True,
+            "entry_model": "next_bar_open",
+            "exit_model": "next_bar_open",
+            "cost_model": (
+                "commission_and_slippage"
+                if config.commission_pct > 0 or config.slippage_pct > 0
+                else "zero_cost"
+            ),
+            "warmup_bars": warmup_bars,
+            "first_tradable": first_tradable,
             "commission_pct": round(config.commission_pct, 6),
             "slippage_pct": round(config.slippage_pct, 6),
-            "trades": state.trades,
-            "equity_curve": state.equity_curve,
-            "trust_diagnostics": {
-                "gap_aware_fills": True,
-                "lookahead_safe_mtf": True,
-                "liquidated_on_close": True,
-                "net_trade_metrics": True,
-                "entry_slippage_accounted": True,
-                "entry_model": "next_bar_open",
-                "exit_model": "next_bar_open",
-                "cost_model": (
-                    "commission_and_slippage"
-                    if config.commission_pct > 0 or config.slippage_pct > 0
-                    else "zero_cost"
-                ),
-                "warmup_bars": warmup_bars,
-                "first_tradable": first_tradable,
-                "commission_pct": round(config.commission_pct, 6),
-                "slippage_pct": round(config.slippage_pct, 6),
-                "risk_mode": config.risk_mode,
-                "leverage": config.leverage_multiplier,
-                "cap_explicit_size": config.cap_explicit_size,
-                "reject_oversized_explicit_orders": (
-                    config.reject_oversized_explicit_orders
-                ),
-                "allow_negative_cash": config.allow_negative_cash,
-                "borrow_fee_annual_pct": config.borrow_fee_annual_pct,
-                "margin_mode": config.margin_mode,
-                "market_calendar": config.market_calendar,
-                "annualization_factor": annualization_factor,
-                "annualization_warning": annualization_warning,
-                "diagnostics": _diagnostics_to_dicts(state.diagnostics),
-            },
+            "risk_mode": config.risk_mode,
+            "leverage": config.leverage_multiplier,
+            "cap_explicit_size": config.cap_explicit_size,
+            "reject_oversized_explicit_orders": (
+                config.reject_oversized_explicit_orders
+            ),
+            "allow_negative_cash": config.allow_negative_cash,
+            "borrow_fee_annual_pct": config.borrow_fee_annual_pct,
+            "margin_mode": config.margin_mode,
+            "market_calendar": config.market_calendar,
+            "annualization_factor": annualization_factor,
+            "annualization_warning": annualization_warning,
             "diagnostics": _diagnostics_to_dicts(state.diagnostics),
         }
 

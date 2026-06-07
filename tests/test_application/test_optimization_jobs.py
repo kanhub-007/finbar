@@ -20,6 +20,7 @@ from finbar.core.application.use_cases.get_optimization_job_results import (
 from finbar.core.application.use_cases.start_optimization_job import (
     StartOptimizationJobUseCase,
 )
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.optimization_job import OptimizationJob
 from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.core.domain.entities.param_range import ParamRange
@@ -282,14 +283,16 @@ class TestOptimizationJobManager:
                 definition={},
                 bars_artifact_id="primary-123",
                 param_ranges={},
-                leverage=3,
-                risk_mode="leverage_scaled_risk",
-                commission_pct=0.001,
-                slippage_pct=0.002,
-                cap_explicit_size=False,
-                reject_oversized_explicit_orders=True,
-                allow_negative_cash=True,
-                market_calendar="crypto_24_7",
+                execution=ExecutionConfig(
+                    leverage_multiplier=3,
+                    risk_mode="leverage_scaled_risk",
+                    commission_pct=0.001,
+                    slippage_pct=0.002,
+                    cap_explicit_size=False,
+                    reject_oversized_explicit_orders=True,
+                    allow_negative_cash=True,
+                    market_calendar="crypto_24_7",
+                ),
             )
         )
 

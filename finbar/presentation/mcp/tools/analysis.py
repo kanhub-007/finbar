@@ -12,6 +12,7 @@ from finbar.core.application.dto.apply_indicators_request import (
     ApplyIndicatorsRequest,
 )
 from finbar.core.application.dto.backtest_request import BacktestRequest
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.startup.service_factory import (
     _get_db,
     _get_indicator_calculator,
@@ -193,20 +194,24 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 BacktestRequest(
                     bars=bars,
                     strategy_name=strategy_name,
+                    execution=ExecutionConfig(
+                        leverage_multiplier=leverage,
+                        risk_mode=risk_mode,
+                        commission_pct=commission_pct,
+                        slippage_pct=slippage_pct,
+                        cap_explicit_size=cap_explicit_size,
+                        reject_oversized_explicit_orders=(
+                            reject_oversized_explicit_orders
+                        ),
+                        allow_negative_cash=allow_negative_cash,
+                        market_calendar=market_calendar,
+                        borrow_fee_annual_pct=borrow_fee_annual_pct,
+                        margin_mode=margin_mode,
+                    ),
                     symbol=symbol,
                     interval=interval,
                     params=params,
                     initial_cash=initial_cash,
-                    leverage=leverage,
-                    risk_mode=risk_mode,
-                    commission_pct=commission_pct,
-                    slippage_pct=slippage_pct,
-                    cap_explicit_size=cap_explicit_size,
-                    reject_oversized_explicit_orders=(reject_oversized_explicit_orders),
-                    allow_negative_cash=allow_negative_cash,
-                    market_calendar=market_calendar,
-                    borrow_fee_annual_pct=borrow_fee_annual_pct,
-                    margin_mode=margin_mode,
                 )
             )
             return _backtest_result_to_json(result)

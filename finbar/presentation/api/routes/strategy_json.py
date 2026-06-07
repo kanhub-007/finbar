@@ -13,6 +13,7 @@ from finbar.core.application.dto.backtest_strategy_definition_request import (
 from finbar.core.application.dto.save_strategy_definition_request import (
     SaveStrategyDefinitionRequest,
 )
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.startup.service_factory import (
     _get_capability_service,
     _get_db,
@@ -108,21 +109,23 @@ def backtest_strategy_json(
         BacktestStrategyDefinitionRequest(
             definition=definition,
             bars=bars or [],
+            execution=ExecutionConfig(
+                leverage_multiplier=leverage,
+                risk_mode=risk_mode,
+                commission_pct=commission_pct,
+                slippage_pct=slippage_pct,
+                cap_explicit_size=cap_explicit_size,
+                reject_oversized_explicit_orders=(reject_oversized_explicit_orders),
+                allow_negative_cash=allow_negative_cash,
+                market_calendar=market_calendar,
+                borrow_fee_annual_pct=borrow_fee_annual_pct,
+                margin_mode=margin_mode,
+            ),
             symbol=symbol,
             interval=interval,
             params=params or {},
             initial_cash=initial_cash,
             risk_per_trade=risk_per_trade,
-            leverage=leverage,
-            risk_mode=risk_mode,
-            commission_pct=commission_pct,
-            slippage_pct=slippage_pct,
-            cap_explicit_size=cap_explicit_size,
-            reject_oversized_explicit_orders=reject_oversized_explicit_orders,
-            allow_negative_cash=allow_negative_cash,
-            market_calendar=market_calendar,
-            borrow_fee_annual_pct=borrow_fee_annual_pct,
-            margin_mode=margin_mode,
             bars_artifact_id=bars_artifact_id,
             informative_bars=informative_bars,
             informative_bars_artifact_ids=informative_bars_artifact_ids or {},

@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from finbar.core.domain.entities.execution_config import ExecutionConfig
+
 InformativeBars = list[dict] | dict[str, list[dict]]
 InformativeArtifactIds = dict[str, str]
 
@@ -26,6 +28,9 @@ class BacktestStrategyDefinitionRequest:
     informative_bars_artifact_ids: InformativeArtifactIds = field(default_factory=dict)
     """Completed indicator job IDs keyed by informative timeframe alias."""
 
+    execution: ExecutionConfig = field(default_factory=ExecutionConfig)
+    """Execution settings for this backtest run."""
+
     symbol: str = ""
     """Ticker symbol for result metadata."""
 
@@ -37,36 +42,6 @@ class BacktestStrategyDefinitionRequest:
 
     risk_per_trade: float = 0.02
     """Fraction of portfolio to risk per trade (0.0-1.0). Default 2%."""
-
-    leverage: float = 1.0
-    """Leverage multiplier. 1.0 = spot, 3.0 = 3x. Default 1.0."""
-
-    risk_mode: str = "fixed_equity_risk"
-    """Risk sizing mode: fixed_equity_risk or leverage_scaled_risk."""
-
-    commission_pct: float = 0.0
-    """Percentage commission per side, expressed as a decimal."""
-
-    slippage_pct: float = 0.0
-    """Directional slippage percentage, expressed as a decimal."""
-
-    cap_explicit_size: bool = True
-    """Cap explicit strategy sizes to buying power when true."""
-
-    reject_oversized_explicit_orders: bool = False
-    """Reject oversized explicit orders instead of capping them."""
-
-    allow_negative_cash: bool = False
-    """Allow backtests to overdraw cash when true."""
-
-    market_calendar: str = "equity_regular_hours"
-    """Market calendar used by annualization assumptions."""
-
-    borrow_fee_annual_pct: float = 0.0
-    """Annual borrow fee for short positions, expressed as a decimal."""
-
-    margin_mode: str = "simplified"
-    """Margin accounting mode: simplified or full."""
 
     params: dict[str, Any] = field(default_factory=dict)
     """Runtime strategy parameter overrides."""

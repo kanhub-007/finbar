@@ -88,18 +88,18 @@ class RunBacktestUseCase:
                 df=df,
                 strategy=strategy,
                 initial_cash=request.initial_cash,
-                leverage=request.leverage,
-                risk_mode=request.risk_mode,
-                commission_pct=request.commission_pct,
-                slippage_pct=request.slippage_pct,
-                cap_explicit_size=request.cap_explicit_size,
+                leverage=request.execution.leverage_multiplier,
+                risk_mode=request.execution.risk_mode,
+                commission_pct=request.execution.commission_pct,
+                slippage_pct=request.execution.slippage_pct,
+                cap_explicit_size=request.execution.cap_explicit_size,
                 reject_oversized_explicit_orders=(
-                    request.reject_oversized_explicit_orders
+                    request.execution.reject_oversized_explicit_orders
                 ),
-                allow_negative_cash=request.allow_negative_cash,
-                market_calendar=request.market_calendar,
-                borrow_fee_annual_pct=request.borrow_fee_annual_pct,
-                margin_mode=request.margin_mode,
+                allow_negative_cash=request.execution.allow_negative_cash,
+                market_calendar=request.execution.market_calendar,
+                borrow_fee_annual_pct=request.execution.borrow_fee_annual_pct,
+                margin_mode=request.execution.margin_mode,
                 interval=request.interval,
                 **request.params,
             )

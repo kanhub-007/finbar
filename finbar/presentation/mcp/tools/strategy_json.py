@@ -13,6 +13,7 @@ from finbar.core.application.dto.backtest_strategy_definition_request import (
 from finbar.core.application.dto.save_strategy_definition_request import (
     SaveStrategyDefinitionRequest,
 )
+from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.presentation.mcp.presenters.strategy_json_presenter import (
     StrategyJsonPresenter,
 )
@@ -205,21 +206,23 @@ def register_strategy_json_tools(mcp: FastMCP) -> None:
             BacktestStrategyDefinitionRequest(
                 definition=definition_json,
                 bars=bars,
+                execution=ExecutionConfig(
+                    leverage_multiplier=leverage,
+                    risk_mode=risk_mode,
+                    commission_pct=commission_pct,
+                    slippage_pct=slippage_pct,
+                    cap_explicit_size=cap_explicit_size,
+                    reject_oversized_explicit_orders=(reject_oversized_explicit_orders),
+                    allow_negative_cash=allow_negative_cash,
+                    market_calendar=market_calendar,
+                    borrow_fee_annual_pct=borrow_fee_annual_pct,
+                    margin_mode=margin_mode,
+                ),
                 symbol=symbol,
                 interval=interval,
                 params=params,
                 initial_cash=initial_cash,
                 risk_per_trade=risk_per_trade,
-                leverage=leverage,
-                risk_mode=risk_mode,
-                commission_pct=commission_pct,
-                slippage_pct=slippage_pct,
-                cap_explicit_size=cap_explicit_size,
-                reject_oversized_explicit_orders=reject_oversized_explicit_orders,
-                allow_negative_cash=allow_negative_cash,
-                market_calendar=market_calendar,
-                borrow_fee_annual_pct=borrow_fee_annual_pct,
-                margin_mode=margin_mode,
                 informative_bars=informative_bars,
                 bars_artifact_id=bars_artifact_id,
                 informative_bars_artifact_ids=informative_artifacts,
