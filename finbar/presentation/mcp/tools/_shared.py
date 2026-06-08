@@ -4,6 +4,8 @@ Concrete wiring now lives in ``finbar.startup.service_factory`` so REST and MCP
 adapters do not depend on each other.
 """
 
+import json
+
 from finbar.startup.service_factory import (  # noqa: F401
     _get_bar_frame_converter,
     _get_db,
@@ -50,3 +52,42 @@ from finbar.startup.service_factory import (  # noqa: F401
     _validate_interval,
     _validate_source,
 )
+
+
+def _search_filter(
+    items: list[dict],
+    search: str | None,
+    *,
+    match_keys: tuple[str, ...],
+    label: str,
+) -> str | None:
+    """Filter a list of dicts by case-insensitive search.
+
+    Returns a JSON error string if no matches, or None if items were
+    filtered successfully (mutates in-place by reassigning).
+    Use pattern: filter_items = items; on match, items = match_list.
+    """
+    if not search:
+        return None
+    query = search.lower()
+    matched = [
+        item
+        for item in items
+        if any(query in str(item.get(key, "")).lower() for key in match_keys)
+    ]
+    if not matched:
+        return json.dumps(
+            {
+                "message": (
+                    f"No {label} matched '{search}'. "
+                    "Try a different search or call without "
+                    "search to see all available items."
+                ),
+                "count": 0,
+                label: [],
+            },
+            indent=2,
+        )
+    items.clear()
+    items.extend(matched)
+    return None

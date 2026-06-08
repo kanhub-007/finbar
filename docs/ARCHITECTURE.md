@@ -35,7 +35,7 @@ finbar/
 │   │   │   ├── data_mode.py            # REAL / PROXY enum
 │   │   │   ├── interval.py             # Bar interval value object
 │   │   │   ├── symbol_info.py          # Company/asset metadata
-│   │   │   ├── enrichment_job.py       # Enrichment job state (async)
+│   │   │   ├── indicator_job.py       # Enrichment job state (async)
 │   │   │   ├── optimization_job.py     # Optimization job state (async)
 │   │   │   ├── optimization_result.py  # Single combination backtest metrics
 │   │   │   └── param_range.py          # Min/max/step range for grid/random search
@@ -54,9 +54,9 @@ finbar/
 │   │   │   ├── condition_tree_visitor.py           # Traverse condition trees
 │   │   │   ├── indicator_calculator.py             # Compute technical indicators
 │   │   │   ├── indicator_capability_provider.py    # Supported indicator metadata
-│   │   │   ├── enrichment_job_manager.py           # Async enrichment job lifecycle
-│   │   │   ├── enrichment_job_runner.py            # Execute enrichment work
-│   │   │   ├── enrichment_artifact_provider.py     # Read completed artifact bars
+│   │   │   ├── indicator_job_manager.py           # Async enrichment job lifecycle
+│   │   │   ├── indicator_job_runner.py            # Execute enrichment work
+│   │   │   ├── indicator_artifact_provider.py     # Read completed artifact bars
 │   │   │   ├── optimization_job_manager.py         # Async optimization job lifecycle
 │   │   │   ├── optimization_job_runner.py          # Execute optimization work
 │   │   │   ├── stock_data_fetcher.py               # Fetch OHLCV from source
@@ -74,9 +74,9 @@ finbar/
 │   │   │   ├── apply_strategy_features_*.py            # Feature enrichment
 │   │   │   ├── apply_indicators_*.py                   # Indicator enrichment
 │   │   │   ├── fetch_prices_*.py                       # Price fetch
-│   │   │   ├── start_enrichment_job_request.py         # Enrichment job start
-│   │   │   ├── enrichment_job_progress_result.py       # Enrichment progress
-│   │   │   ├── enrichment_job_results_result.py        # Paginated bars
+│   │   │   ├── start_indicator_job_request.py          # Indicator job start
+│   │   │   ├── indicator_job_progress_result.py       # Enrichment progress
+│   │   │   ├── indicator_job_results_result.py        # Paginated bars
 │   │   │   ├── start_optimization_job_request.py       # Optimization job start
 │   │   │   ├── optimization_job_progress_result.py     # Optimization progress
 │   │   │   ├── optimization_job_results_result.py      # Ranked results
@@ -110,10 +110,10 @@ finbar/
 │   │   │   ├── delete_strategy_definition.py
 │   │   │   ├── apply_strategy_features.py
 │   │   │   ├── apply_indicators.py
-│   │   │   ├── start_enrichment_job.py
-│   │   │   ├── get_enrichment_job_progress.py
-│   │   │   ├── get_enrichment_job_results.py
-│   │   │   ├── cancel_enrichment_job.py
+│   │   │   ├── start_indicator_job.py
+│   │   │   ├── get_indicator_job_progress.py
+│   │   │   ├── get_indicator_job_results.py
+│   │   │   ├── cancel_indicator_job.py
 │   │   │   ├── start_optimization_job.py
 │   │   │   ├── get_optimization_job_progress.py
 │   │   │   ├── get_optimization_job_results.py
@@ -131,14 +131,14 @@ finbar/
 │   │   ├── price_bar.py
 │   │   ├── strategy_document.py
 │   │   ├── symbol_info.py
-│   │   └── enrichment_artifact.py     # Persisted enriched bars
+│   │   └── indicator_artifact.py     # Persisted enriched bars
 │   ├── data/                # DB connection (SQLite + WAL)
 │   │   └── connection.py
 │   ├── repositories/        # SQL implementations
 │   │   ├── sql_price_cache_repository.py
 │   │   ├── sql_strategy_document_repository.py
 │   │   ├── sql_symbol_info_repository.py
-│   │   └── sql_enrichment_artifact_repository.py
+│   │   └── sql_indicator_artifact_repository.py
 │   └── services/            # Infrastructure services
 │       ├── backtest_runner.py                 # Bar-by-bar engine
 │       ├── builtin_strategy_provider.py       # Hardcoded strategies
@@ -154,8 +154,8 @@ finbar/
 │       ├── pandas_ta_indicator_calculator.py  # Indicators + dynamic period dispatch
 │       ├── pandas_timeframe_bar_merger.py     # Multi-timeframe merge
 │       ├── bar_merger.py                      # Core merge logic
-│       ├── cached_price_enrichment_job_runner.py  # Enrichment execution
-│       ├── in_memory_enrichment_job_manager.py    # Job + artifact store (SQLite-backed)
+│       ├── cached_price_indicator_job_runner.py  # Enrichment execution
+│       ├── in_memory_indicator_job_manager.py    # Job + artifact store (SQLite-backed)
 │       ├── grid_search_optimizer.py           # Grid/random parameter search
 │       ├── in_memory_optimization_job_manager.py  # Optimization job store
 │       ├── fetch_job.py / fetch_job_manager.py    # Async fetch
@@ -171,7 +171,7 @@ finbar/
 │   ├── api/                 # FastAPI routes + Pydantic DTOs
 │   └── mcp/                 # FastMCP tools
 │       ├── tools/           # symbols, prices, jobs, analysis, strategy_json,
-│       │                     #   enrichment, optimization
+│       │                     #   indicators, optimization
 │       └── presenters/      # Response formatting
 ├── startup/                 # Composition root — wires everything
 │   ├── bootstrap.py         # DB init + logging + table registration
@@ -233,38 +233,37 @@ finbar/
 ```
 Agent
   → get_strategy_capabilities        (discover operators, indicators, features)
-  → validate_strategy_json           (check schema + semantics)
-  → explain_strategy_json             (verify with human-readable text)
-  → fetch_price_history               (async, rate-limited)
-  → start_enrichment_job              (server-side, no payload limits)
-  → get_enrichment_job_results        (page enriched bars)
-  → backtest_strategy_json            (bars_artifact_id — no large JSON)
+  → validate_strategy_definition     (check schema + semantics, JSON or YAML)
+  → explain_strategy_definition       (verify with human-readable text)
+  → fetch_price_history               (async, rate-limited, pass start_date!)
+  → compute_indicators                (server-side, no payload limits)
+  → get_indicator_job_results         (page enriched bars)
+  → backtest_strategy_definition      (bars_artifact_id — no large JSON)
   → start_optimization_job            (grid/random search over params)
-  → save_strategy_json                (persist validated strategy)
+  → save_strategy_definition          (persist validated strategy)
 ```
 
 ### Multi-timeframe workflow
 
 ```
 Agent
-  → validate_strategy_json → get primary + informative required indicators
-  → start_enrichment_job(symbol, interval="1h", timeframe_alias="primary")
-  → start_enrichment_job(symbol, interval="1d", timeframe_alias="daily")
-  → backtest_strategy_json(
+  → validate_strategy_definition → get primary + informative required indicators
+  → compute_indicators(symbol, interval="1h", timeframe_alias="primary")
+  → compute_indicators(symbol, interval="1d", timeframe_alias="daily")
+  → backtest_strategy_definition(
       bars_artifact_id="<primary_id>",
       informative_bars_artifact_ids_json='{"daily":"<daily_id>"}'
     )
   → start_optimization_job(... same artifact IDs ...)
 ```
 
-### Enrichment job flow
+### Indicator job flow
 
 ```
-start_enrichment_job → job_id
+compute_indicators → job_id
   → Background: load cached bars → compute indicators → compute features
   → Store bars in SQLite (survives restart)
-  → Store DataFrame in memory (hot-path backtest)
-  → get_enrichment_job_results(job_id, page, page_size)
+  → get_indicator_job_results(job_id, page, page_size)
 ```
 
 ### Optimization job flow
@@ -321,7 +320,7 @@ CREATE TABLE strategy_documents (
     created_at TEXT, updated_at TEXT
 );
 
-CREATE TABLE enrichment_artifacts (
+CREATE TABLE indicator_artifacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_id TEXT UNIQUE NOT NULL,
     symbol TEXT NOT NULL, source TEXT NOT NULL, interval TEXT NOT NULL,

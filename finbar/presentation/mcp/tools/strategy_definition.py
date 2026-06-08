@@ -76,7 +76,9 @@ def register_strategy_definition_tools(mcp: FastMCP) -> None:
             "indicators — the agent must do those separately."
         ),
     )
-    def validate_strategy_definition(definition_json: str, params_json: str = "{}") -> str:
+    def validate_strategy_definition(
+        definition_json: str, params_json: str = "{}"
+    ) -> str:
         """Validate a strategy definition string (JSON or YAML)."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
@@ -97,7 +99,9 @@ def register_strategy_definition_tools(mcp: FastMCP) -> None:
             "before running a backtest."
         ),
     )
-    def explain_strategy_definition(definition_json: str, params_json: str = "{}") -> str:
+    def explain_strategy_definition(
+        definition_json: str, params_json: str = "{}"
+    ) -> str:
         """Explain a strategy definition string (JSON or YAML)."""
         params = _loads_object(params_json, "params_json")
         if "error" in params:
@@ -240,7 +244,8 @@ def register_strategy_definition_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="save_strategy_definition",
         description=(
-            "Validate and persist a strategy definition (JSON or YAML) to the database. "
+            "Validate and persist a strategy definition (JSON or YAML) "
+            "to the database. "
             "The definition is validated before saving. On success, the "
             "strategy appears in list_backtest_strategies and can be "
             "backtested by name via run_backtest. Returns validation errors "

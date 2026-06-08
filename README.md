@@ -1,8 +1,10 @@
 # Finbar — Financial Bars & Strategy Backtesting
 
 OHLCV price data from **yfinance** (stocks) and **Hyperliquid** (crypto) plus a
-**strategy JSON SDK** for AI agents. Define, validate, explain, backtest,
+**strategy JSON/YAML SDK** for AI agents. Define, validate, explain, backtest,
 optimize, walk-forward, and persist trading strategies — no Python code required.
+Strategies can be authored in **YAML** (recommended for agents — less error-prone,
+no escaping hell) or JSON.
 
 ## Quick Start
 
@@ -28,7 +30,7 @@ python run_mcp.py
 | **[Fetching OHLCV Data](docs/DATA.md)** | Sources, intervals, fetch vs cache, job management, discovery |
 | **[Technical Analysis](docs/QUANTITATIVE_PROXIES.md)** | Indicators, trading metrics, proxies, multi-timeframe |
 | **[Running Backtests](docs/BACKTESTING.md)** | Execution controls, output format, analytics, trust diagnostics |
-| **[Strategy JSON SDK](#strategy-capabilities)** | Authoring strategies in JSON — see `get_strategy_capabilities` and `get_usage_guide` |
+| **[Strategy JSON/YAML SDK](#strategy-capabilities-json-or-yaml)** | Authoring strategies in JSON or YAML — see `get_strategy_capabilities` and `get_usage_guide` |
 | **[Optimization](docs/OPTIMIZATION.md)** | Grid search, random search, walk-forward validation, diagnostics |
 | **[Architecture](docs/ARCHITECTURE.md)** | Clean architecture, layers, patterns, one class per file |
 | **[Execution Model](docs/backtest_execution_model.md)** | Fill accounting, slippage, margin, annualization, crossover determinism |
@@ -43,17 +45,19 @@ python run_mcp.py
 | **Artifacts** | `list_artifacts`, `describe_artifact`, `query_artifact_bars`, `delete_artifact` |
 | **Signals** | `compute_signals` (confidence scores, risk flags) |
 | **Derivatives** | `fetch_derivatives` (funding rates, OI, CVD — crypto) |
-| **Strategy** | `get_strategy_capabilities`, `get_strategy_schema`, `validate_strategy_json`, `explain_strategy_json`, `backtest_strategy_json`, `apply_strategy_features`, `save_strategy_json`, `delete_strategy_json` |
+| **Strategy** | `get_strategy_capabilities`, `get_strategy_schema`, `validate_strategy_definition`, `explain_strategy_definition`, `backtest_strategy_definition`, `apply_strategy_features`, `save_strategy_definition`, `delete_strategy_definition` |
 | **Optimization** | `start_optimization_job`, `start_walk_forward_job`, `get_optimization_job_progress`, `get_optimization_job_results`, `cancel_optimization_job` |
-| **Analysis** | `run_backtest`, `list_backtest_strategies`, `merge_and_backtest`, `run_portfolio_backtest` |
+| **Analysis** | `run_backtest`, `list_backtest_strategies`, `run_portfolio_backtest` |
 | **Pipeline** | `compute_strategy_indicators`, `run_strategy_pipeline` |
 | **Results** | `list_backtest_results`, `get_backtest_summary`, `get_backtest_trades`, `get_backtest_equity` |
 
 Call `get_usage_guide` for the full workflow reference.
 
-## Strategy capabilities
+## Strategy capabilities (JSON or YAML)
 
-- **JSON-defined**: No Python code — author strategies as structured JSON documents
+- **YAML-first**: Strategies can be authored in YAML — no quote escaping, native
+  indentation, far less error-prone for AI agents to generate than JSON.
+- **JSON also supported**: `definition_json` params accept both formats.
 - **Multi-timeframe**: Primary + informative bars with column merging
 - **Indicators**: sma, ema, rsi, atr, adx, bb_*, macd, ker, kama — arbitrary periods
 - **Features**: rolling max/min, body_pct, formula expression trees
@@ -111,6 +115,15 @@ Backtest tools accept `detail_level`:
 
 Finbar is optimized for AI agents with limited context windows:
 
+- **Agent-friendly defaults**: `get_cached_prices` defaults to the last page (most recent data).
+  Use `tail=N` to get exactly N recent bars, or `metadata_only=true` for zero-bar discovery.
+- **Search filtering**: `list_hyperliquid_tickers(search="MU")` and
+  `list_backtest_strategies(search="crossover")` return only matching items — no 800-ticker dumps.
+- **Date range guidance**: `fetch_price_history` and `compute_indicators` accept
+  `start_date`/`end_date` to limit work to recent data instead of full multi-decade history.
+  Tools warn agents to always pass `start_date`.
+- **Efficient path documented**: `get_usage_guide` lists a 7-step preferred workflow that
+  avoids the deprecated `get_cached_prices(page=0) → apply_indicators → run_backtest` pattern.
 - **Artifact IDs**: Compute indicators once, reuse via `list_artifacts` + `describe_artifact`
 - **Compact summaries**: Backtests return metrics + access pointers by default
 - **Paginated detail**: `get_backtest_trades` and `get_backtest_equity` fetch large arrays on demand

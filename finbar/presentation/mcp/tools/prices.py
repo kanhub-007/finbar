@@ -53,7 +53,15 @@ def register_price_tools(mcp: FastMCP) -> None:
             "to narrow by date. Returns metadata: page, total_pages, "
             "total_bar_count so agents can iterate through all pages. "
             "Fast, no rate limits — only returns previously-fetched data. "
-            "Use fetch_price_history() first to populate the cache."
+            "Use fetch_price_history() first to populate the cache.\n\n"
+            "AGENT-FRIENDLY PARAMS:\n"
+            "  tail=N — return the last N bars only (preferred for AI agents). "
+            "Overrides page.\n"
+            "  metadata_only=true — return symbol/source/interval/total_pages/"
+            "total_bar_count/date_range WITHOUT bars. Use for discovery "
+            "before deciding which page or tail range to fetch.\n"
+            "  When neither page nor tail is specified, defaults to the LAST "
+            "page of data (most recent)."
         ),
     )
     def get_cached_prices(
@@ -62,8 +70,10 @@ def register_price_tools(mcp: FastMCP) -> None:
         start_date: str | None = None,
         end_date: str | None = None,
         source: str = "yfinance",
-        page: int = 0,
+        page: int | None = None,
         page_size: int = 500,
+        tail: int | None = None,
+        metadata_only: bool = False,
     ) -> str:
         db = _get_db()
         try:
@@ -86,12 +96,30 @@ def register_price_tools(mcp: FastMCP) -> None:
             total = len(bars)
 
             # Clamp page_size
-            page_size = max(1, min(page_size, 1000))
-            total_pages = (total + page_size - 1) // page_size
-            page = max(0, min(page, total_pages - 1)) if total_pages > 0 else 0
+            ps = max(1, min(page_size, 1000))
+            total_pages = (total + ps - 1) // ps
 
-            start_idx = page * page_size
-            end_idx = min(start_idx + page_size, total)
+            if metadata_only:
+                return json.dumps(
+                    {
+                        "symbol": result.symbol,
+                        "source": result.source,
+                        "interval": result.interval,
+                        "total_pages": total_pages,
+                        "total_bar_count": total,
+                        "start_date": bars[0].timestamp if bars else None,
+                        "end_date": bars[-1].timestamp if bars else None,
+                    },
+                    indent=2,
+                    default=str,
+                )
+
+            page, start_idx, end_idx, page_size_used = _resolve_pagination(
+                total=total,
+                page_size=ps,
+                tail=tail,
+                page=page,
+            )
             page_bars = bars[start_idx:end_idx]
 
             bars_json = [_bar_to_dict(b) for b in page_bars]
@@ -101,7 +129,7 @@ def register_price_tools(mcp: FastMCP) -> None:
                     "source": result.source,
                     "interval": result.interval,
                     "page": page,
-                    "page_size": page_size,
+                    "page_size": page_size_used,
                     "total_pages": total_pages,
                     "total_bar_count": total,
                     "bar_count": len(bars_json),
@@ -156,6 +184,9 @@ def register_price_tools(mcp: FastMCP) -> None:
             "For Hyperliquid, first discover tickers with "
             "list_hyperliquid_tickers(). For HIP-3 tickers use "
             "dex:COIN format (e.g., flx:TSLA). "
+            "⚠️ Always pass start_date to limit fetch size (e.g., "
+            "start_date='2026-04-01' for recent analysis). Without it, "
+            "yfinance daily may fetch 40+ years. "
             "DATA LIMITS: yfinance intraday (5min/30min/1h) is limited to "
             "~60 calendar days. Daily (1d) and weekly (1w) go back years. "
             "Hyperliquid perp/spot have longer intraday history."
@@ -269,3 +300,38 @@ def _bar_to_dict(bar: PriceBar) -> dict:
         "close": bar.close,
         "volume": bar.volume,
     }
+
+
+def _resolve_pagination(
+    total: int,
+    page_size: int,
+    tail: int | None,
+    page: int | None,
+) -> tuple[int, int, int, int]:
+    """Resolve page, start_idx, end_idx, page_size_used.
+
+    Priority: tail > explicit page > last-page default.
+    """
+    total_pages = (total + page_size - 1) // page_size
+
+    if tail is not None:
+        tail = max(1, min(tail, total))
+        resolved_page = max(0, total_pages - (tail + page_size - 1) // page_size)
+        start_idx = max(0, total - tail)
+        end_idx = total
+        ps_used = end_idx - start_idx
+        return resolved_page, start_idx, end_idx, ps_used
+
+    if page is not None:
+        resolved_page = (
+            max(0, min(page, total_pages - 1)) if total_pages > 0 else 0
+        )
+        start_idx = resolved_page * page_size
+        end_idx = min(start_idx + page_size, total)
+        return resolved_page, start_idx, end_idx, page_size
+
+    # Default: last page (most recent data)
+    resolved_page = max(0, total_pages - 1) if total_pages > 0 else 0
+    start_idx = resolved_page * page_size
+    end_idx = total
+    return resolved_page, start_idx, end_idx, page_size

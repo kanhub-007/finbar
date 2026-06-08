@@ -2,41 +2,63 @@
 
 Finbar supports two backtest entry points:
 
-1. **By name** — `run_backtest` for built-in or saved strategies
-2. **By JSON** — `backtest_strategy_json` for AI-authored strategies
+1. **By name** — `run_backtest` for built-in or saved strategies (small data)
+2. **By JSON/YAML** — `backtest_strategy_definition` for AI-authored strategies (preferred).
+   YAML is recommended for AI agents — no quote escaping, native indentation.
 
 Both produce the same output format with metrics, trades, equity curve, and
 diagnostics.
 
-## Quick start
+## Preferred workflow (artifact-based, efficient)
+
+For AI agents with limited context — no large JSON payloads in chat:
 
 ```python
-# 1. Fetch data
-fetch_price_history("AAPL", "1d", "yfinance", "2024-01-01", "2024-12-31")
+# 1. Fetch recent data (always pass start_date)
+fetch_price_history("AAPL", "1d", "yfinance", start_date="2024-01-01")
 
-# 2. Get cached bars
-bars = get_cached_prices("AAPL", "1d", "2024-01-01", "2024-12-31")
-
-# 3. Apply indicators (synchronous, for small datasets)
-apply_indicators(bars, '["sma_20","sma_50","rsi_14"]')
-
-# 4. Run backtest
-run_backtest(
-  bars, strategy_name="sma_crossover",
-  symbol="AAPL", interval="1d",
-  initial_cash=10000
-)
-```
-
-For large datasets, use async indicator jobs:
-
-```python
-# Async: compute_indicators → poll → get results
-compute_indicators("AAPL", "yfinance", "1d", '["sma_20","rsi_14"]')
+# 2. Compute indicators server-side, limit date range
+compute_indicators("AAPL", "yfinance", "1d",
+    '["sma_20","sma_50","rsi_14"]', start_date="2024-01-01")
 # → job_id
+
+# 3. Poll for completion
 get_indicator_job_progress(job_id)
-get_indicator_job_results(job_id, page=0)
+
+# 4. Get artifact ID → backtest with artifact ID (no bars in context)
+backtest_strategy_definition(
+  definition_json, bars_artifact_id=job_id,
+  symbol="AAPL", interval="1d"
+)
+→ compact summary + result_id
 ```
+
+Or use the one-call pipeline:
+
+```python
+run_strategy_pipeline(definition_json, "AAPL",
+  start_date="2024-01-01")
+→ validate → compute indicators → backtest → compact summary
+```
+
+## Small-data workflow (legacy, quick experiments)
+
+For small datasets (<500 bars) where inline JSON is acceptable:
+
+```python
+# 1. Get recent bars
+bars = get_cached_prices("AAPL", tail=100)
+
+# 2. Apply indicators in-memory
+enriched = apply_indicators(bars, '["sma_20","rsi_14"]')
+
+# 3. Run backtest
+run_backtest(enriched, strategy_name="sma_crossover",
+  symbol="AAPL", interval="1d")
+```
+
+**Warning:** For large datasets, always prefer the artifact workflow above.
+The inline JSON approach can exhaust agent context.
 
 ## Execution controls
 
@@ -61,17 +83,25 @@ All backtest and optimization tools accept these parameters:
 
 ## Multi-timeframe backtests
 
-```python
-# For built-in strategies:
-merge_and_backtest(
-  primary_bars_json, informative_bars_json,
-  strategy_name="auction_drive", informative_interval="1d"
-)
+For strategies that need intraday entries plus daily trend context:
 
-# For JSON strategies:
-backtest_strategy_json(
-  definition_json, bars_artifact_id=primary_job_id,
-  informative_bars_artifact_ids_json='{"daily":"daily_job_id"}'
+```python
+# 1. Compute indicators for primary + informative timeframes
+compute_indicators("AAPL", "yfinance", "1h",
+  '["sma_20","rsi_14"]', start_date="2024-01-01")
+# → primary_job_id
+
+compute_indicators("AAPL", "yfinance", "1d",
+  '["sma_50","sma_200"]', start_date="2024-01-01",
+  timeframe_alias="daily")
+# → daily_job_id
+
+# 2. Backtest with both artifact IDs
+backtest_strategy_definition(
+  definition_json,
+  bars_artifact_id=primary_job_id,
+  informative_bars_artifact_ids_json='{"daily":"daily_job_id"}',
+  symbol="AAPL", interval="1h"
 )
 ```
 

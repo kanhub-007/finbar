@@ -16,7 +16,11 @@ def register_signal_tools(mcp: FastMCP) -> None:
         name="compute_signals",
         description=(
             "Compute signal interpretation columns from already-enriched "
-            "OHLCV bars. Adds: rsi_zone (5-tier), adx_conviction (20-95), "
+            "OHLCV bars PASSED AS JSON. "
+            "⚠️ For large datasets, prefer querying from an existing "
+            "indicator artifact (list_artifacts → query_artifact_bars) "
+            "and then passing only the few bars you need here.\n\n"
+            "Adds: rsi_zone (5-tier), adx_conviction (20-95), "
             "is_squeeze, is_overextended, is_weak_trend, is_low_volume, "
             "near_resistance, near_support, confidence_score (0-100). "
             "Requires bars with indicators: rsi_14, adx, atr, rvol, "

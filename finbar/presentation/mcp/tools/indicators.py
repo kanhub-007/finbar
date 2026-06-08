@@ -122,7 +122,13 @@ def _ta_description() -> str:
         "swing points, trend direction/strength) on cached OHLCV bars. "
         'Pass indicators_json like \'["sma_20","sma_50","rsi_14","atr"]\'. '
         "Supports arbitrary periods within catalog ranges. "
-        "For multi-timeframe strategies, call once per timeframe. "
+        "For multi-timeframe strategies, call once per timeframe.\n\n"
+        "Use start_date/end_date to limit computation to a date range "
+        "(e.g., start_date='2026-04-01' processes only recent bars, "
+        "not the full history). This is strongly recommended for AI "
+        "agents to avoid unnecessary computation. The runner "
+        "auto-fetches additional prior bars needed for indicator "
+        "warm-up periods (e.g., sma_200 needs 200 bars before start_date).\n\n"
         "Poll with get_indicator_job_progress(job_id), then page results "
         "with get_indicator_job_results(job_id, page, page_size)."
     )
@@ -174,7 +180,10 @@ def _tm_description() -> str:
         'Example: metrics_json=\'["vwap","ibs","rvol","proxy_vwap",'
         '"proxy_ibs","proxy_parkinson"]\'. '
         "On intraday data use real metrics (vwap, ibs); on daily data use "
-        "proxies (proxy_vwap, proxy_ibs). "
+        "proxies (proxy_vwap, proxy_ibs).\n\n"
+        "Use start_date/end_date to limit computation to a date range — "
+        "strongly recommended for AI agents to avoid computing on the "
+        "full multi-decade history.\n\n"
         "Poll with get_indicator_job_progress(job_id), then page results "
         "with get_indicator_job_results(job_id, page, page_size)."
     )

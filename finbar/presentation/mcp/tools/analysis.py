@@ -1,6 +1,8 @@
 """Analysis MCP tools — indicators and backtesting.
 
-The AI client composes: get_cached_prices → apply_indicators → run_backtest.
+Preferred path: compute_indicators → backtest_strategy_definition (artifact IDs).
+For small data: get_cached_prices(tail=N) → apply_indicators → run_backtest.
+One-call: run_strategy_pipeline.
 """
 
 import json
@@ -16,7 +18,6 @@ from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.startup.service_factory import (
     _get_db,
-    _get_indicator_calculator,
     _make_apply_indicators_use_case,
     _make_compute_strategy_indicators_use_case,
     _make_get_backtest_equity_use_case,
@@ -27,8 +28,9 @@ from finbar.startup.service_factory import (
     _make_run_portfolio_backtest_use_case,
     _make_run_strategy_pipeline_use_case,
     _make_store_backtest_result_use_case,
-    _resolve_strategy,
 )
+
+from ._shared import _search_filter
 
 logger = logging.getLogger(__name__)
 
@@ -41,18 +43,21 @@ def register_analysis_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="apply_indicators",
         description=(
-            "Apply technical indicators to OHLCV bars. "
-            "Pass bars as JSON string (from get_cached_prices or "
-            "fetch_price_history results) and a list of indicator names "
+            "Apply technical indicators to OHLCV bars IN-MEMORY. "
+            "⚠️ For LARGE datasets (>500 bars), use compute_indicators() "
+            "instead — it runs server-side and stores results as reusable "
+            "artifacts with artifact IDs, avoiding huge JSON dumps in chat "
+            "context.\n\n"
+            "Pass bars as JSON string and a list of indicator names "
             '(or a JSON-encoded string like \'["sma_20","rsi_14"]\'). '
             "Returns indicator bars with indicator columns. "
             "Supported indicators: rsi_7, rsi_14, sma_10, sma_20, sma_30, "
             "sma_50, sma_200, ema_12, ema_26, macd, macd_signal, macd_hist, "
             "atr, adx, vwap, bb_upper, bb_middle, bb_lower, ibs, rvol, ker, "
-            "kama, "
-            "price_vs_sma20, trend_direction, trend_strength, trend_status, "
-            "swing_high_20, swing_low_20, breakout_level, breakout_signal, "
-            "is_power_zone, breakout_quality, vol_buffer_high, vol_buffer_low, "
+            "kama, price_vs_sma20, trend_direction, trend_strength, "
+            "trend_status, swing_high_20, swing_low_20, breakout_level, "
+            "breakout_signal, is_power_zone, breakout_quality, "
+            "vol_buffer_high, vol_buffer_low, "
             "and proxy indicators (proxy_ibs, proxy_parkinson, "
             "proxy_typical_price, etc.)."
         ),
@@ -107,11 +112,15 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "(sma_crossover, rsi_mean_reversion, momentum_breakout, "
             "auction_drive) and any user-saved JSON strategies. "
             "Returns strategy names, descriptions, required indicators, "
-            "and default parameters."
+            "and default parameters. "
+            "Use the optional search parameter for case-insensitive "
+            "name/description matching."
         ),
     )
-    def list_backtest_strategies() -> str:
-        """List all registered backtest strategies and their metadata."""
+    def list_backtest_strategies(
+        search: str | None = None,
+    ) -> str:
+        """List all registered backtest strategies, optionally filtered."""
         db = _get_db()
         try:
             use_case = _make_run_backtest_use_case(db)
@@ -124,7 +133,18 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 }
                 for meta in use_case.list_strategies()
             ]
-            return json.dumps(strategies, indent=2)
+            error = _search_filter(
+                strategies,
+                search,
+                match_keys=("name", "description"),
+                label="strategies",
+            )
+            if error:
+                return error
+            return json.dumps(
+                {"count": len(strategies), "strategies": strategies},
+                indent=2,
+            )
         finally:
             db.close()
 
@@ -132,17 +152,23 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         name="run_backtest",
         description=(
             "Run a backtest with a named strategy against historical "
-            "OHLCV bars. Pass bars (optionally enriched with "
-            "apply_indicators) as a JSON array, a strategy name (use "
-            "list_backtest_strategies to discover available names), "
-            "and optional strategy parameters as a JSON object. "
-            "Works with both built-in strategies (sma_crossover, "
-            "rsi_mean_reversion, momentum_breakout, auction_drive) "
-            "and saved JSON strategies. Stores the full result server-side "
-            "and returns a compact summary by default with result_id. "
-            "Use get_backtest_trades() and get_backtest_equity() to page "
-            "large details on demand. Set detail_level='full' only when "
-            "explicitly exporting/debugging."
+            "OHLCV bars PASSED AS JSON. "
+            "⚠️ For EFFICIENT backtests, use the artifact workflow instead: "
+            "compute_indicators() → backtest_strategy_definition() with "
+            "bars_artifact_id. Or for one-call convenience: "
+            "run_strategy_pipeline(). The JSON-in approach here is for "
+            "small/quick experiments only.\n\n"
+            "Pass bars (optionally enriched with apply_indicators) as a "
+            "JSON array, a strategy name (use list_backtest_strategies to "
+            "discover available names), and optional strategy parameters "
+            "as a JSON object. Works with both built-in strategies "
+            "(sma_crossover, rsi_mean_reversion, momentum_breakout, "
+            "auction_drive) and saved JSON strategies. "
+            "Stores the full result server-side and returns a compact "
+            "summary by default with result_id. Use get_backtest_trades() "
+            "and get_backtest_equity() to page large details on demand. "
+            "Set detail_level='full' only when explicitly "
+            "exporting/debugging."
         ),
     )
     def run_backtest(
@@ -231,68 +257,15 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             db.close()
 
     @mcp.tool(
-        name="merge_and_backtest",
-        description=(
-            "Run a multi-interval backtest by merging primary (intraday) "
-            "and informative (daily) bars before running the strategy. "
-            "For strategies like auction_drive that need intraday entries "
-            "plus daily trend context. Merges columns with interval "
-            "suffix (e.g., sma_50 → sma_50_1d). Applies required "
-            "indicators automatically. Returns compact summary with "
-            "result_id; use detail_level='full' for full export."
-        ),
-    )
-    def merge_and_backtest(
-        primary_bars_json: str,
-        informative_bars_json: str,
-        strategy_name: str,
-        informative_interval: str = "1d",
-        symbol: str = "",
-        interval: str = "",
-        initial_cash: float = 10000.0,
-        detail_level: str = "summary",
-    ) -> str:
-        try:
-            primary_bars = json.loads(primary_bars_json)
-            info_bars = json.loads(informative_bars_json)
-        except json.JSONDecodeError as e:
-            return json.dumps({"error": f"Invalid JSON: {e}"})
-
-        primary_df = _bars_to_df(primary_bars)
-        info_df = _bars_to_df(info_bars)
-
-        if primary_df.empty:
-            return json.dumps({"error": "Primary bars list is empty"})
-
-        from finbar.infrastructure.services.bar_merger import merge_timeframes
-
-        merged_df = merge_timeframes(primary_df, info_df, informative_interval)
-
-        strategy = _resolve_strategy(strategy_name)
-        if strategy is None:
-            return json.dumps({"error": f"Unknown strategy '{strategy_name}'"})
-
-        required = strategy.meta().required_indicators
-        if required:
-            merged_df = _get_indicator_calculator().calculate(merged_df, required)
-
-        from finbar.infrastructure.services.backtest_runner import BacktestRunner
-
-        runner = BacktestRunner()
-        raw = runner.run(merged_df, strategy, initial_cash)
-        raw["symbol"] = symbol
-        raw["interval"] = interval
-
-        return _store_backtest_response(raw, detail_level)
-
-    @mcp.tool(
         name="run_portfolio_backtest",
         description=(
-            "Run a multi-asset portfolio backtest. Each asset runs its "
-            "own strategy with weight-proportional capital. The portfolio "
-            "equity curve is the sum of individual curves. Returns "
-            "portfolio-level metrics plus per-asset results and a "
-            "correlation matrix. Pass portfolio_config_json with "
+            "Run a multi-asset portfolio backtest PASSING BARS AS JSON. "
+            "Each asset runs its own strategy with weight-proportional "
+            "capital. The portfolio equity curve is the sum of individual "
+            "curves. Returns portfolio-level metrics plus per-asset "
+            "results and a correlation matrix. "
+            "⚠️ Use artifact IDs where possible to avoid large JSON. "
+            "Pass portfolio_config_json with "
             '{"assets": [{"symbol":"AAPL","strategy_name":"sma_crossover",'
             '"weight":1.0,"bars":[...]}].'
         ),
@@ -562,14 +535,3 @@ def _backtest_result_to_dict(result) -> dict:
         "equity_curve": result.equity_curve,
         "error": result.error,
     }
-
-
-def _bars_to_df(bars: list[dict]):
-    """Convert a list of bar dicts to a pandas DataFrame with datetime index."""
-    import pandas as pd
-
-    df = pd.DataFrame(bars)
-    if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
-        df = df.set_index("timestamp").sort_index()
-    return df

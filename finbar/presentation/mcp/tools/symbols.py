@@ -9,6 +9,7 @@ from ._shared import (
     _get_hl_tickers,
     _make_get_symbol_info_use_case,
     _make_list_cached_use_case,
+    _search_filter,
 )
 
 
@@ -70,13 +71,26 @@ def register_symbol_tools(mcp: FastMCP) -> None:
             "List available Hyperliquid tickers by market type. "
             "Types: 'spot' (spot markets), 'perp' (perpetual futures), "
             "'hip3' (third-party DEX perpetuals), 'all' (everything). "
+            "Use the optional search parameter for case-insensitive "
+            "symbol/name matching — returns only tickers whose symbol "
+            "or name contains the search string. "
             "Returns ticker symbols with metadata."
         ),
     )
-    def list_hyperliquid_tickers(market_type: str = "all") -> str:
-        """Return Hyperliquid tickers as JSON."""
+    def list_hyperliquid_tickers(
+        market_type: str = "all",
+        search: str | None = None,
+    ) -> str:
+        """Return Hyperliquid tickers as JSON, optionally filtered."""
         tickers = _get_hl_tickers(market_type)
-        return json.dumps(tickers, indent=2)
+        error = _search_filter(
+            tickers, search, match_keys=("symbol", "name"), label="tickers"
+        )
+        if error:
+            return error
+        return json.dumps(
+            {"count": len(tickers), "tickers": tickers}, indent=2
+        )
 
     @mcp.tool(
         name="get_usage_guide",
@@ -102,6 +116,22 @@ def _usage_guide_text() -> str:
         # ── Quick start ──
         "QUICK START: Call get_strategy_capabilities() first, then "
         "follow the workflow below for your use case.\n\n"
+        # ── Efficient path (preferred) ──
+        "PREFERRED EFFICIENT WORKFLOW (avoids token waste):\n"
+        "  1. list_hyperliquid_tickers(search='SYMBOL') — lightweight "
+        "discovery\n"
+        "  2. fetch_price_history(symbol, start_date='YYYY-MM-DD') — "
+        "always pass a start_date\n"
+        "  3. get_cached_prices(tail=100) or metadata_only=true — "
+        "recent data only, or just metadata\n"
+        "  4. compute_indicators(..., start_date='YYYY-MM-DD') — "
+        "limit date range, avoid full history\n"
+        "  5. query_artifact_bars(artifact_id, columns_json=..., "
+        "start_date=...) — targeted enrichment queries\n"
+        "  6. run_strategy_pipeline(definition_json, symbol) — "
+        "one-call validate+compute+backtest\n"
+        "  7. get_backtest_trades / get_backtest_equity — "
+        "paginated detail on demand\n\n"
         # ── Price data ──
         "PRICE DATA\n"
         "  Two sources: yfinance (stocks/ETFs) and hyperliquid (crypto).\n"
@@ -119,12 +149,15 @@ def _usage_guide_text() -> str:
         "  fetch_price_history(symbol, interval, source, start_date, "
         "end_date) → job_id\n"
         "  get_cached_prices(symbol, interval, source, start_date, "
-        "end_date, page=0, page_size=500) → paginated bars + metadata\n"
+        "end_date, page, page_size, tail, metadata_only) → default last "
+        "page. Prefer tail=N for agent use. metadata_only=true for "
+        "discovery without bars.\n"
         "  get_latest_quote(symbol, source='yfinance') → latest bar\n"
         "  get_symbol_info(symbol) → company/sector/exchange/market cap\n"
         "  list_cached_symbols(source) → what's cached locally\n"
         "  delete_cached_prices(symbol, source, interval, before_date)\n"
-        "  list_hyperliquid_tickers(market_type) → spot/perp/hip3/all\n"
+        "  list_hyperliquid_tickers(market_type, search) → filtered by "
+        "symbol/name\n"
         "  get_job_progress(job_id) / get_job_results(job_id) / "
         "cancel_job(job_id)\n\n"
         # ── Indicators ──
@@ -138,7 +171,8 @@ def _usage_guide_text() -> str:
         "  For LARGE datasets, use async indicator jobs to avoid huge "
         "payloads:\n"
         "    compute_indicators(symbol, source, interval, "
-        "indicators_json) → job_id\n"
+        "indicators_json, start_date, end_date) → job_id. "
+        "Use start_date to limit computation range.\n"
         "    get_indicator_job_progress(job_id) → status/stage/indicators\n"
         "    list_artifacts(symbol, source, interval) → reusable artifact "
         "IDs + metadata, no bars\n"
@@ -290,7 +324,7 @@ def _usage_guide_text() -> str:
         "get_optimization_job_progress, get_optimization_job_results, "
         "cancel_optimization_job\n"
         "  Analysis: run_backtest, list_backtest_strategies, "
-        "merge_and_backtest, run_portfolio_backtest\n"
+        "run_portfolio_backtest\n"
         "  Pipeline: compute_strategy_indicators, run_strategy_pipeline\n"
         "  Backtest Results: list_backtest_results, get_backtest_summary, "
         "get_backtest_trades, get_backtest_equity\n"
