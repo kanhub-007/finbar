@@ -173,10 +173,12 @@ def _edge_volume_building(df: pd.DataFrame) -> pd.Series:
     This is the setup for a genuine breakout per AMT Rule 5.
     """
     near_edge = df["near_vah"] | df["near_val"]
+    # Time component: price has been near edge for 2+ consecutive bars
+    sustained = near_edge & near_edge.shift(1)
     rvol = df.get("rvol", pd.Series(1.0, index=df.index))
     elevated_volume = rvol > 1.0
 
-    return near_edge & elevated_volume
+    return sustained & elevated_volume
 
 
 # ---------------------------------------------------------------------------

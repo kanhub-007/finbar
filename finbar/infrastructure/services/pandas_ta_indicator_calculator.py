@@ -27,11 +27,23 @@ from finbar.core.domain.services.volume_profile import (
     compute_rolling_vp,
     compute_rolling_window_vp,
 )
+from finbar.core.domain.services.composite_vp import (
+    compute_composite_vp,
+)
 from finbar.core.domain.services.market_profile import (
     compute_all_session_market_profiles,
 )
 from finbar.core.domain.services.auction_state import (
     classify_auction_state,
+)
+from finbar.core.domain.services.coil_detector import (
+    detect_coil,
+)
+from finbar.core.domain.services.profile_shape import (
+    classify_all_profile_shapes,
+)
+from finbar.core.domain.services.wyckoff_phase import (
+    classify_wyckoff_phase,
 )
 from finbar.core.domain.services.amt_signals import (
     compute_amt_signals,
@@ -713,6 +725,7 @@ _ROLLING_VP_CACHE_KEY = "__rolling_vp_done"
 _ROLLING_VP_PREFIXES = {"vp_poc_", "vp_vah_", "vp_val_"}
 # Rolling-window VP prefixes (bar-based, for crypto/24-7 markets)
 _RVP_PREFIXES = {"rvp_poc_", "rvp_vah_", "rvp_val_"}
+_CVP_PREFIXES = {"cvp_poc_", "cvp_vah_", "cvp_val_"}
 
 
 @_register("vp_poc_5d", requires={"vp_poc", "vp_vah", "vp_val"})
@@ -839,6 +852,154 @@ def _compute_rolling_window_vp(
         f"rvp_vah_{window_bars}",
         f"rvp_val_{window_bars}",
     ):
+        if col in result.columns:
+            df[col] = result[col]
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Composite Volume Profile
+# ---------------------------------------------------------------------------
+
+_CVP_CACHE_KEY = "__composite_vp_done"
+
+
+@_register("cvp_poc_5d")
+def _cvp_poc_5d(df, _name, cache):
+    _compute_composite_vp(df, cache, 5)
+    return df
+
+
+@_register("cvp_vah_5d")
+def _cvp_vah_5d(df, _name, cache):
+    _compute_composite_vp(df, cache, 5)
+    return df
+
+
+@_register("cvp_val_5d")
+def _cvp_val_5d(df, _name, cache):
+    _compute_composite_vp(df, cache, 5)
+    return df
+
+
+@_register("cvp_poc_10d")
+def _cvp_poc_10d(df, _name, cache):
+    _compute_composite_vp(df, cache, 10)
+    return df
+
+
+@_register("cvp_vah_10d")
+def _cvp_vah_10d(df, _name, cache):
+    _compute_composite_vp(df, cache, 10)
+    return df
+
+
+@_register("cvp_val_10d")
+def _cvp_val_10d(df, _name, cache):
+    _compute_composite_vp(df, cache, 10)
+    return df
+
+
+@_register("cvp_poc_20d")
+def _cvp_poc_20d(df, _name, cache):
+    _compute_composite_vp(df, cache, 20)
+    return df
+
+
+@_register("cvp_vah_20d")
+def _cvp_vah_20d(df, _name, cache):
+    _compute_composite_vp(df, cache, 20)
+    return df
+
+
+@_register("cvp_val_20d")
+def _cvp_val_20d(df, _name, cache):
+    _compute_composite_vp(df, cache, 20)
+    return df
+
+
+def _compute_composite_vp(df, cache, window):
+    cache_key = f"{_CVP_CACHE_KEY}_{window}"
+    if cache_key in cache:
+        return df
+    result = compute_composite_vp(df, window=window)
+    cache[cache_key] = True
+    for col in (f"cvp_poc_{window}d", f"cvp_vah_{window}d", f"cvp_val_{window}d"):
+        if col in result.columns:
+            df[col] = result[col]
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Profile Shape Classifier
+# ---------------------------------------------------------------------------
+
+
+@_register("profile_shape")
+def _profile_shape(df, _name, cache):
+    if "__profile_shape_done" in cache:
+        return df
+    result = classify_all_profile_shapes(df)
+    cache["__profile_shape_done"] = True
+    if "profile_shape" in result.columns:
+        df["profile_shape"] = result["profile_shape"]
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Coil / Squeeze Detector
+# ---------------------------------------------------------------------------
+
+
+@_register("is_coiled")
+def _is_coiled(df, _name, cache):
+    return _compute_coil(df, cache)
+
+
+@_register("coil_intensity")
+def _coil_intensity(df, _name, cache):
+    return _compute_coil(df, cache)
+
+
+def _compute_coil(df, cache):
+    if "__coil_done" in cache:
+        return df
+    result = detect_coil(df)
+    cache["__coil_done"] = True
+    for col in ("is_coiled", "coil_intensity"):
+        if col in result.columns:
+            df[col] = result[col]
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Wyckoff Phase Classifier
+# ---------------------------------------------------------------------------
+
+
+@_register("wyckoff_phase", requires={"profile_shape"})
+def _wyckoff_phase(df, _name, cache):
+    return _compute_wyckoff(df, cache)
+
+
+@_register("poc_slope_5", requires={"vp_poc"})
+def _poc_slope_5(df, _name, cache):
+    return _compute_wyckoff(df, cache)
+
+
+@_register("poc_slope_20", requires={"vp_poc"})
+def _poc_slope_20(df, _name, cache):
+    return _compute_wyckoff(df, cache)
+
+
+def _compute_wyckoff(df, cache):
+    if "__wyckoff_done" in cache:
+        return df
+    if "__profile_shape_done" not in cache and "profile_shape" not in df.columns:
+        df = _profile_shape(df, "profile_shape", cache)
+    result = classify_wyckoff_phase(df)
+    cache["__wyckoff_done"] = True
+    for col in ("wyckoff_phase", "poc_slope_5", "poc_slope_20"):
         if col in result.columns:
             df[col] = result[col]
     return df
@@ -1112,14 +1273,15 @@ def _is_rolling_vp(name: str) -> bool:
     Accepts any positive integer N >= 1 (e.g. rvp_poc_48, rvp_vah_100).
     Also handles session-based vp_poc_Nd, vp_vah_Nd, vp_val_Nd.
     """
-    for prefix in _ROLLING_VP_PREFIXES | _RVP_PREFIXES:
+    all_prefixes = _ROLLING_VP_PREFIXES | _RVP_PREFIXES | _CVP_PREFIXES
+    for prefix in all_prefixes:
         # Bar-based: rvp_poc_48
         if prefix in _RVP_PREFIXES and name.startswith(prefix):
             inner = name[len(prefix):]
             if inner.isdigit() and int(inner) >= 1:
                 return True
-        # Session-based: vp_poc_10d
-        if prefix in _ROLLING_VP_PREFIXES and name.startswith(prefix) and name.endswith("d"):
+        # Session-based / composite: vp_poc_10d, cvp_poc_10d
+        if prefix in (_ROLLING_VP_PREFIXES | _CVP_PREFIXES) and name.startswith(prefix) and name.endswith("d"):
             inner = name[len(prefix):-1]
             if inner.isdigit() and int(inner) >= 1:
                 return True
@@ -1135,7 +1297,7 @@ def _compute_rolling_vp_dynamic(
     - rvp_poc_48 → rolling-window VP with 48 bars
     - vp_poc_10d → session-based rolling VP with 10 sessions
     """
-    # Rolling-window VP (bar-based)
+    # Rolling-window VP (bar-based, crypto)
     for prefix in _RVP_PREFIXES:
         if name.startswith(prefix):
             inner = name[len(prefix):]
@@ -1143,7 +1305,15 @@ def _compute_rolling_vp_dynamic(
                 window_bars = int(inner)
                 return _compute_rolling_window_vp(df, cache, window_bars)
 
-    # Session-based rolling VP
+    # Composite VP (true stacked, cvp_poc_10d)
+    for prefix in _CVP_PREFIXES:
+        if name.startswith(prefix) and name.endswith("d"):
+            inner = name[len(prefix):-1]
+            if inner.isdigit():
+                window = int(inner)
+                return _compute_composite_vp(df, cache, window)
+
+    # Session-based rolling VP (vp_poc_10d)
     for prefix in _ROLLING_VP_PREFIXES:
         if name.startswith(prefix) and name.endswith("d"):
             inner = name[len(prefix):-1]

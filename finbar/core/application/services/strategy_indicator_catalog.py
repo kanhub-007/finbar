@@ -1,4 +1,4 @@
-"""StrategyIndicatorCatalog — supported indicator metadata for strategies."""
+"""StrategyIndicatorCatalog - supported indicator metadata for strategies."""
 
 from finbar.core.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
@@ -41,7 +41,7 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "vp_poc_20d": "vp_poc_20d",
         "vp_vah_20d": "vp_vah_20d",
         "vp_val_20d": "vp_val_20d",
-        # --- Rolling-window Volume Profile — bar-based (crypto / 24-7) ---
+        # --- Rolling-window Volume Profile - bar-based (crypto / 24-7) ---
         "rvp_poc_48": "rvp_poc_48",
         "rvp_vah_48": "rvp_vah_48",
         "rvp_val_48": "rvp_val_48",
@@ -51,7 +51,26 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "rvp_poc_336": "rvp_poc_336",
         "rvp_vah_336": "rvp_vah_336",
         "rvp_val_336": "rvp_val_336",
-        # --- Market Profile — TPO-based (Auction Market Theory) ---
+        # --- Composite Volume Profile - true stacked multi-session ---
+        "cvp_poc_5d": "cvp_poc_5d",
+        "cvp_vah_5d": "cvp_vah_5d",
+        "cvp_val_5d": "cvp_val_5d",
+        "cvp_poc_10d": "cvp_poc_10d",
+        "cvp_vah_10d": "cvp_vah_10d",
+        "cvp_val_10d": "cvp_val_10d",
+        "cvp_poc_20d": "cvp_poc_20d",
+        "cvp_vah_20d": "cvp_vah_20d",
+        "cvp_val_20d": "cvp_val_20d",
+        # --- Profile Shape Classifier ---
+        "profile_shape": "profile_shape",
+        # --- Coil / Squeeze Detector ---
+        "is_coiled": "is_coiled",
+        "coil_intensity": "coil_intensity",
+        # --- Wyckoff Phase ---
+        "wyckoff_phase": "wyckoff_phase",
+        "poc_slope_5": "poc_slope_5",
+        "poc_slope_20": "poc_slope_20",
+        # --- Market Profile - TPO-based (Auction Market Theory) ---
         "mp_poc": "mp_poc",
         "mp_vah": "mp_vah",
         "mp_val": "mp_val",
@@ -120,6 +139,8 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
     _ROLLING_VP_BASE = {"vp_poc", "vp_vah", "vp_val"}
     # Rolling-window VP (bar-based): rvp_poc_N, rvp_vah_N, rvp_val_N
     _RVP_BASE = {"rvp_poc", "rvp_vah", "rvp_val"}
+    # Composite VP: cvp_poc_Nd, cvp_vah_Nd, cvp_val_Nd
+    _CVP_BASE = {"cvp_poc", "cvp_vah", "cvp_val"}
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
         """Resolve an indicator type/period to a concrete indicator column."""
@@ -168,6 +189,13 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
                 inner = name[len(prefix) :]
                 if inner.isdigit() and int(inner) >= 1:
                     return True
+        # Parameterized composite VP: cvp_poc_Nd, cvp_vah_Nd, cvp_val_Nd
+        for base in self._CVP_BASE:
+            prefix = f"{base}_"
+            if name.startswith(prefix) and name.endswith("d"):
+                inner = name[len(prefix) : -1]
+                if inner.isdigit() and int(inner) >= 1:
+                    return True
         for prefix in self._PERIOD_RANGES:
             if name.startswith(f"{prefix}_"):
                 rest = name[len(prefix) + 1 :]
@@ -214,9 +242,11 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
                 "vp_poc_Nd, vp_vah_Nd, vp_val_Nd "
                 "for any session window N >= 1 "
                 "(e.g. vp_poc_10d, vp_vah_50d, vp_val_100d). "
+                "cvp_poc_Nd, cvp_vah_Nd, cvp_val_Nd "
+                "for true composite (stacked) N-session window. "
                 "rvp_poc_N, rvp_vah_N, rvp_val_N "
                 "for any bar window N >= 1 "
-                "(e.g. rvp_poc_48, rvp_vah_336 — for crypto/24-7 markets)."
+                "(e.g. rvp_poc_48, rvp_vah_336 - for crypto/24-7 markets)."
             ),
             "fixed_indicators": sorted(self._FIXED),
             "supported_concrete_names": (
