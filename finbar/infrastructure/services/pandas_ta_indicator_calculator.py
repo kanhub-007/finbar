@@ -25,6 +25,7 @@ from finbar.core.domain.services.vwap_bands import compute_vwap_session_bands
 from finbar.core.domain.services.volume_profile import (
     compute_all_session_volume_profiles,
     compute_rolling_vp,
+    compute_rolling_window_vp,
 )
 from finbar.core.domain.services.market_profile import (
     compute_all_session_market_profiles,
@@ -710,6 +711,8 @@ _ROLLING_VP_CACHE_KEY = "__rolling_vp_done"
 
 # Parameterized rolling VP prefixes for dynamic resolution
 _ROLLING_VP_PREFIXES = {"vp_poc_", "vp_vah_", "vp_val_"}
+# Rolling-window VP prefixes (bar-based, for crypto/24-7 markets)
+_RVP_PREFIXES = {"rvp_poc_", "rvp_vah_", "rvp_val_"}
 
 
 @_register("vp_poc_5d", requires={"vp_poc", "vp_vah", "vp_val"})
@@ -756,6 +759,86 @@ def _compute_rolling_vp(df: pd.DataFrame, cache: dict, window: int) -> pd.DataFr
     result = compute_rolling_vp(df, window=window)
     cache[cache_key] = True
     for col in (f"vp_poc_{window}d", f"vp_vah_{window}d", f"vp_val_{window}d"):
+        if col in result.columns:
+            df[col] = result[col]
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Rolling-window Volume Profile — bar-based windows (crypto / 24-7 markets)
+# ---------------------------------------------------------------------------
+
+_RVP_CACHE_KEY = "__rolling_window_vp_done"
+
+
+@_register("rvp_poc_48")
+def _rvp_poc_48(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 48)
+    return df
+
+
+@_register("rvp_vah_48")
+def _rvp_vah_48(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 48)
+    return df
+
+
+@_register("rvp_val_48")
+def _rvp_val_48(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 48)
+    return df
+
+
+@_register("rvp_poc_96")
+def _rvp_poc_96(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 96)
+    return df
+
+
+@_register("rvp_vah_96")
+def _rvp_vah_96(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 96)
+    return df
+
+
+@_register("rvp_val_96")
+def _rvp_val_96(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 96)
+    return df
+
+
+@_register("rvp_poc_336")
+def _rvp_poc_336(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 336)
+    return df
+
+
+@_register("rvp_vah_336")
+def _rvp_vah_336(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 336)
+    return df
+
+
+@_register("rvp_val_336")
+def _rvp_val_336(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    _compute_rolling_window_vp(df, cache, 336)
+    return df
+
+
+def _compute_rolling_window_vp(
+    df: pd.DataFrame, cache: dict, window_bars: int
+) -> pd.DataFrame:
+    """Compute rolling-window VP for a specific bar count (cached)."""
+    cache_key = f"{_RVP_CACHE_KEY}_{window_bars}"
+    if cache_key in cache:
+        return df
+    result = compute_rolling_window_vp(df, window_bars=window_bars)
+    cache[cache_key] = True
+    for col in (
+        f"rvp_poc_{window_bars}",
+        f"rvp_vah_{window_bars}",
+        f"rvp_val_{window_bars}",
+    ):
         if col in result.columns:
             df[col] = result[col]
     return df
@@ -1024,13 +1107,20 @@ def _extract_bb_column(result_df, prefix: str, period: int) -> str | None:
 
 
 def _is_rolling_vp(name: str) -> bool:
-    """Return True when name matches vp_poc_Nd, vp_vah_Nd, or vp_val_Nd.
+    """Return True when name matches rvp_poc_N, rvp_vah_N, or rvp_val_N.
 
-    Accepts any positive integer N >= 1 (e.g. vp_poc_10d, vp_vah_50d).
+    Accepts any positive integer N >= 1 (e.g. rvp_poc_48, rvp_vah_100).
+    Also handles session-based vp_poc_Nd, vp_vah_Nd, vp_val_Nd.
     """
-    for prefix in _ROLLING_VP_PREFIXES:
-        if name.startswith(prefix) and name.endswith("d"):
-            inner = name[len(prefix) : -1]  # strip prefix and trailing 'd'
+    for prefix in _ROLLING_VP_PREFIXES | _RVP_PREFIXES:
+        # Bar-based: rvp_poc_48
+        if prefix in _RVP_PREFIXES and name.startswith(prefix):
+            inner = name[len(prefix):]
+            if inner.isdigit() and int(inner) >= 1:
+                return True
+        # Session-based: vp_poc_10d
+        if prefix in _ROLLING_VP_PREFIXES and name.startswith(prefix) and name.endswith("d"):
+            inner = name[len(prefix):-1]
             if inner.isdigit() and int(inner) >= 1:
                 return True
     return False
@@ -1039,22 +1129,27 @@ def _is_rolling_vp(name: str) -> bool:
 def _compute_rolling_vp_dynamic(
     df: pd.DataFrame, name: str, cache: dict
 ) -> pd.DataFrame:
-    """Compute a parameterized rolling Volume Profile indicator.
+    """Compute a parameterized rolling VP or RVP indicator.
 
-    Parses the window from the indicator name (e.g. vp_poc_10d → window=10)
-    and delegates to compute_rolling_vp.
-
-    Requires vp_poc, vp_vah, vp_val to already exist on the DataFrame.
+    Parses the window from the indicator name:
+    - rvp_poc_48 → rolling-window VP with 48 bars
+    - vp_poc_10d → session-based rolling VP with 10 sessions
     """
+    # Rolling-window VP (bar-based)
+    for prefix in _RVP_PREFIXES:
+        if name.startswith(prefix):
+            inner = name[len(prefix):]
+            if inner.isdigit():
+                window_bars = int(inner)
+                return _compute_rolling_window_vp(df, cache, window_bars)
+
+    # Session-based rolling VP
     for prefix in _ROLLING_VP_PREFIXES:
         if name.startswith(prefix) and name.endswith("d"):
-            inner = name[len(prefix) : -1]
+            inner = name[len(prefix):-1]
             window = int(inner)
-
-            # Ensure base VP columns exist
             if "vp_poc" not in df.columns or "vp_vah" not in df.columns:
                 return df
-
             return _compute_rolling_vp(df, cache, window)
 
     return df

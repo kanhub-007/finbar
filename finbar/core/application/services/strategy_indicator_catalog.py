@@ -41,6 +41,16 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "vp_poc_20d": "vp_poc_20d",
         "vp_vah_20d": "vp_vah_20d",
         "vp_val_20d": "vp_val_20d",
+        # --- Rolling-window Volume Profile — bar-based (crypto / 24-7) ---
+        "rvp_poc_48": "rvp_poc_48",
+        "rvp_vah_48": "rvp_vah_48",
+        "rvp_val_48": "rvp_val_48",
+        "rvp_poc_96": "rvp_poc_96",
+        "rvp_vah_96": "rvp_vah_96",
+        "rvp_val_96": "rvp_val_96",
+        "rvp_poc_336": "rvp_poc_336",
+        "rvp_vah_336": "rvp_vah_336",
+        "rvp_val_336": "rvp_val_336",
         # --- Market Profile — TPO-based (Auction Market Theory) ---
         "mp_poc": "mp_poc",
         "mp_vah": "mp_vah",
@@ -108,6 +118,8 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
 
     # Rolling VP parameterized pattern: vp_poc_Nd, vp_vah_Nd, vp_val_Nd
     _ROLLING_VP_BASE = {"vp_poc", "vp_vah", "vp_val"}
+    # Rolling-window VP (bar-based): rvp_poc_N, rvp_vah_N, rvp_val_N
+    _RVP_BASE = {"rvp_poc", "rvp_vah", "rvp_val"}
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
         """Resolve an indicator type/period to a concrete indicator column."""
@@ -147,6 +159,13 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
             prefix = f"{base}_"
             if name.startswith(prefix) and name.endswith("d"):
                 inner = name[len(prefix) : -1]
+                if inner.isdigit() and int(inner) >= 1:
+                    return True
+        # Parameterized rolling-window VP: rvp_poc_N, rvp_vah_N, rvp_val_N
+        for base in self._RVP_BASE:
+            prefix = f"{base}_"
+            if name.startswith(prefix):
+                inner = name[len(prefix) :]
                 if inner.isdigit() and int(inner) >= 1:
                     return True
         for prefix in self._PERIOD_RANGES:
@@ -194,7 +213,10 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
             "rolling_vp_windows": (
                 "vp_poc_Nd, vp_vah_Nd, vp_val_Nd "
                 "for any session window N >= 1 "
-                "(e.g. vp_poc_10d, vp_vah_50d, vp_val_100d)"
+                "(e.g. vp_poc_10d, vp_vah_50d, vp_val_100d). "
+                "rvp_poc_N, rvp_vah_N, rvp_val_N "
+                "for any bar window N >= 1 "
+                "(e.g. rvp_poc_48, rvp_vah_336 — for crypto/24-7 markets)."
             ),
             "fixed_indicators": sorted(self._FIXED),
             "supported_concrete_names": (

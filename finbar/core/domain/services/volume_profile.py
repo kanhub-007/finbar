@@ -323,3 +323,54 @@ def compute_rolling_vp(
         result.loc[idx, val_col] = rolling_val
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Rolling-window Volume Profile — bar-based windows (24/7 crypto markets)
+# ---------------------------------------------------------------------------
+
+
+def compute_rolling_window_vp(
+    df: pd.DataFrame,
+    window_bars: int = 48,
+    num_buckets: int = 100,
+) -> pd.DataFrame:
+    """Compute Volume Profile over a trailing bar window.
+
+    Unlike session-based VP (which groups by calendar date), this uses
+    a rolling N-bar window. Each bar gets POC/VAH/VAL computed from the
+    trailing ``window_bars`` bars. Works for any market — crypto (24/7),
+    equities (with after-hours), forex.
+
+    Args:
+        df: DataFrame with columns [high, low, close, volume]
+            and a datetime index.
+        window_bars: Number of bars in the trailing window (default 48 =
+            24 hours at 30min).
+        num_buckets: Number of price buckets per profile.
+
+    Returns:
+        DataFrame with added columns: rvp_poc_{window_bars},
+        rvp_vah_{window_bars}, rvp_val_{window_bars}.
+    """
+    result = df.copy()
+
+    poc_col = f"rvp_poc_{window_bars}"
+    vah_col = f"rvp_vah_{window_bars}"
+    val_col = f"rvp_val_{window_bars}"
+
+    result[poc_col] = np.nan
+    result[vah_col] = np.nan
+    result[val_col] = np.nan
+
+    if len(result) < window_bars:
+        return result
+
+    for i in range(window_bars - 1, len(result)):
+        window = df.iloc[i - window_bars + 1 : i + 1]
+        profile = compute_session_volume_profile(window, num_buckets=num_buckets)
+        result.iloc[i, result.columns.get_loc(poc_col)] = profile.poc
+        result.iloc[i, result.columns.get_loc(vah_col)] = profile.vah
+        result.iloc[i, result.columns.get_loc(val_col)] = profile.val
+
+    return result
