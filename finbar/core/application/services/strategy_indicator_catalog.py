@@ -63,6 +63,12 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "cvp_val_20d": "cvp_val_20d",
         # --- Profile Shape Classifier ---
         "profile_shape": "profile_shape",
+        # Profile Shape Boolean Wrappers
+        "is_normal_shape": "is_normal_shape",
+        "is_b_shape": "is_b_shape",
+        "is_p_shape": "is_p_shape",
+        "is_d_shape": "is_d_shape",
+        "is_neutral_shape": "is_neutral_shape",
         # --- Coil / Squeeze Detector ---
         "is_coiled": "is_coiled",
         "coil_intensity": "coil_intensity",
@@ -70,6 +76,12 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "wyckoff_phase": "wyckoff_phase",
         "poc_slope_5": "poc_slope_5",
         "poc_slope_20": "poc_slope_20",
+        # Wyckoff Phase Boolean Wrappers
+        "is_accumulation": "is_accumulation",
+        "is_markup": "is_markup",
+        "is_distribution": "is_distribution",
+        "is_markdown": "is_markdown",
+        "is_wyckoff_neutral": "is_wyckoff_neutral",
         # --- Market Profile - TPO-based (Auction Market Theory) ---
         "mp_poc": "mp_poc",
         "mp_vah": "mp_vah",
