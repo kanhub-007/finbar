@@ -28,7 +28,7 @@ python run_mcp.py
 | Guide | Contents |
 |-------|----------|
 | **[Fetching OHLCV Data](docs/DATA.md)** | Sources, intervals, fetch vs cache, job management, discovery |
-| **[Technical Analysis](docs/QUANTITATIVE_PROXIES.md)** | Indicators, trading metrics, proxies, multi-timeframe |
+| **[Technical Analysis](docs/QUANTITATIVE_PROXIES.md)** | Indicators, trading metrics, proxies, AMT profiles, multi-timeframe |
 | **[Running Backtests](docs/BACKTESTING.md)** | Execution controls, output format, analytics, trust diagnostics |
 | **[Strategy JSON/YAML SDK](#strategy-capabilities-json-or-yaml)** | Authoring strategies in JSON or YAML — see `get_strategy_capabilities` and `get_usage_guide` |
 | **[Optimization](docs/OPTIMIZATION.md)** | Grid search, random search, walk-forward validation, diagnostics |
@@ -60,6 +60,8 @@ Call `get_usage_guide` for the full workflow reference.
 - **JSON also supported**: `definition_json` params accept both formats.
 - **Multi-timeframe**: Primary + informative bars with column merging
 - **Indicators**: sma, ema, rsi, atr, adx, bb_*, macd, ker, kama — arbitrary periods
+- **AMT (Auction Market Theory)**: VWAP SD bands, Volume Profile (POC/VAH/VAL),
+  Market Profile (TPO), rolling composites, auction state classifiers, AMT rule signals
 - **Features**: rolling max/min, body_pct, formula expression trees
 - **Crossovers**: `crosses_above`, `crosses_below`
 - **Risk**: ATR stop/target, fixed %, risk/reward with param references

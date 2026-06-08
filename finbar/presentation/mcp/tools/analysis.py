@@ -51,15 +51,24 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "Pass bars as JSON string and a list of indicator names "
             '(or a JSON-encoded string like \'["sma_20","rsi_14"]\'). '
             "Returns indicator bars with indicator columns. "
-            "Supported indicators: rsi_7, rsi_14, sma_10, sma_20, sma_30, "
+            "Supported indicators:\n"
+            "  Traditional: rsi_7, rsi_14, sma_10, sma_20, sma_30, "
             "sma_50, sma_200, ema_12, ema_26, macd, macd_signal, macd_hist, "
             "atr, adx, vwap, bb_upper, bb_middle, bb_lower, ibs, rvol, ker, "
             "kama, price_vs_sma20, trend_direction, trend_strength, "
             "trend_status, swing_high_20, swing_low_20, breakout_level, "
             "breakout_signal, is_power_zone, breakout_quality, "
-            "vol_buffer_high, vol_buffer_low, "
-            "and proxy indicators (proxy_ibs, proxy_parkinson, "
-            "proxy_typical_price, etc.)."
+            "vol_buffer_high, vol_buffer_low.\n"
+            "  AMT VWAP: vwap_session, vwap_upper_1/2, vwap_lower_1/2.\n"
+            "  AMT Volume Profile: vp_poc, vp_vah, vp_val, "
+            "vp_poc_Nd, vp_vah_Nd, vp_val_Nd (any window, e.g. vp_poc_10d).\n"
+            "  AMT Market Profile: mp_poc, mp_vah, mp_val.\n"
+            "  AMT State: inside_value, above_value, below_value, at_poc, "
+            "near_vah, near_val, balance_status.\n"
+            "  AMT Signals: acceptance_into_value, acceptance_outside_value, "
+            "rejection_from_edge, poc_rejection, edge_volume_building, "
+            "value_area_migration.\n"
+            "  Proxies: proxy_ibs, proxy_parkinson, proxy_typical_price, etc."
         ),
     )
     def apply_indicators(bars_json: str, indicators: str) -> str:

@@ -22,6 +22,7 @@ from ._shared import (
 
 # ── TA indicators ──
 _TA_INDICATORS = [
+    # Traditional TA
     "sma",
     "ema",
     "rsi",
@@ -39,6 +40,45 @@ _TA_INDICATORS = [
     "trend_strength",
     "swing_high_20",
     "swing_low_20",
+    # Auction Market Theory — VWAP bands
+    "vwap_session",
+    "vwap_upper_1",
+    "vwap_lower_1",
+    "vwap_upper_2",
+    "vwap_lower_2",
+    # Auction Market Theory — Volume Profile
+    "vp_poc",
+    "vp_vah",
+    "vp_val",
+    # Auction Market Theory — Rolling composites
+    "vp_poc_5d",
+    "vp_vah_5d",
+    "vp_val_5d",
+    "vp_poc_20d",
+    "vp_vah_20d",
+    "vp_val_20d",
+    # Auction Market Theory — Market Profile (TPO)
+    "mp_poc",
+    "mp_vah",
+    "mp_val",
+    # Auction Market Theory — State classifiers
+    "inside_value",
+    "above_value",
+    "below_value",
+    "at_poc",
+    "near_vah",
+    "near_val",
+    "distance_to_vah_pct",
+    "distance_to_val_pct",
+    "value_area_width_pct",
+    "balance_status",
+    # Auction Market Theory — Rule signals
+    "acceptance_into_value",
+    "rejection_from_edge",
+    "acceptance_outside_value",
+    "poc_rejection",
+    "edge_volume_building",
+    "value_area_migration",
 ]
 
 # ── Trading Metrics ──
@@ -56,6 +96,38 @@ _TM_METRICS = [
     "breakout_quality",
     "vol_buffer_high",
     "vol_buffer_low",
+    # Auction Market Theory — VWAP bands (session-scoped)
+    "vwap_session",
+    "vwap_upper_1",
+    "vwap_lower_1",
+    "vwap_upper_2",
+    "vwap_lower_2",
+    # Auction Market Theory — Volume Profile
+    "vp_poc",
+    "vp_vah",
+    "vp_val",
+    "vp_poc_5d",
+    "vp_vah_5d",
+    "vp_val_5d",
+    "vp_poc_20d",
+    "vp_vah_20d",
+    "vp_val_20d",
+    # Auction Market Theory — Market Profile (TPO)
+    "mp_poc",
+    "mp_vah",
+    "mp_val",
+    # Auction Market Theory — State + Signals
+    "inside_value",
+    "above_value",
+    "below_value",
+    "at_poc",
+    "balance_status",
+    "acceptance_into_value",
+    "acceptance_outside_value",
+    "rejection_from_edge",
+    "poc_rejection",
+    "edge_volume_building",
+    "value_area_migration",
 ]
 
 # ── Proxies (industry-standard, daily-bar substitutes) ──
@@ -119,10 +191,20 @@ def _ta_description() -> str:
     return (
         "Start a BACKGROUND job to compute Technical Analysis indicators "
         "(SMA, EMA, RSI, MACD, ATR, ADX, Bollinger Bands, Keltner, KAMA, "
-        "swing points, trend direction/strength) on cached OHLCV bars. "
-        'Pass indicators_json like \'["sma_20","sma_50","rsi_14","atr"]\'. '
+        "swing points, trend direction/strength) and Auction Market Theory "
+        "(AMT) indicators (VWAP SD bands, Volume Profile POC/VAH/VAL, "
+        "Market Profile TPO POC/VAH/VAL, "
+        "parameterized rolling composites vp_poc_Nd for any N, "
+        "auction state classifiers, AMT rule signals) "
+        "on cached OHLCV bars. "
+        'Pass indicators_json like \'["sma_20","sma_50","rsi_14","atr",'
+        '"vp_poc","vp_vah","vp_val","mp_poc","vp_poc_10d","balance_status"]\'. '
         "Supports arbitrary periods within catalog ranges. "
         "For multi-timeframe strategies, call once per timeframe.\n\n"
+        "AMT indicators work best on intraday data (5min/30min/1h) where "
+        "session-scoped profiles produce meaningful distributions. "
+        "On daily bars, use rolling composites (vp_poc_Nd) for "
+        "multi-day value areas.\n\n"
         "Use start_date/end_date to limit computation to a date range "
         "(e.g., start_date='2026-04-01' processes only recent bars, "
         "not the full history). This is strongly recommended for AI "
@@ -166,24 +248,29 @@ def _register_tm_tool(mcp: FastMCP) -> None:
 
 def _tm_description() -> str:
     return (
-        "Start a BACKGROUND job to compute Trading Metrics and industry-standard "
-        "proxies on cached OHLCV bars. Trading Metrics capture market "
-        "microstructure (VWAP, IBS, RVOL, Initial Balance, breakout levels, "
-        "volume buffers). Proxies are mathematical substitutes for intraday "
-        "metrics when backtesting on daily data — see QUANTITATIVE_PROXIES.md.\n\n"
+        "Start a BACKGROUND job to compute Trading Metrics, Proxy Metrics, "
+        "and Auction Market Theory (AMT) profile indicators on cached "
+        "OHLCV bars.\n\n"
         "Trading Metrics: vwap, ibs, rvol, ib_high/low/range/midpoint, "
         "price_vs_sma20, breakout_signal/level/quality, is_power_zone, "
         "vol_buffer_high/low.\n\n"
         "Proxies: proxy_vwap (typical price), proxy_ibs, proxy_atr, "
         "proxy_parkinson, proxy_garman_klass, proxy_rogers_satchell, "
         "proxy_expected_move, proxy_ib_high/low, proxy_iv.\n\n"
-        'Example: metrics_json=\'["vwap","ibs","rvol","proxy_vwap",'
-        '"proxy_ibs","proxy_parkinson"]\'. '
-        "On intraday data use real metrics (vwap, ibs); on daily data use "
-        "proxies (proxy_vwap, proxy_ibs).\n\n"
-        "Use start_date/end_date to limit computation to a date range — "
-        "strongly recommended for AI agents to avoid computing on the "
-        "full multi-decade history.\n\n"
+        "AMT Profile: vwap_session, vwap_upper_1/2, vwap_lower_1/2, "
+        "vp_poc, vp_vah, vp_val (session Volume Profile), "
+        "vp_poc_Nd, vp_vah_Nd, vp_val_Nd for any N (parameterized rolling), "
+        "mp_poc, mp_vah, mp_val (Market Profile / TPO), "
+        "inside_value, above_value, below_value, at_poc, balance_status "
+        "(auction state), acceptance_into_value, acceptance_outside_value, "
+        "rejection_from_edge, poc_rejection, edge_volume_building, "
+        "value_area_migration (AMT rule signals).\n\n"
+        "AMT indicators work best on intraday data (5min/30min/1h). "
+        "On daily bars, use rolling composites for multi-day value areas.\n\n"
+        'Example: metrics_json=["vwap","vp_poc","vp_vah","vp_val",'
+        '"inside_value","balance_status","acceptance_outside_value"]. '
+        "See get_strategy_capabilities for full catalog.\n\n"
+        "Use start_date/end_date to limit computation to a date range.\n\n"
         "Poll with get_indicator_job_progress(job_id), then page results "
         "with get_indicator_job_results(job_id, page, page_size)."
     )

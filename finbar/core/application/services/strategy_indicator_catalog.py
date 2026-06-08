@@ -24,6 +24,45 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "atr": "atr",
         "adx": "adx",
         "vwap": "vwap",
+        # --- VWAP Standard Deviation Bands (Auction Market Theory) ---
+        "vwap_session": "vwap_session",
+        "vwap_upper_1": "vwap_upper_1",
+        "vwap_lower_1": "vwap_lower_1",
+        "vwap_upper_2": "vwap_upper_2",
+        "vwap_lower_2": "vwap_lower_2",
+        # --- Proxy Volume Profile (Auction Market Theory) ---
+        "vp_poc": "vp_poc",
+        "vp_vah": "vp_vah",
+        "vp_val": "vp_val",
+        # --- Rolling / Composite Value Areas ---
+        "vp_poc_5d": "vp_poc_5d",
+        "vp_vah_5d": "vp_vah_5d",
+        "vp_val_5d": "vp_val_5d",
+        "vp_poc_20d": "vp_poc_20d",
+        "vp_vah_20d": "vp_vah_20d",
+        "vp_val_20d": "vp_val_20d",
+        # --- Market Profile — TPO-based (Auction Market Theory) ---
+        "mp_poc": "mp_poc",
+        "mp_vah": "mp_vah",
+        "mp_val": "mp_val",
+        # --- Auction State Classifiers (Auction Market Theory) ---
+        "inside_value": "inside_value",
+        "above_value": "above_value",
+        "below_value": "below_value",
+        "at_poc": "at_poc",
+        "near_vah": "near_vah",
+        "near_val": "near_val",
+        "distance_to_vah_pct": "distance_to_vah_pct",
+        "distance_to_val_pct": "distance_to_val_pct",
+        "value_area_width_pct": "value_area_width_pct",
+        "balance_status": "balance_status",
+        # --- AMT Rule Signals (Auction Market Theory) ---
+        "acceptance_into_value": "acceptance_into_value",
+        "rejection_from_edge": "rejection_from_edge",
+        "acceptance_outside_value": "acceptance_outside_value",
+        "poc_rejection": "poc_rejection",
+        "edge_volume_building": "edge_volume_building",
+        "value_area_migration": "value_area_migration",
         "rvol": "rvol",
         "ibs": "ibs",
         "ker": "ker",
@@ -67,6 +106,9 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "ib_midpoint": "ib_midpoint",
     }
 
+    # Rolling VP parameterized pattern: vp_poc_Nd, vp_vah_Nd, vp_val_Nd
+    _ROLLING_VP_BASE = {"vp_poc", "vp_vah", "vp_val"}
+
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
         """Resolve an indicator type/period to a concrete indicator column."""
         name = indicator_type.lower()
@@ -100,6 +142,13 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         for suffix in ("_1d", "_1h", "_30min", "_5min", "_1w"):
             if name.endswith(suffix):
                 return self.supports_concrete(name[: -len(suffix)])
+        # Parameterized rolling VP: vp_poc_Nd, vp_vah_Nd, vp_val_Nd
+        for base in self._ROLLING_VP_BASE:
+            prefix = f"{base}_"
+            if name.startswith(prefix) and name.endswith("d"):
+                inner = name[len(prefix) : -1]
+                if inner.isdigit() and int(inner) >= 1:
+                    return True
         for prefix in self._PERIOD_RANGES:
             if name.startswith(f"{prefix}_"):
                 rest = name[len(prefix) + 1 :]
@@ -142,6 +191,11 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
             "schema_version": "2.0",
             "parameterized_indicators_enabled": True,
             "period_ranges": period_ranges,
+            "rolling_vp_windows": (
+                "vp_poc_Nd, vp_vah_Nd, vp_val_Nd "
+                "for any session window N >= 1 "
+                "(e.g. vp_poc_10d, vp_vah_50d, vp_val_100d)"
+            ),
             "fixed_indicators": sorted(self._FIXED),
             "supported_concrete_names": (
                 "any period within ranges for sma/ema/rsi/atr/adx"
