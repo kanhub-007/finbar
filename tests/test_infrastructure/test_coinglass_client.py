@@ -83,3 +83,41 @@ def test_retry_succeeds_after_connection_error(monkeypatch):
     data = client._get("/api/futures/supported-exchange-pairs", {})
     assert data == [{"a": 1}]
     assert session.calls == 2
+
+
+def test_permanent_client_error_is_not_retried(monkeypatch):
+    """Regression: a 4xx client error (except 429) must not be retried.
+
+    Retrying a permanent error (400/403/404) wastes up to ~14s of backoff
+    sleeps on a request that will never succeed. It should raise immediately.
+    """
+    # Avoid any real sleeping if the guard ever fails.
+    monkeypatch.setattr(
+        "finbar.infrastructure.services.coinglass_client.time.sleep",
+        lambda _: pytest.fail("must not sleep/backoff on a permanent error"),
+    )
+    session = _FakeSession([_FakeResponse(404)])
+    client = _make_client(session)
+
+    with pytest.raises(RuntimeError, match="not retryable"):
+        client._get("/api/futures/supported-exchange-pairs", {})
+    # Exactly one attempt — no retries.
+    assert session.calls == 1
+
+
+def test_server_error_is_still_retried(monkeypatch):
+    """5xx server errors remain retryable."""
+    monkeypatch.setattr(
+        "finbar.infrastructure.services.coinglass_client.time.sleep",
+        lambda _: None,
+    )
+    session = _FakeSession(
+        [
+            _FakeResponse(503),
+            _FakeResponse(200, {"code": "0", "data": [{"a": 1}]}),
+        ]
+    )
+    client = _make_client(session)
+    data = client._get("/api/futures/supported-exchange-pairs", {})
+    assert data == [{"a": 1}]
+    assert session.calls == 2

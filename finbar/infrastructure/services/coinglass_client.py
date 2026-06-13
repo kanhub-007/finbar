@@ -211,6 +211,20 @@ class CoinGlassClient(DerivativesDataProvider):
                 return data.get("data", [])
             except requests.RequestException as exc:
                 last_error = exc
+                # Permanent client errors (400/401/403/404/...) will never
+                # succeed on retry — re-raise immediately instead of burning
+                # all retries (which would waste up to ~14s of backoff sleeps).
+                # 429 is the exception: it is a transient rate-limit signal.
+                if (
+                    isinstance(exc, requests.HTTPError)
+                    and resp is not None
+                    and 400 <= resp.status_code < 500
+                    and resp.status_code != 429
+                ):
+                    raise RuntimeError(
+                        f"CoinGlass request failed with status "
+                        f"{resp.status_code} (not retryable): {exc}"
+                    ) from exc
                 if resp is not None and resp.status_code == 429:
                     self._rate_limiter.on_rate_limit_error(attempt)
                 backoff = _BASE_BACKOFF ** (attempt + 1)
