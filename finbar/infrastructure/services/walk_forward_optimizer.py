@@ -242,11 +242,12 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         bars: list[dict],
         metric: str,
         metadata: dict,
-    ) -> OptimizationResult | None:
+    ) -> tuple[OptimizationResult | None, dict[str, float]]:
         """Run a synchronous grid search directly on the training window.
 
         Returns (best_result, sensitivity_dict) where sensitivity maps
-        param name to a normalized importance score (sums to 1.0).
+        param name to a normalized importance score (sums to 1.0). The
+        best_result is None when no combinations are available.
         """
         from finbar.infrastructure.services.grid_search_optimizer import (
             _generate_combinations,
@@ -263,9 +264,15 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             combinations = _generate_combinations(ranges)
 
         if len(combinations) > 100:
-            return OptimizationResult(rank=0, params={}, error="Too many combinations")
+            return (
+                OptimizationResult(rank=0, params={}, error="Too many combinations"),
+                {},
+            )
         if not bars:
-            return OptimizationResult(rank=0, params={}, error="No training bars")
+            return (
+                OptimizationResult(rank=0, params={}, error="No training bars"),
+                {},
+            )
 
         results: list[OptimizationResult] = []
         for params in combinations:

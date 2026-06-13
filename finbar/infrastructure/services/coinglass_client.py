@@ -199,6 +199,7 @@ class CoinGlassClient(DerivativesDataProvider):
         last_error: Exception | None = None
 
         for attempt in range(_MAX_RETRIES):
+            resp = None
             try:
                 resp = self._session.get(url, params=params, timeout=30)
                 self._rate_limiter.update_from_headers(dict(resp.headers))

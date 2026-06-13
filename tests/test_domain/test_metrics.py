@@ -103,6 +103,24 @@ class TestAnnualisedReturn:
         result = calculate_annualised_return(0.15, 252)  # exactly 1 year
         assert abs(result - 0.15) < 0.01
 
+    def test_total_wipeout_returns_minus_one(self):
+        # total_return == -1.0: base (1 + tr) is exactly zero.
+        assert calculate_annualised_return(-1.0, 252) == -1.0
+
+    def test_loss_beyond_100pct_does_not_crash(self):
+        # Leveraged loss > 100% drives equity negative. The old code raised
+        # (negative) ** (1/years) which yields a complex number and crashed
+        # round() in the result builder.
+        result = calculate_annualised_return(-1.5, 100)
+        assert isinstance(result, float)
+        assert result == -1.0
+
+    def test_fractional_year_loss_beyond_100pct(self):
+        # trading_days != annualization_factor so the exponent is fractional.
+        result = calculate_annualised_return(-2.0, 50, annualization_factor=252.0)
+        assert isinstance(result, float)
+        assert result == -1.0
+
 
 class TestDailyReturns:
     def test_empty_with_insufficient_data(self):

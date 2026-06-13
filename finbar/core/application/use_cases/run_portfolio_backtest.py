@@ -195,11 +195,23 @@ def _all_dates(curves: dict[str, list[dict]]) -> set[str]:
 
 
 def _value_at(eq: list[dict], date: str) -> float:
-    """Get the equity value at a specific date."""
+    """Get the equity value at a specific date.
+
+    For dates before the asset's first equity point, the asset's allocated
+    capital (its first known equity value) is returned. Returning 0.0 for a
+    not-yet-started asset would understate the portfolio's true value and
+    corrupt drawdown/return computations when assets have different bar ranges.
+    """
+    if not eq:
+        return 0.0
+    first_value = float(eq[0].get("value", 0) or 0)
     for e in eq:
         if e.get("date", "") == date:
             return float(e.get("value", 0) or 0)
-    prev = 0.0
+    # date not present: walk forward, carrying the last-seen value.
+    # For dates preceding the first bar, carry the first value (allocated
+    # capital) rather than 0.0.
+    prev = first_value
     for e in eq:
         ed = e.get("date", "")
         if ed > date:

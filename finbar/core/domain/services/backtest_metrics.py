@@ -178,14 +178,23 @@ def calculate_annualised_return(
         annualization_factor: Number of periods per year for the bar interval.
 
     Returns:
-        Annualised return as a decimal.
+        Annualised return as a decimal. Returns -1.0 when total_return is
+        less than or equal to -1.0 (equity wiped out / went negative via
+        leverage), since the geometric annualisation of a non-positive base
+        is undefined.
     """
     if trading_days <= 0 or annualization_factor <= 0:
         return 0.0
     years = trading_days / annualization_factor
     if years <= 0:
         return 0.0
-    return (1 + total_return) ** (1 / years) - 1
+    base = 1.0 + total_return
+    if base <= 0:
+        # Equity went to zero or negative (e.g. leveraged loss > 100%).
+        # (negative) ** (1/years) yields a complex number, which is not a
+        # meaningful annualised return. Report total wipeout instead.
+        return -1.0
+    return base ** (1 / years) - 1
 
 
 def calculate_daily_returns(equity_values: Sequence[float]) -> list[float]:

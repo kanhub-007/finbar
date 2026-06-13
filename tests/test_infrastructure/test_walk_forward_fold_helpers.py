@@ -171,6 +171,22 @@ class TestAggregateFolds:
         result = aggregate_folds(folds)
         assert result.stability < 0.8
 
+    def test_stability_not_inflated_by_zero_mean(self):
+        """Regression: a parameter straddling zero must not be marked fully stable.
+
+        The old mean-based denominator treated avg==0 as "everything is stable",
+        which falsely reported 1.0 for a parameter selecting -5 and +5 across
+        folds. Using the value range as the scale, a parameter swinging between
+        -5 and +5 (spread 10, midpoint 0) has both values 50% from the midpoint,
+        so neither is within the 20% tolerance.
+        """
+        folds = [
+            self.make_fold(0, best_params={"p": -5}),
+            self.make_fold(1, best_params={"p": 5}),
+        ]
+        result = aggregate_folds(folds)
+        assert result.stability == pytest.approx(0.0)
+
     def test_mixed_skipped_and_error_folds(self):
         """Skipped and error folds are excluded from aggregation."""
         folds = [

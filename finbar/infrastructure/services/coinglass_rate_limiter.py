@@ -95,7 +95,8 @@ class CoinGlassRateLimiter:
     def on_rate_limit_error(self, attempt: int = 0) -> float:
         """Called on HTTP 429 — applies exponential backoff."""
         backoff = self.base_backoff * (2 ** min(attempt, 10))
-        self._rate_limit_backoff = backoff
+        with self._lock:
+            self._rate_limit_backoff = backoff
         logger.warning(
             "CoinGlass rate limited! Backoff %.1fs (attempt %d)",
             backoff,

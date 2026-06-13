@@ -10,6 +10,7 @@ from finbar.core.application.use_cases.run_portfolio_backtest import (
     _aggregate_equity,
     _compute_returns,
     _correlation_matrix,
+    _value_at,
 )
 from finbar.core.domain.entities.data_mode import DataMode
 from finbar.core.domain.entities.execution_config import ExecutionConfig
@@ -208,3 +209,44 @@ class TestHelperFunctions:
     def test_aggregate_empty_returns_empty(self):
         eq, metrics = _aggregate_equity({}, 10000, "1d", "equity_regular_hours")
         assert eq == []
+
+    def test_value_at_returns_first_value_for_preceding_date(self):
+        """Regression: a date before an asset's first bar must not return 0.0.
+
+        The old code initialised the carried value to 0.0, so a not-yet-started
+        asset contributed nothing to the portfolio total on early dates,
+        corrupting total_return/max_drawdown when assets have different bar
+        ranges. It must instead carry the asset's allocated (first) equity.
+        """
+        eq = [
+            {"date": "2024-02-01", "value": 5000},
+            {"date": "2024-02-02", "value": 5100},
+        ]
+        # Date before the curve starts.
+        assert _value_at(eq, "2024-01-15") == 5000
+        # Exact match still works.
+        assert _value_at(eq, "2024-02-01") == 5000
+        # Forward-fill for a missing interior date.
+        assert _value_at(eq, "2024-02-01T12:00:00") == 5000
+
+    def test_value_at_empty_curve_returns_zero(self):
+        assert _value_at([], "2024-01-01") == 0.0
+
+    def test_aggregate_uses_carry_in_for_late_starting_asset(self):
+        """An asset that starts later must still count its allocated capital."""
+        curves = {
+            # Asset A covers both dates.
+            "A": [
+                {"date": "2024-01-01", "value": 10000},
+                {"date": "2024-01-02", "value": 10000},
+            ],
+            # Asset B only has a bar on the second date.
+            "B": [{"date": "2024-01-02", "value": 10000}],
+        }
+        eq, metrics = _aggregate_equity(
+            curves, 20000, "1d", "equity_regular_hours"
+        )
+        first = next(e for e in eq if e["date"] == "2024-01-01")
+        # B's allocated capital (10000) must be carried in, so the portfolio
+        # total on 2024-01-01 is 20000, not 10000.
+        assert first["value"] == 20000

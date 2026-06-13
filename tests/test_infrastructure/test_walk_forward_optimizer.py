@@ -262,3 +262,42 @@ class TestWalkForwardOptimizer:
         train_ends = [i["train_end"] for i in indices]
         for i in range(len(train_ends) - 1):
             assert train_ends[i] <= train_ends[i + 1]
+
+    def test_grid_search_too_many_combinations_returns_tuple(self, walk_forward_setup):
+        """Regression: >100 combinations must return an unpackable tuple.
+
+        The old code returned a bare OptimizationResult on the "too many
+        combinations" path, but the caller unpacked it as
+        ``grid_result, sensitivity = ...``, raising TypeError.
+        """
+        optimizer, _manager, bars = walk_forward_setup
+        # step=1 from 1..120 produces 120 combinations (>100 limit).
+        metadata = {
+            "definition": {},
+            "param_ranges": {
+                "p": {"min": 1, "max": 120, "step": 1},
+            },
+            "search_method": "grid",
+        }
+        # Must not raise; must unpack into two values.
+        grid_result, sensitivity = optimizer._run_grid_search(
+            {}, bars, "sharpe_ratio", metadata
+        )
+        assert grid_result is not None
+        assert grid_result.error == "Too many combinations"
+        assert sensitivity == {}
+
+    def test_grid_search_no_bars_returns_tuple(self, walk_forward_setup):
+        """Regression: the "no training bars" path must also return a tuple."""
+        optimizer, _manager, _bars = walk_forward_setup
+        metadata = {
+            "definition": {},
+            "param_ranges": {"p": {"min": 1, "max": 5, "step": 1}},
+            "search_method": "grid",
+        }
+        grid_result, sensitivity = optimizer._run_grid_search(
+            {}, [], "sharpe_ratio", metadata
+        )
+        assert grid_result is not None
+        assert grid_result.error == "No training bars"
+        assert sensitivity == {}

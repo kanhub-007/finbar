@@ -215,6 +215,7 @@ class HyperliquidFetcher(StockDataFetcher):
             all_bars = bars + all_bars  # Prepend to maintain chronological
             chunk_end_ms = chunk_start_ms
 
+        all_bars = _deduplicate_bars(all_bars)
         logger.info(
             "Fetched %d bars for %s (%s) — full history",
             len(all_bars),
@@ -252,7 +253,7 @@ class HyperliquidFetcher(StockDataFetcher):
                 logger.warning("%s: hit safety limit of 50000 bars", symbol)
                 break
 
-        return all_bars
+        return _deduplicate_bars(all_bars)
 
     def _fetch_chunk(
         self, symbol: str, interval: str, start_ms: int, end_ms: int
@@ -586,6 +587,24 @@ class HyperliquidFetcher(StockDataFetcher):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+
+def _deduplicate_bars(bars: list[PriceBar]) -> list[PriceBar]:
+    """Drop bars with duplicate timestamps, keeping the first occurrence.
+
+    Consecutive backward-paginated chunks share a boundary timestamp. If the
+    API returns the boundary bar in both chunks (inclusive endpoints), the
+    merged history contains a duplicate timestamp, which would later be
+    rejected by backtest frame validation ("Duplicate bar timestamp/index").
+    """
+    seen: set[str] = set()
+    unique: list[PriceBar] = []
+    for bar in bars:
+        if bar.timestamp in seen:
+            continue
+        seen.add(bar.timestamp)
+        unique.append(bar)
+    return unique
 
 
 def _safe_float(value: object) -> float | None:

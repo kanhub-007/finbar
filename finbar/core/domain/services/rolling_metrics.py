@@ -148,6 +148,10 @@ def calculate_monthly_returns(
     """Compute calendar-month returns from the equity curve.
 
     Returns dict mapping "YYYY-MM" to total return for that month.
+
+    Each month's return is measured from the previous month's closing equity
+    (the carry-in) to the current month's closing equity, so the return on the
+    first bar of a month is included rather than dropped.
     """
     if not equity_curve:
         return {}
@@ -162,14 +166,18 @@ def calculate_monthly_returns(
             months[month_key].append(e.get("value", 0.0))
 
     result: dict[str, float] = {}
+    previous_close: float | None = None
     for month_key in sorted(months):
         values = months[month_key]
         if not values:
             continue
-        month_start = values[0]
         month_end = values[-1]
+        # Base the month's return on the previous month's closing equity.
+        # For the first month there is no carry-in, so use its own first value.
+        month_start = previous_close if previous_close is not None else values[0]
         if month_start > 0:
             result[month_key] = round((month_end - month_start) / month_start, 4)
+        previous_close = month_end
 
     return result
 

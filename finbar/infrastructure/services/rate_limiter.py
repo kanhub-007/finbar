@@ -84,7 +84,8 @@ class YahooFinanceRateLimiter:
         Returns backoff time in seconds.
         """
         backoff = self.base_backoff * (2 ** min(attempt, 10))
-        self._rate_limit_backoff = backoff
+        with self._lock:
+            self._rate_limit_backoff = backoff
         logger.warning(
             "Rate limited! Applying %ss backoff (attempt %d)", backoff, attempt
         )

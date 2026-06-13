@@ -124,7 +124,16 @@ def aggregate_folds(folds: Sequence[WalkForwardFold]) -> WalkForwardResult:
 
 
 def _compute_stability(folds: Sequence[WalkForwardFold]) -> float:
-    """Measure parameter stability: fraction of best params within 20% of avg."""
+    """Measure parameter stability: fraction of best params near the central value.
+
+    For each parameter, a fold's value counts as "stable" when it is within
+    20% of that parameter's value range (max - min). Using the range as the
+    scale (rather than the mean) is robust to parameters that legitimately
+    straddle zero: a mean-based denominator is undefined at zero and produces
+    huge ratios for small deviations around a near-zero mean, both of which
+    inflate or distort the stability score. When all folds share an identical
+    value (zero range), every fold counts as stable.
+    """
     if len(folds) < 2:
         return 1.0
     param_names: set[str] = set()
@@ -136,13 +145,17 @@ def _compute_stability(folds: Sequence[WalkForwardFold]) -> float:
     total_values = 0
     for name in param_names:
         values = [float(f.best_params.get(name, 0.0)) for f in folds]
-        avg = sum(values) / len(values)
-        if avg == 0:
+        v_min = min(values)
+        v_max = max(values)
+        spread = v_max - v_min
+        if spread == 0:
+            # All folds agree on this parameter: fully stable.
             stable_count += len(values)
             total_values += len(values)
             continue
+        midpoint = (v_min + v_max) / 2.0
         for v in values:
-            if abs(v - avg) / abs(avg) <= 0.2:
+            if abs(v - midpoint) / spread <= 0.2:
                 stable_count += 1
             total_values += 1
     return stable_count / total_values if total_values > 0 else 1.0

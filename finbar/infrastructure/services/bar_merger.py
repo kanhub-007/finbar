@@ -7,9 +7,15 @@ on a given date cannot see that same date's daily close/indicators.
 
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 
 from finbar.core.domain.services.indicator_value_mapper import to_numeric
+
+# Matches a positive integer followed by a unit suffix. Supports both the
+# `5m`/`15m` and `5min`/`15min` forms used across the codebase.
+_INTERVAL_RE = re.compile(r"^(\d+)\s*(min|m|h|d|w)$", re.IGNORECASE)
 
 
 def merge_timeframes(
@@ -93,13 +99,29 @@ def _availability_index(index, informative_interval: str) -> pd.DatetimeIndex:
 
 
 def _interval_offset(interval: str) -> pd.Timedelta:
-    """Convert a Finbar interval string to a pandas Timedelta."""
-    normalized = interval.lower().strip()
-    offsets = {
-        "5min": pd.Timedelta(minutes=5),
-        "30min": pd.Timedelta(minutes=30),
-        "1h": pd.Timedelta(hours=1),
-        "1d": pd.Timedelta(days=1),
-        "1w": pd.Timedelta(weeks=1),
-    }
-    return offsets.get(normalized, pd.Timedelta(0))
+    """Convert a Finbar interval string to a pandas Timedelta.
+
+    Raises ValueError for unknown intervals. Returning a zero offset for an
+    unrecognised interval would silently make an informative bar available
+    at its own start timestamp, leaking future information (lookahead bias)
+    into earlier bars. All supported intervals must therefore be handled.
+    """
+    normalized = (interval or "").lower().strip()
+    match = _INTERVAL_RE.match(normalized)
+    if match is None:
+        raise ValueError(
+            f"Unsupported informative interval for no-lookahead merge: {interval!r}. "
+            "Expected a value like '5m', '15min', '1h', '1d', or '1w'."
+        )
+    amount = int(match.group(1))
+    unit = match.group(2)
+    if unit in ("min", "m"):
+        return pd.Timedelta(minutes=amount)
+    if unit == "h":
+        return pd.Timedelta(hours=amount)
+    if unit == "d":
+        return pd.Timedelta(days=amount)
+    if unit == "w":
+        return pd.Timedelta(weeks=amount)
+    # Unreachable: regex guarantees one of the units above.
+    raise ValueError(f"Unsupported informative interval: {interval!r}")

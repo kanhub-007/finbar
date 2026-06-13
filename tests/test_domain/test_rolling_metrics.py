@@ -140,6 +140,20 @@ class TestMonthlyReturns:
         assert "2024-07" in result
         assert result["2024-06"] == pytest.approx(0.05)  # 100→105
 
+    def test_month_return_uses_previous_month_close_as_base(self):
+        # Regression: the return for a month must be measured from the
+        # PREVIOUS month's closing equity (the carry-in), not from the
+        # current month's first bar. Otherwise the first bar's return is
+        # silently dropped.
+        # June closes at 105, July's first bar is 110 and closes at 115.
+        # Correct July return = (115 - 105) / 105, NOT (115 - 110) / 110.
+        curve = _eq_curve(
+            [100, 105, 110, 115],
+            ["2024-06-01", "2024-06-15", "2024-07-01", "2024-07-15"],
+        )
+        result = calculate_monthly_returns(curve)
+        assert result["2024-07"] == pytest.approx((115 - 105) / 105, abs=1e-4)
+
 
 class TestYearlyReturns:
     def test_single_year(self):
