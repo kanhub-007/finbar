@@ -24,5 +24,17 @@ class PandasBarFrameConverter(BarFrameConverter):
         ).columns
         for col in datetime_cols:
             df[col] = df[col].dt.strftime("%Y-%m-%dT%H:%M:%S")
-        df = df.where(pd.notna(df), None)
-        return df.to_dict(orient="records")
+        records = df.to_dict(orient="records")
+        # Replace NaN with None for JSON safety. This is done on the records
+        # list rather than via df.where(pd.notna(df), None), which would copy
+        # the entire DataFrame into object dtype and perform a redundant
+        # element-wise pass. Only columns that actually contain NaN are
+        # touched; float('nan') is the only value not equal to itself.
+        nan_columns = df.columns[df.isna().any()].tolist()
+        if nan_columns:
+            for record in records:
+                for col in nan_columns:
+                    value = record[col]
+                    if value != value:  # NaN check
+                        record[col] = None
+        return records
