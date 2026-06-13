@@ -33,22 +33,30 @@ class YahooFinanceRateLimiter:
         self._last_request_time = 0.0
         self._request_times: deque[float] = deque(maxlen=1000)
         self._lock = threading.Lock()
-        self._rate_limit_backoff = 0.0
+        # Absolute deadline until which all callers must pause (set on 429).
+        # Stored as an absolute timestamp so that every concurrent caller
+        # observes the same deadline and can sleep in parallel, rather than
+        # serializing on the lock for the full backoff duration.
+        self._backoff_until = 0.0
 
     def wait(self) -> None:
-        """Wait if necessary to respect rate limits."""
+        """Wait if necessary to respect rate limits.
+
+        The potentially-long backoff sleep happens OUTSIDE the lock so that
+        concurrent callers pause in parallel instead of convoying on the lock.
+        Admission control (per-request spacing and the minute-window cap) and
+        request recording stay atomic under the lock.
+        """
+        # --- Backoff phase: read the deadline, release the lock, sleep. ---
+        with self._lock:
+            backoff_remaining = self._backoff_until - time.time()
+        if backoff_remaining > 0:
+            logger.debug("Rate limit backoff: sleeping %.1fs", backoff_remaining)
+            time.sleep(backoff_remaining)
+
+        # --- Admission phase: serialise spacing + minute window + record. ---
         with self._lock:
             now = time.time()
-
-            if self._rate_limit_backoff > 0:
-                if now < self._last_request_time + self._rate_limit_backoff:
-                    sleep_time = (
-                        self._last_request_time + self._rate_limit_backoff - now
-                    )
-                    logger.debug("Rate limit backoff: sleeping %.1fs", sleep_time)
-                    time.sleep(sleep_time)
-                    now = time.time()
-                self._rate_limit_backoff = 0.0
 
             elapsed_since_last = now - self._last_request_time
             if elapsed_since_last < self.min_interval:
@@ -85,7 +93,7 @@ class YahooFinanceRateLimiter:
         """
         backoff = self.base_backoff * (2 ** min(attempt, 10))
         with self._lock:
-            self._rate_limit_backoff = backoff
+            self._backoff_until = time.time() + backoff
         logger.warning(
             "Rate limited! Applying %ss backoff (attempt %d)", backoff, attempt
         )
@@ -96,4 +104,4 @@ class YahooFinanceRateLimiter:
         with self._lock:
             self._request_times.clear()
             self._last_request_time = 0.0
-            self._rate_limit_backoff = 0.0
+            self._backoff_until = 0.0

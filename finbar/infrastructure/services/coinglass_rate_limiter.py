@@ -36,7 +36,11 @@ class CoinGlassRateLimiter:
         self._last_request_time = 0.0
         self._request_times: deque[float] = deque(maxlen=1000)
         self._lock = threading.Lock()
-        self._rate_limit_backoff = 0.0
+        # Absolute deadline until which all callers must pause (set on 429).
+        # Stored as an absolute timestamp so every concurrent caller observes
+        # the same deadline and can sleep in parallel instead of convoying on
+        # the lock for the full backoff duration.
+        self._backoff_until = 0.0
 
     def update_from_headers(self, headers: dict[str, str]) -> None:
         """Update dynamic limits from CoinGlass response headers."""
@@ -50,24 +54,23 @@ class CoinGlassRateLimiter:
     def wait(self) -> None:
         """Block if necessary to respect rate limits.
 
-        Thread‑safe — uses the same deque‑based sliding window pattern
-        as YahooFinanceRateLimiter.
+        Thread‑safe. The potentially-long backoff sleep happens OUTSIDE the
+        lock so concurrent callers pause in parallel instead of convoying.
+        Admission control (spacing + minute window) and request recording
+        stay atomic under the lock.
         """
+        # --- Backoff phase: read the deadline, release the lock, sleep. ---
+        with self._lock:
+            backoff_remaining = self._backoff_until - time.time()
+        if backoff_remaining > 0:
+            logger.debug(
+                "CoinGlass rate limit backoff: sleeping %.1fs", backoff_remaining
+            )
+            time.sleep(backoff_remaining)
+
+        # --- Admission phase: serialise spacing + minute window + record. ---
         with self._lock:
             now = time.time()
-
-            if self._rate_limit_backoff > 0:
-                if now < self._last_request_time + self._rate_limit_backoff:
-                    sleep_time = (
-                        self._last_request_time + self._rate_limit_backoff - now
-                    )
-                    logger.debug(
-                        "CoinGlass rate limit backoff: sleeping %.1fs",
-                        sleep_time,
-                    )
-                    time.sleep(sleep_time)
-                    now = time.time()
-                self._rate_limit_backoff = 0.0
 
             elapsed = now - self._last_request_time
             if self.min_interval > 0 and elapsed < self.min_interval:
@@ -96,7 +99,7 @@ class CoinGlassRateLimiter:
         """Called on HTTP 429 — applies exponential backoff."""
         backoff = self.base_backoff * (2 ** min(attempt, 10))
         with self._lock:
-            self._rate_limit_backoff = backoff
+            self._backoff_until = time.time() + backoff
         logger.warning(
             "CoinGlass rate limited! Backoff %.1fs (attempt %d)",
             backoff,
@@ -109,4 +112,4 @@ class CoinGlassRateLimiter:
         with self._lock:
             self._request_times.clear()
             self._last_request_time = 0.0
-            self._rate_limit_backoff = 0.0
+            self._backoff_until = 0.0
