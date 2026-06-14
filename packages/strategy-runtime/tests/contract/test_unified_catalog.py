@@ -76,10 +76,10 @@ class TestUnifiedCatalogDualRole:
         assert result.computable is False
 
     def test_implemented_false_metric_not_computable(self, catalog):
-        """A metric with implemented=False (e.g. Elliott Wave) is not computable."""
-        assert catalog.supports_concrete("elliott_wave_count") is True
+        """A metric with implemented=False (e.g. realized_vol_5m) is not computable."""
+        assert catalog.supports_concrete("realized_vol_5m") is False
 
-        result = catalog.check("elliott_wave_count", "daily_ohlcv")
+        result = catalog.check("realized_vol_5m", "intraday_ohlcv")
         assert result.supported is True
         assert result.computable is False
         assert result.confidence == MetricConfidence.UNAVAILABLE
@@ -175,3 +175,33 @@ class TestNameSyncInvariant:
             assert result.computable is False or not result.supported, (
                 f"'{name}' has no handler but check() returned computable=True"
             )
+
+    def test_unhandled_metrics_rejected_by_parser(self, catalog):
+        """Catalogued MarketMetricDefinitions WITHOUT a handler must be
+        rejected by supports_concrete() so users can't reference them.
+
+        This only applies to names in _metric_registry (MarketMetricDefinition
+        entries). Dynamic/parameterized names like sma_5, atr_2 are accepted
+        via pattern matching in the legacy strategy catalog.
+        """
+        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+            _INDICATOR_HANDLERS,
+        )
+        from finbar_strategy_runtime.parser._metric_registry import (
+            METRICS,
+            CONCEPTUAL_METRICS,
+        )
+
+        handler_names = set(_INDICATOR_HANDLERS.keys())
+        market_metric_names = {m.name for m in METRICS + CONCEPTUAL_METRICS}
+
+        # Every market metric without a handler must be rejected
+        leaked = {
+            name
+            for name in market_metric_names - handler_names
+            if catalog.supports_concrete(name)
+        }
+        assert leaked == set(), (
+            f"Market metrics without handlers are parser-accepted "
+            f"(users can reference them but they produce no column): {leaked}"
+        )

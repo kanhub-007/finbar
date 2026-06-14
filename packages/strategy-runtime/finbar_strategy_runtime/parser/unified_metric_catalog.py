@@ -96,19 +96,30 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         return self._strategy_catalog.accepts_period(indicator_type)
 
     def supports_concrete(self, name: str) -> bool:
-        """Return True when a concrete column is known to the catalog.
+        """Return True when a concrete column is usable in a strategy.
 
-        Checks both the market-metric definitions and the legacy parser
-        indicator set (parameterized names like sma_20, vp_poc_5d, etc.).
+        A catalogued metric is only accepted when it has a registered
+        handler (can actually compute a column). Catalogued-but-
+        unimplemented metrics (Elliott Wave, turnover, VIX, etc.) are
+        discoverable via ``list_market_metrics`` / ``check_metric`` but
+        are rejected by the parser so users can't silently reference
+        a metric that produces no column.
+
+        Parameterized/dynamic names (sma_50, vp_poc_10d, etc.) are
+        delegated to the legacy strategy catalog.
         """
         if name in self._by_name:
-            return True
+            return name in _HANDLED_NAMES
         return self._strategy_catalog.supports_concrete(name)
 
     def supported_concrete_names(self) -> list[str]:
-        """Return all concrete indicator columns currently supported."""
+        """Return all concrete indicator columns currently supported.
+
+        Only includes catalogued metrics that have registered handlers
+        (usable in strategies).
+        """
         names = set(self._strategy_catalog.supported_concrete_names())
-        names.update(self._by_name.keys())
+        names.update(n for n in self._by_name if n in _HANDLED_NAMES)
         return sorted(names)
 
     def as_dict(self) -> dict:
