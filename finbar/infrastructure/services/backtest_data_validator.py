@@ -52,7 +52,7 @@ def _validate_index(frame: pd.DataFrame) -> str | None:
 
 def _numeric_prices(frame: pd.DataFrame) -> pd.DataFrame:
     """Return OHLC columns coerced to numeric values."""
-    return frame.loc[:, _REQUIRED_PRICE_COLUMNS].apply(pd.to_numeric, errors="coerce")
+    return _to_numeric_subset(frame, list(_REQUIRED_PRICE_COLUMNS))
 
 
 def _validate_numeric_prices(prices: pd.DataFrame) -> str | None:
@@ -133,7 +133,7 @@ def validate_required_data(
             "no_tradable_bars": True,
         }
 
-    subset = frame[required_columns].apply(pd.to_numeric, errors="coerce")
+    subset = _to_numeric_subset(frame, required_columns)
     valid_mask = subset.notna().all(axis=1)
 
     first_valid_idx = valid_mask.idxmax() if valid_mask.any() else None
@@ -171,3 +171,22 @@ def validate_required_data(
         "missing_after_warmup": missing_after_warmup,
         "no_tradable_bars": no_tradable,
     }
+
+
+def _to_numeric_subset(
+    frame: pd.DataFrame, columns: list[str]
+) -> pd.DataFrame:
+    """Return a numeric-only subset, skipping coercion for float columns.
+
+    Most columns in an enriched frame are already float64 (from pandas_ta).
+    Calling pd.to_numeric on them is a no-op copy that wastes time on large
+    frames.
+    """
+    numeric_cols = set(frame.select_dtypes(include=["number"]).columns)
+    parts: dict[str, pd.Series] = {}
+    for col in columns:
+        if col in numeric_cols:
+            parts[col] = frame[col].astype(float)
+        else:
+            parts[col] = pd.to_numeric(frame[col], errors="coerce")
+    return pd.DataFrame(parts)
