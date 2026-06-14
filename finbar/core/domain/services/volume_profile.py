@@ -148,22 +148,31 @@ def compute_session_volume_profile(
         num_buckets,
     )
 
-    # Aggregate volume across all bars
+    # Aggregate volume across all bars. Columns are extracted to numpy
+    # arrays once and indexed by position to avoid the per-bar pd.Series
+    # allocation overhead of DataFrame.iterrows().
+    highs = session_bars["high"].to_numpy()
+    lows = session_bars["low"].to_numpy()
+    closes = session_bars["close"].to_numpy()
+    volumes = session_bars["volume"].to_numpy()
+
     volume_profile = np.zeros(num_buckets)
     total_volume = 0.0
 
-    for _, bar in session_bars.iterrows():
-        bar_high = float(bar["high"])
-        bar_low = float(bar["low"])
-        bar_close = float(bar["close"])
-        bar_volume = float(bar["volume"]) if bar["volume"] > 0 else 0.0
-
+    for j in range(len(highs)):
+        raw_volume = volumes[j]
+        bar_volume = float(raw_volume) if raw_volume > 0 else 0.0
         if bar_volume <= 0:
             continue
 
         total_volume += bar_volume
         volume_profile += _distribute_bar_volume(
-            bar_high, bar_low, bar_close, bar_volume, price_buckets, bucket_size
+            float(highs[j]),
+            float(lows[j]),
+            float(closes[j]),
+            bar_volume,
+            price_buckets,
+            bucket_size,
         )
 
     if total_volume <= 0:

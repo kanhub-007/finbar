@@ -90,20 +90,6 @@ def _count_tpos_for_bar(
     return touched.astype(float)
 
 
-def _split_1h_into_tpo_bars(
-    bar: pd.Series,
-) -> list[tuple[float, float]]:
-    """Split a 1h bar into two 30-min TPO ranges.
-
-    Standard Market Profile interpretation: both 30-min TPO periods
-    get the full bar range, since price was available at those levels
-    during the hour.
-    """
-    h = float(bar["high"])
-    lo = float(bar["low"])
-    return [(h, lo), (h, lo)]
-
-
 # ---------------------------------------------------------------------------
 # Session Market Profile
 # ---------------------------------------------------------------------------
@@ -158,20 +144,24 @@ def compute_session_market_profile(
     tpo_bars = _get_tpo_bars_per_period(session_bars)
     use_1h_split = tpo_bars == 0
 
-    # Count TPOs
+    # Count TPOs. Columns are extracted to numpy arrays once and indexed by
+    # position to avoid the per-bar pd.Series allocation overhead of
+    # DataFrame.iterrows().
+    highs = session_bars["high"].to_numpy()
+    lows = session_bars["low"].to_numpy()
+
     tpo_profile = np.zeros(num_buckets)
     total_tpos = 0
 
-    for _, bar in session_bars.iterrows():
-        bar_high = float(bar["high"])
-        bar_low = float(bar["low"])
+    for j in range(len(highs)):
+        bar_high = float(highs[j])
+        bar_low = float(lows[j])
 
         if use_1h_split:
-            # 1h bar = 2 TPO periods
-            sub_periods = _split_1h_into_tpo_bars(bar)
-            for sub_high, sub_low in sub_periods:
+            # 1h bar = 2 TPO periods, both spanning the full bar range.
+            for _ in range(2):
                 tpo_profile += _count_tpos_for_bar(
-                    sub_high, sub_low, price_buckets, bucket_size
+                    bar_high, bar_low, price_buckets, bucket_size
                 )
                 total_tpos += 1
         else:
