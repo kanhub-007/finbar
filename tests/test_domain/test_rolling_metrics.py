@@ -90,6 +90,23 @@ class TestRollingWinRate:
         # At bar 65, all 5 trades exit, 3 are wins
         assert result[65] == pytest.approx(0.6)
 
+    def test_trades_spread_across_multiple_bars(self):
+        """Win rate reflects only trades within the rolling window, correctly
+        aggregating wins/losses spread across several distinct bars."""
+        values = [100] * 70
+        curve = _eq_curve(values)
+        # Indices (via date keys 2024-01-NN where NN = idx+1):
+        #   idx 60 (win), 61 (loss), 62 (win), 70-out-of-range skipped.
+        trades = _trades(
+            [10, -5, 8, -3],
+            ["2024-01-61", "2024-01-62", "2024-01-63", "2024-01-99"],
+        )
+        result = calculate_rolling_win_rate(trades, curve, window=5)
+        # Window [59,63] at i=63 covers indices 60,61,62 -> 2 wins / 3 total.
+        assert result[63] == pytest.approx(2 / 3)
+        # Window slides past idx 60 by i=66: [62,66] covers only 62 (win).
+        assert result[66] == pytest.approx(1.0)
+
 
 class TestRollingDrawdown:
     def test_flat_no_drawdown(self):

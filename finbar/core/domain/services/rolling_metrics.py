@@ -66,32 +66,41 @@ def calculate_rolling_win_rate(
     if not trades or n < 2:
         return result
 
-    bar_dates = [e.get("date", "") for e in equity_curve]
-    trade_exit_indices: list[int] = []
-    trade_wins: list[bool] = []
+    # Map exit_date -> first bar index once. The previous implementation
+    # called bar_dates.index(exit_date) per trade (O(n) each -> O(n*trades)).
+    date_to_idx: dict[str, int] = {}
+    for i, e in enumerate(equity_curve):
+        d = e.get("date", "")
+        if d not in date_to_idx:  # keep first occurrence (matches list.index)
+            date_to_idx[d] = i
 
+    # Count winning / total trades exiting at each bar index.
+    wins_at = [0] * n
+    total_at = [0] * n
     for t in trades:
         exit_date = str(t.get("exit_date", ""))
-        try:
-            idx = bar_dates.index(exit_date)
-            trade_exit_indices.append(idx)
-            trade_wins.append(float(t.get("pnl", 0)) > 0)
-        except ValueError:
-            pass
+        idx = date_to_idx.get(exit_date)
+        if idx is None:
+            continue
+        total_at[idx] += 1
+        if float(t.get("pnl", 0)) > 0:
+            wins_at[idx] += 1
 
-    if not trade_exit_indices:
+    if not any(total_at):
         return result
 
+    # Prefix sums enable O(1) sliding-window win-rate queries instead of the
+    # previous O(trades) scan per bar (overall O(n*trades) -> O(n + trades)).
+    prefix_wins = [0] * (n + 1)
+    prefix_total = [0] * (n + 1)
+    for i in range(n):
+        prefix_wins[i + 1] = prefix_wins[i] + wins_at[i]
+        prefix_total[i + 1] = prefix_total[i] + total_at[i]
+
     for i in range(window, n):
-        window_end = i
         window_start = max(0, i - window + 1)
-        wins_in_window = 0
-        total_in_window = 0
-        for exit_idx, is_win in zip(trade_exit_indices, trade_wins):
-            if window_start <= exit_idx <= window_end:
-                total_in_window += 1
-                if is_win:
-                    wins_in_window += 1
+        wins_in_window = prefix_wins[i + 1] - prefix_wins[window_start]
+        total_in_window = prefix_total[i + 1] - prefix_total[window_start]
         if total_in_window > 0:
             result[i] = round(wins_in_window / total_in_window, 4)
 
