@@ -118,10 +118,11 @@ class BacktestStrategyDefinitionUseCase:
                 ),
             )
 
-        merged_bars = self._converter.frame_to_bars(frame)
         frame = self._resolve_and_compute_signals(frame, validation.definition)
-        merged_bars = self._converter.frame_to_bars(frame)
-        missing = _missing_columns(merged_bars, validation.required_columns)
+        missing = [
+            c for c in validation.required_columns
+            if c not in frame.columns
+        ]
         if missing:
             return BacktestStrategyDefinitionResult(
                 valid=False,
@@ -326,13 +327,6 @@ def _select_informative_bars(
     if timeframe.alias not in raw:
         raise ValueError(f"Missing informative bars for timeframe '{timeframe.alias}'")
     return raw[timeframe.alias]
-
-
-def _missing_columns(bars: list[dict], required: list[str]) -> list[str]:
-    available: set[str] = set()
-    for bar in bars:
-        available.update(bar.keys())
-    return [column for column in required if column not in available]
 
 
 def _warmup_errors(warmup: dict) -> list[StrategyValidationError]:
