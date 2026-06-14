@@ -108,10 +108,20 @@ _INDICATOR_HANDLERS: dict[str, tuple[Callable, set[str]]] = {}
 
 
 def _register(name: str, requires: set[str] | None = None):
-    """Decorator to register an indicator handler."""
+    """Decorator to register an indicator handler.
+
+    Also informs UnifiedMetricCatalog that this name has a handler,
+    so ``check()`` can report ``computable=True`` honestly.
+    """
 
     def decorator(func: Callable):
         _INDICATOR_HANDLERS[name] = (func, requires or set())
+        # Deferred import avoids a circular dependency at module load time.
+        from finbar_strategy_runtime.parser.unified_metric_catalog import (
+            register_handler,
+        )
+
+        register_handler(name)
         return func
 
     return decorator
