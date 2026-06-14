@@ -70,7 +70,7 @@ Requires **Python ≥ 3.12**. The `[pandas]` extra additionally requires
 ## Package structure
 
 ```
-strategy_runtime/
+finbar_strategy_runtime/
 ├── domain/
 │   ├── entities/          # 25 pure dataclasses/enums — no framework deps
 │   ├── interfaces/        # 12 ABCs — contracts for DI
@@ -87,7 +87,7 @@ strategy_runtime/
 ### Parse a strategy
 
 ```python
-from strategy_runtime.parser.strategy_definition_parser import (
+from finbar_strategy_runtime.parser.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 
@@ -131,7 +131,7 @@ else:
 
 ```python
 import pandas as pd
-from strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
 
@@ -146,7 +146,7 @@ enriched = calc.calculate(df, ["rsi_14", "sma_20", "sma_50", "atr"])
 ### Evaluate a strategy against market data
 
 ```python
-from strategy_runtime.evaluation.json_rule_based_strategy import (
+from finbar_strategy_runtime.evaluation.json_rule_based_strategy import (
     JsonRuleBasedStrategy,
 )
 
