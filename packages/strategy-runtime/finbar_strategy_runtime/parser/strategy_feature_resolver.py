@@ -24,12 +24,22 @@ _SIMPLE_TYPES = {"body_pct", "range_pct", "typical_price", "ohlc4"}
 _SUPPORTED_TYPES = _ROLLING_TYPES | _SIMPLE_TYPES | {"shift", "formula"}
 
 
+
+
+def _default_catalog() -> "IndicatorCapabilityProvider":
+    """Build the default UnifiedMetricCatalog (lazy import avoids cycle)."""
+    from finbar_strategy_runtime.parser.unified_metric_catalog import (
+        UnifiedMetricCatalog,
+    )
+
+    return UnifiedMetricCatalog()
+
 class StrategyFeatureResolver:
     """Resolve feature declarations to concrete feature specs."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create a resolver backed by indicator capabilities."""
-        self._catalog = catalog or StrategyIndicatorCatalog()
+        self._catalog = catalog or _default_catalog()
 
     def parse(
         self,

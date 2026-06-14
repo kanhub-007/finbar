@@ -27,12 +27,22 @@ from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider imp
 )
 
 
+
+
+def _default_catalog() -> "IndicatorCapabilityProvider":
+    """Build the default UnifiedMetricCatalog (lazy import avoids cycle)."""
+    from finbar_strategy_runtime.parser.unified_metric_catalog import (
+        UnifiedMetricCatalog,
+    )
+
+    return UnifiedMetricCatalog()
+
 class StrategyConditionParser:
     """Parse side-specific entry/exit condition trees."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create a condition parser backed by indicator capabilities."""
-        self._catalog = catalog or StrategyIndicatorCatalog()
+        self._catalog = catalog or _default_catalog()
         operand_parser = StrategyOperandParser(self._catalog)
         self._group_parser = StrategyConditionGroupParser(operand_parser)
 

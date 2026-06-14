@@ -11,23 +11,14 @@ from __future__ import annotations
 
 import pandas as pd
 
-from finbar.core.domain.entities.derivatives_metrics import DerivativesMetrics
+from finbar.core.domain.entities.derivatives_metrics import (
+    DERIVATIVES_FIELDS,
+    DerivativesMetrics,
+)
 from finbar_strategy_runtime.indicators.bar_merger import interval_offset
 
-# All nullable float fields on DerivativesMetrics that can become columns.
-_DERIVATIVES_COLUMNS = [
-    "open_interest",
-    "open_interest_delta_1h",
-    "open_interest_delta_24h",
-    "cumulative_volume_delta",
-    "funding_rate",
-    "funding_rate_annualised",
-    "long_short_ratio",
-    "liquidations_long_1h",
-    "liquidations_short_1h",
-    "liquidations_long_24h",
-    "liquidations_short_24h",
-]
+# Use the canonical field list from the entity (single source of truth).
+_DERIVATIVES_COLUMNS: list[str] = list(DERIVATIVES_FIELDS)
 
 
 def merge_derivatives_asof(

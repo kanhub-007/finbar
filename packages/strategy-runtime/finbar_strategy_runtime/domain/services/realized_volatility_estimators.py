@@ -24,8 +24,14 @@ import pandas as pd
 
 
 def _log_returns(close: pd.Series) -> pd.Series:
-    """Compute log returns, handling zero/negative prices gracefully."""
-    log_price = np.log(close.astype(float).replace(0, np.nan))
+    """Compute log returns, handling zero/negative prices gracefully.
+
+    Zero or negative prices produce NaN (no crash). The ``np.errstate``
+    context suppresses the RuntimeWarning that ``np.log`` emits for
+    invalid inputs.
+    """
+    with np.errstate(invalid="ignore", divide="ignore"):
+        log_price = np.log(close.astype(float).replace(0, np.nan))
     return log_price.diff()
 
 
@@ -45,7 +51,8 @@ def realized_volatility(
         window: Rolling window size (e.g. 78 = ~1 day of 5-min bars).
 
     Returns:
-        Series of realized vol estimates. First ``window-1`` bars are NaN.
+        Series of realized vol estimates. First ``window`` bars are NaN
+        (the ``diff()`` in log returns adds one extra NaN at index 0).
     """
     if len(close) < window:
         return pd.Series(np.nan, index=close.index)
@@ -74,7 +81,7 @@ def bipower_variation(
         window: Rolling window size.
 
     Returns:
-        Series of bipower variation estimates.
+        Series of bipower variation estimates. First ``window`` bars are NaN.
     """
     if len(close) < window:
         return pd.Series(np.nan, index=close.index)
@@ -108,13 +115,11 @@ def realized_skewness(
         window: Rolling window size.
 
     Returns:
-        Series of realized skewness estimates.
+        Series of realized skewness estimates. First ``window`` bars are NaN.
     """
     if len(close) < window:
         return pd.Series(np.nan, index=close.index)
     rets = _log_returns(close)
-    r2 = rets**2
-    r3 = rets**3
 
     def _skew(x):
         s2 = np.nansum(x**2)
@@ -147,6 +152,7 @@ def realized_kurtosis(
 
     Returns:
         Series of realized kurtosis estimates (always >= 0).
+        First ``window`` bars are NaN.
     """
     if len(close) < window:
         return pd.Series(np.nan, index=close.index)

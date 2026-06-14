@@ -56,6 +56,15 @@ from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import
 )
 
 
+def _default_catalog() -> IndicatorCapabilityProvider:
+    """Build the default UnifiedMetricCatalog (lazy import avoids cycle)."""
+    from finbar_strategy_runtime.parser.unified_metric_catalog import (
+        UnifiedMetricCatalog,
+    )
+
+    return UnifiedMetricCatalog()
+
+
 class StrategyDefinitionParser(ParserInterface):
     """Parse agent-authored JSON into canonical strategy definitions.
 
@@ -77,7 +86,7 @@ class StrategyDefinitionParser(ParserInterface):
             limit_rules: Rules that enforce SDK limits.
             serializer: Serializer for canonical dict output.
         """
-        self._catalog = catalog or StrategyIndicatorCatalog()
+        self._catalog = catalog or _default_catalog()
         self._warning_rules = warning_rules or DEFAULT_WARNING_RULES
         self._limit_rules = limit_rules or DEFAULT_LIMIT_RULES
         self._serializer = serializer or StrategyDefinitionSerializer()

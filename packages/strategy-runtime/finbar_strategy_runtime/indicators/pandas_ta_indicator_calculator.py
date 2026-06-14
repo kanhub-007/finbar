@@ -111,18 +111,12 @@ _INDICATOR_HANDLERS: dict[str, tuple[Callable, set[str]]] = {}
 def _register(name: str, requires: set[str] | None = None):
     """Decorator to register an indicator handler.
 
-    Also informs UnifiedMetricCatalog that this name has a handler,
-    so ``check()`` can report ``computable=True`` honestly.
+    Populates ``_INDICATOR_HANDLERS`` which ``UnifiedMetricCatalog`` reads
+    at construction time to determine which metrics are computable.
     """
 
     def decorator(func: Callable):
         _INDICATOR_HANDLERS[name] = (func, requires or set())
-        # Deferred import avoids a circular dependency at module load time.
-        from finbar_strategy_runtime.parser.unified_metric_catalog import (
-            register_handler,
-        )
-
-        register_handler(name)
         return func
 
     return decorator
@@ -2189,19 +2183,32 @@ def _h_day_type(df, _name, _cache):
 # (Invariant #2) and registers the name for catalog/handler name-sync.
 # ===========================================================================
 
-_DERIV_HANDLER_NAMES = [
-    "funding_rate",
-    "funding_rate_annualised",
+"""Constants for derivatives metrics shared across the runtime package.
+
+This module defines the canonical list of derivatives field names.
+Both the indicator calculator (pass-through handlers) and any future
+merge logic in the package reference this list.
+"""
+
+# All nullable float field names for derivatives metrics that can be
+# merged onto OHLCV frames and used as indicator columns.
+DERIVATIVES_FIELDS: tuple[str, ...] = (
     "open_interest",
     "open_interest_delta_1h",
     "open_interest_delta_24h",
     "cumulative_volume_delta",
+    "funding_rate",
+    "funding_rate_annualised",
     "long_short_ratio",
     "liquidations_long_1h",
     "liquidations_short_1h",
     "liquidations_long_24h",
     "liquidations_short_24h",
-]
+)
+
+
+# Alias for backward compat within this module.
+_DERIV_HANDLER_NAMES = list(DERIVATIVES_FIELDS)
 
 
 def _register_derivatives_handlers() -> None:

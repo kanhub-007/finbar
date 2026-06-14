@@ -22,12 +22,22 @@ _STOP_TYPES = {"none", "atr", "fixed_pct"}
 _TAKE_PROFIT_TYPES = {"none", "atr", "fixed_pct", "risk_reward"}
 
 
+
+
+def _default_catalog() -> "IndicatorCapabilityProvider":
+    """Build the default UnifiedMetricCatalog (lazy import avoids cycle)."""
+    from finbar_strategy_runtime.parser.unified_metric_catalog import (
+        UnifiedMetricCatalog,
+    )
+
+    return UnifiedMetricCatalog()
+
 class StrategyRiskResolver:
     """Parse structured risk settings for JSON strategies."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create a resolver backed by indicator capabilities."""
-        self._catalog = catalog or StrategyIndicatorCatalog()
+        self._catalog = catalog or _default_catalog()
 
     def parse(
         self,

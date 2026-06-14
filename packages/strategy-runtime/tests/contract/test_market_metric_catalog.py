@@ -13,14 +13,14 @@ from finbar_strategy_runtime.domain.entities.metric_confidence import MetricConf
 from finbar_strategy_runtime.domain.interfaces.market_metric_catalog import (
     MarketMetricCatalog,
 )
-from finbar_strategy_runtime.domain.services.static_market_metric_catalog import (
-    StaticMarketMetricCatalog,
+from finbar_strategy_runtime.parser.unified_metric_catalog import (
+    UnifiedMetricCatalog,
 )
 
 
 @pytest.fixture
 def catalog() -> MarketMetricCatalog:
-    return StaticMarketMetricCatalog()
+    return UnifiedMetricCatalog()
 
 
 class TestCatalogCapabilityChecks:

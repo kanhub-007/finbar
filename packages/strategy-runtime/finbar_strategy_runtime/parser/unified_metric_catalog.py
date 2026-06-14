@@ -38,25 +38,6 @@ from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
 
-# ---------------------------------------------------------------------------
-# Handler registry — populated by @_register in the indicator calculator.
-# A metric is computable only if its name appears here AND its data class
-# is satisfied. This enforces Invariant #4 (confidence honesty).
-# ---------------------------------------------------------------------------
-
-_HANDLED_NAMES: set[str] = set()
-
-
-def register_handler(name: str) -> None:
-    """Record that a compute handler exists for `name`.
-
-    Called by the ``@_register`` decorator in
-    ``pandas_ta_indicator_calculator``. Must be called at import time
-    (module side-effect) so the catalog sees all handlers before any
-    ``check()`` call.
-    """
-    _HANDLED_NAMES.add(name)
-
 
 # ---------------------------------------------------------------------------
 # UnifiedMetricCatalog
@@ -78,6 +59,15 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         self._by_name: dict[str, MarketMetricDefinition] = {
             m.name: m for m in METRICS + CONCEPTUAL_METRICS
         }
+        # Importing the calculator triggers every @_register decorator,
+        # populating _INDICATOR_HANDLERS. We read it at construction time
+        # so the dependency is explicit (no hidden global mutable state).
+        import finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator  # noqa: F401
+        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+            _INDICATOR_HANDLERS,
+        )
+
+        self._handled_names: set[str] = set(_INDICATOR_HANDLERS.keys())
 
     # ====================================================================
     # Parser-side: IndicatorCapabilityProvider
@@ -109,7 +99,7 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         delegated to the legacy strategy catalog.
         """
         if name in self._by_name:
-            return name in _HANDLED_NAMES
+            return name in self._handled_names
         return self._strategy_catalog.supports_concrete(name)
 
     def supported_concrete_names(self) -> list[str]:
@@ -119,7 +109,7 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         (usable in strategies).
         """
         names = set(self._strategy_catalog.supported_concrete_names())
-        names.update(n for n in self._by_name if n in _HANDLED_NAMES)
+        names.update(n for n in self._by_name if n in self._handled_names)
         return sorted(names)
 
     def as_dict(self) -> dict:
@@ -224,7 +214,7 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
             )
 
         # Confidence honesty: no handler → not computable
-        if definition.name not in _HANDLED_NAMES:
+        if definition.name not in self._handled_names:
             return MetricCapabilityResult(
                 metric=definition.name,
                 supported=True,
@@ -246,20 +236,6 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         available_class: DataClass,
     ) -> MetricCapabilityResult:
         """Check data-class requirements for a handled metric."""
-        # External provider metrics require provider configuration
-        if (
-            definition.required_data_classes
-            and definition.required_data_classes[0]
-            == DataClass.EXTERNAL_PROVIDER
-        ):
-            return MetricCapabilityResult(
-                metric=definition.name,
-                supported=True,
-                computable=False,
-                confidence=MetricConfidence.UNAVAILABLE,
-                missing_providers=definition.required_providers,
-            )
-
         if not _is_class_available(definition.required_data_classes, available_class):
             return MetricCapabilityResult(
                 metric=definition.name,
@@ -292,7 +268,7 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
                 warnings=("Unknown metric name.",),
             )
 
-        if name in _HANDLED_NAMES:
+        if name in self._handled_names:
             # proxy_-prefixed indicators are approximations, not actual data
             confidence = (
                 MetricConfidence.PROXY
@@ -363,13 +339,3 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
                 p.required_data_class.value for p in paths
             ),
         )
-
-
-# ---------------------------------------------------------------------------
-# Auto-register all handlers.
-# Importing the calculator module triggers every @_register decorator,
-# which calls register_handler() above. This MUST come after register_handler
-# and UnifiedMetricCatalog are defined so the deferred import inside
-# _register() succeeds. Placing it at module bottom avoids a circular import.
-# ---------------------------------------------------------------------------
-import finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator  # noqa: E402,F401

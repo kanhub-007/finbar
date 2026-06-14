@@ -29,21 +29,14 @@ from finbar.infrastructure.repositories.sql_price_cache_repository import (
     SqlPriceCacheRepository,
 )
 
+from finbar.core.domain.entities.derivatives_metrics import (
+    DERIVATIVES_FIELDS,
+)
+
 
 # Derivatives metric names that require pre-merged data from the repository.
-_DERIVATIVES_INDICATORS = {
-    "funding_rate",
-    "funding_rate_annualised",
-    "open_interest",
-    "open_interest_delta_1h",
-    "open_interest_delta_24h",
-    "cumulative_volume_delta",
-    "long_short_ratio",
-    "liquidations_long_1h",
-    "liquidations_short_1h",
-    "liquidations_long_24h",
-    "liquidations_short_24h",
-}
+# Sourced from the canonical DERIVATIVES_FIELDS on the entity.
+_DERIVATIVES_INDICATORS = set(DERIVATIVES_FIELDS)
 
 
 class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
@@ -250,6 +243,12 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             "end_date": job.end_date,
             "definition": job.metadata.get("definition"),
             "params": dict(job.metadata.get("params", {})),
+            # Include derivatives merge state so an artifact cached before
+            # fetch_derivatives is not reused after data was persisted.
+            "derivatives_merged": bool(
+                self._derivatives_repository
+                and any(n in _DERIVATIVES_INDICATORS for n in indicators)
+            ),
         }
         if validation is not None and validation.definition is not None:
             features = [

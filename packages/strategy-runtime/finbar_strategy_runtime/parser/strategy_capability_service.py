@@ -37,12 +37,22 @@ _OPERATORS = [
 ]
 
 
+
+
+def _default_catalog() -> "IndicatorCapabilityProvider":
+    """Build the default UnifiedMetricCatalog (lazy import avoids cycle)."""
+    from finbar_strategy_runtime.parser.unified_metric_catalog import (
+        UnifiedMetricCatalog,
+    )
+
+    return UnifiedMetricCatalog()
+
 class StrategyCapabilityService:
     """Return machine-readable capabilities for strategy authoring."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create the service with injectable indicator capabilities."""
-        self._catalog = catalog or StrategyIndicatorCatalog()
+        self._catalog = catalog or _default_catalog()
 
     def get_capabilities(self) -> dict:
         """Return the current strategy SDK capabilities."""

@@ -8,6 +8,25 @@ Fields represent universal derivatives concepts that any provider
 from dataclasses import dataclass, field
 
 
+# All nullable float fields on DerivativesMetrics that can be merged onto
+# OHLCV frames. This is the single source of truth — the indicator job
+# runner, the derivatives merger, and the pass-through handlers all
+# reference this list.
+DERIVATIVES_FIELDS: tuple[str, ...] = (
+    "open_interest",
+    "open_interest_delta_1h",
+    "open_interest_delta_24h",
+    "cumulative_volume_delta",
+    "funding_rate",
+    "funding_rate_annualised",
+    "long_short_ratio",
+    "liquidations_long_1h",
+    "liquidations_short_1h",
+    "liquidations_long_24h",
+    "liquidations_short_24h",
+)
+
+
 @dataclass(frozen=True)
 class DerivativesMetrics:
     """Per‑symbol derivatives market metrics at a point in time."""

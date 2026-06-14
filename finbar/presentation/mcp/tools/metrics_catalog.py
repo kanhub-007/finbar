@@ -5,14 +5,19 @@ Provides three discovery tools:
 - ``check_metric`` — check if a single metric is computable
 - ``resolve_metric`` — dual-path resolution for a conceptual metric
 
-All tools delegate to ``UnifiedMetricCatalog`` which is stateless, so a
-single instance is created at registration time.
+``check_metric`` uses ``CheckMetricCapabilityUseCase`` so derivatives
+metrics report ``computable=False`` when data hasn't been fetched.
 """
 
 import json
 
 from fastmcp import FastMCP
 
+from finbar.core.application.use_cases.check_metric_capability import (
+    CheckMetricCapabilityUseCase,
+)
+from finbar.presentation.dto.metric_serializers import metric_to_dict, result_to_dict
+from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
 from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 
@@ -54,7 +59,6 @@ def register_metric_catalog_tools(mcp: FastMCP) -> None:
             JSON string of a list of metric dicts.
         """
         data_class = "intraday_ohlcv" if interval not in ("1d", "1w") else "daily_ohlcv"
-        from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
 
         family_enum = None
         if family:
@@ -64,7 +68,7 @@ def register_metric_catalog_tools(mcp: FastMCP) -> None:
                 pass
 
         items = catalog.list(family_enum)
-        payload = [_metric_to_dict(catalog, m, data_class) for m in items]
+        payload = [metric_to_dict(catalog, m, data_class) for m in items]
         return json.dumps(payload, indent=2)
 
     @mcp.tool(
@@ -72,7 +76,8 @@ def register_metric_catalog_tools(mcp: FastMCP) -> None:
         description=(
             "Check whether a single named metric is computable. "
             "Returns supported, computable, confidence, and warnings "
-            "explaining why a metric may not be available."
+            "explaining why a metric may not be available. "
+            "For derivatives metrics, also checks if data was fetched."
         ),
     )
     async def check_metric(
@@ -86,13 +91,16 @@ def register_metric_catalog_tools(mcp: FastMCP) -> None:
             name: The metric name (e.g. 'corwin_schultz_spread').
             available_data_class: Data class available
                 ('daily_ohlcv', 'intraday_ohlcv', 'external_provider').
-            symbol: Asset symbol. Reserved for derivatives data checks.
+            symbol: Asset symbol. Used for derivatives data checks.
 
         Returns:
             JSON string of a capability result dict.
         """
-        result = catalog.check(name, available_data_class)
-        return json.dumps(_result_to_dict(result), indent=2)
+        use_case = _make_check_metric_capability_use_case()
+        result = use_case.execute(
+            name=name, symbol=symbol, data_class=available_data_class
+        )
+        return json.dumps(result_to_dict(result), indent=2)
 
     @mcp.tool(
         name="resolve_metric",
@@ -123,50 +131,25 @@ def register_metric_catalog_tools(mcp: FastMCP) -> None:
         result = catalog.resolve_best(
             concept, available_data_class, interval, force_proxy
         )
-        return json.dumps(_result_to_dict(result), indent=2)
+        return json.dumps(result_to_dict(result), indent=2)
 
 
-# ---------------------------------------------------------------------------
-# Serialization helpers
-# ---------------------------------------------------------------------------
+def _make_check_metric_capability_use_case() -> CheckMetricCapabilityUseCase:
+    """Create a CheckMetricCapabilityUseCase with derivatives repo wired.
 
+    Uses deferred import to avoid importing infrastructure at module level
+    (the MCP tools module is in the presentation layer and should not
+    hard-depend on infrastructure factories at import time).
+    """
+    try:
+        from finbar.presentation.mcp.tools._shared import _get_db
 
-def _metric_to_dict(
-    catalog: UnifiedMetricCatalog,
-    definition,
-    data_class: str,
-) -> dict:
-    """Serialize a MarketMetricDefinition + its capability to a dict."""
-    result = catalog.check(definition.name, data_class)
-    return {
-        "name": definition.name,
-        "family": definition.family.value,
-        "description": definition.description,
-        "computable": result.computable,
-        "confidence": result.confidence.value,
-        "implemented": definition.implemented,
-    }
+        from finbar.infrastructure.repositories.sql_coinglass_repository import (
+            SqlCoinGlassRepository,
+        )
 
-
-def _result_to_dict(result) -> dict:
-    """Serialize a MetricCapabilityResult to a JSON-safe dict."""
-    return {
-        "metric": result.metric,
-        "supported": result.supported,
-        "computable": result.computable,
-        "confidence": result.confidence.value,
-        "selected_metric": result.selected_metric,
-        "missing_data_classes": list(result.missing_data_classes),
-        "missing_providers": list(result.missing_providers),
-        "proxy_candidates": list(result.proxy_candidates),
-        "warnings": list(result.warnings),
-        "available_paths": [
-            {
-                "metric_name": p.metric_name,
-                "required_data_class": p.required_data_class.value,
-                "confidence": p.confidence.value,
-                "priority": p.priority,
-            }
-            for p in result.available_paths
-        ],
-    }
+        db = _get_db()
+        repository = SqlCoinGlassRepository(db)
+    except Exception:
+        repository = None
+    return CheckMetricCapabilityUseCase(repository=repository)
