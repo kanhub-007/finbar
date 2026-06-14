@@ -140,17 +140,26 @@ def _run_loop(
     final_close = 0.0
     final_date = ""
 
+    # Pre-extract hot columns to numpy arrays and pre-build the per-bar
+    # dicts once. This avoids allocating a pd.Series per bar via df.iloc[i]
+    # and a second dict via Series.to_dict() inside the loop.
+    opens = df["open"].to_numpy()
+    highs = df["high"].to_numpy()
+    lows = df["low"].to_numpy()
+    closes = df["close"].to_numpy()
+    dates = _precompute_dates(df.index)
+    records = df.to_dict("records")
+
     for i in range(len(df)):
-        row = df.iloc[i]
-        bar_date = _bar_date(row)
-        close = float(row["close"])
-        open_price = float(row["open"])
-        high = float(row["high"])
-        low = float(row["low"])
+        open_price = float(opens[i])
+        high = float(highs[i])
+        low = float(lows[i])
+        close = float(closes[i])
+        bar_date = dates[i]
+        bar_dict = records[i]
         final_close = close
         final_date = bar_date
 
-        bar_dict = _row_to_bar(row)
         _execute_pending(state, open_price, bar_date, executor)
         executor.check_exit_conditions(state, open_price, high, low, bar_date)
         executor.check_margin_call(state, close)
@@ -279,26 +288,28 @@ def _track_equity(
 # ---------------------------------------------------------------------------
 
 
-def _row_to_bar(row: pd.Series) -> dict:
-    """Convert a DataFrame row to a plain dict for strategy.on_bar()."""
-    bar = row.to_dict()
-    for key in ("open", "high", "low", "close", "volume"):
-        val = bar.get(key)
-        if val is not None and hasattr(val, "item"):
-            bar[key] = val.item()
-    return bar
+def _precompute_dates(index) -> list[str]:
+    """Build the per-bar ISO date strings for an index in one pass.
 
-
-def _bar_date(row: pd.Series) -> str:
-    """Extract an ISO timestamp from a DataFrame row's index."""
-    ts = row.name if row.name is not None else row.get("timestamp")
-    if ts is None:
-        return ""
-    if hasattr(ts, "hour") and hasattr(ts, "strftime"):
-        if ts.hour or ts.minute or ts.second or ts.microsecond:
-            return str(ts.strftime("%Y-%m-%dT%H:%M:%S"))
-        return str(ts.strftime("%Y-%m-%d"))
-    return str(ts)
+    Replaces per-bar _bar_date(row) which allocated a Series via df.iloc[i]
+    and read row.name. DatetimeIndex values are formatted with a time
+    component only when they actually carry one; non-datetime index values
+    fall back to their string form.
+    """
+    values = list(index) if hasattr(index, "__iter__") else [index]
+    out: list[str] = []
+    for ts in values:
+        if ts is None:
+            out.append("")
+            continue
+        if hasattr(ts, "hour") and hasattr(ts, "strftime"):
+            if ts.hour or ts.minute or ts.second or ts.microsecond:
+                out.append(str(ts.strftime("%Y-%m-%dT%H:%M:%S")))
+            else:
+                out.append(str(ts.strftime("%Y-%m-%d")))
+        else:
+            out.append(str(ts))
+    return out
 
 
 def _log_run_summary(state: BacktestLoopState) -> None:
