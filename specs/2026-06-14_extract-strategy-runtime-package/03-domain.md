@@ -9,19 +9,25 @@
 | `Condition` | left: Operand, operator: str, right: Operand | Atomic comparison/bool/cross condition | No |
 | `Operand` | kind (indicator/feature/field/constant/parameter), value, label, sources (fallback list), timeframe_alias | Resolves bar values with fallback chain | No |
 | `RiskSpec` | stop_loss_type, stop_pct, stop_multiplier, stop_indicator, take_profit_type, take_profit_pct, risk_reward_ratio, take_profit_multiplier, take_profit_indicator | Risk price calculation inputs | No |
-| `SideRules` | entry: ConditionGroup, exit: ConditionGroup, direction, entry_confidence, exit_confidence | Per-side signal rules | No |
-| `SignalResult` | action (hold/entry/exit), side, confidence, stop_price, target_price, reason, context | Runtime output consumed by Finbar backtesting and Finbot order planning | App-specific persistence only |
+| `SideRules` | side: str, entry: ConditionGroup, exit: ConditionGroup, entry_confidence, exit_confidence | Per-side signal rules (long/short) | No |
+| `SignalResult` | action (hold/buy/sell), direction (long/short/exit), confidence, stop_price, target_price, position_size, metadata | Runtime output — action + direction give precise signal semantics | App-specific persistence only |
 | `IndicatorSpec` | name, type, period, timeframe_alias, fallbacks | Declares one enriched column | No |
 | `FeatureSpec` | name, type, source, window, shift, raw_expr | Derived feature declaration | No |
 | `FormulaNode` | operator, left, right, value, children | Expression AST for formula features | No |
 | `StrategyParameter` | name, type, default, minimum, maximum, description | Typed runtime parameter | No |
-| `StrategyMeta` | name, description, schema_version, kind, indicators, features, timeframes, side_count, has_stop_loss, has_take_profit | Metadata for TradingStrategy.meta() | No |
+| `StrategyMeta` | name, variant: DataMode, description, required_indicators, params, required_features, kind: StrategyKind | Metadata for TradingStrategy.meta() | No |
 | `StrategyKind` | enum: BUILTIN / USER_DEFINED | Classifies strategy origin | No |
-| `StrategyValidationError` | path, message, severity | Path-specific diagnostic | No |
-| `StrategyValidationResult` | valid, definition, errors, warnings, required_columns, required_columns_by_timeframe, timeframe_declarations, warnings | Parse/validate result | No |
+| `DataMode` | enum: PROXY / REAL | Whether strategy uses proxy (daily) or real (intraday) indicators | No |
+| `StrategyValidationError` | path, message, code | Path-specific diagnostic | No |
+| `StrategyValidationResult` | valid, definition, errors, warnings, required_indicators, required_columns, primary_required_indicators, informative_required_indicators, timeframe_intervals, missing_columns, normalized | Parse/validate result with full diagnostics | No |
 | `TimeframeDeclaration` | primary_interval, informative | Primary + up to 3 informative timeframes | No |
 | `InformativeTimeframe` | alias, interval | Named informative timeframe | No |
-| `Interval` | value string (1m, 5m, 1h, 1d, etc.) | Bar interval value object | No |
+| `Interval` | value string (5min, 30min, 1h, 1d, 1w) | Bar interval value object | No |
+| `VolumeProfileResult` | poc, vah, val, profile_data | Volume Profile computation result | No |
+| `MarketProfileResult` | poc, vah, val, tpo_data | Market Profile (TPO-based) computation result | No |
+| `ConfidenceScore` | multi-factor conviction score fields | Signal confidence scoring | No |
+| `RiskFactor` | enum: various risk flags | Actionable risk classification | No |
+| `RsiZone` | enum: 5-tier RSI classification | RSI zone labels | No |
 
 ## Value Objects
 | Name | Fields | Used where |
@@ -36,8 +42,7 @@
 | Interface | Methods | Implemented by |
 |-----------|---------|----------------|
 | `StrategyDefinitionParser` | `parse(text, overrides=None) -> StrategyValidationResult` | Runtime parser |
-| `StrategyDefinitionSerializer` | `to_dict(definition) -> dict` | Runtime serializer |
-| `StrategyDefinitionStrategyFactory` | `create(definition) -> TradingStrategy` | Compiles parsed definition into executable strategy |
+| `StrategyDefinitionStrategyFactory` | `create(definition) -> TradingStrategy` | `StrategyDefinitionFactory` in evaluation/ |
 | `IndicatorCapabilityProvider` | `resolve(indicator_type, period)`, `supports_concrete(name)`, `as_dict()` | Runtime catalog |
 | `IndicatorCalculator` | `calculate(frame, indicators) -> frame` | Pandas implementation; future alternatives |
 | `StrategyFeatureCalculator` | `calculate(frame, features) -> frame` | Pandas implementation |
@@ -47,6 +52,11 @@
 | `ConditionTreeVisitor` | visit_group(group), visit_condition(condition) | Serializer, explainer, required-column collector |
 | `BarFrameConverter` | `to_frame(bars)`, `from_frame(frame)` | Pandas converter |
 | `TimeframeBarMerger` | `merge(primary, informative, informative_interval, columns)` | Pandas merger — takes full frames; callers extract last row for incremental use |
+| `SignalCalculator` | `calculate(frame) -> frame` | Pandas signal calculator |
+
+> **Note:** `StrategyDefinitionSerializer` was listed as a domain interface in the
+> original spec but only the concrete implementation exists in `parser/`.
+> The serializer is created directly by the parser and does not need an ABC.
 
 ## What stays in Finbar (NOT in package)
 - **Use cases:** `validate_strategy_definition.py`, `backtest_strategy_definition.py`, `save_strategy_definition.py`, `explain_strategy_definition.py`, `apply_indicators.py`, `apply_strategy_features.py`, `run_backtest.py`, `fetch_prices.py`, optimization and walk-forward use cases
@@ -61,8 +71,8 @@
 - **Built-in strategy providers:** `builtin_strategy_provider.py`, `composite_strategy_provider.py`, `database_strategy_provider.py`
 - **Presentation:** all files in `presentation/`
 - **Startup:** all files in `startup/`
-- **Domain services that only backtesting needs:** `backtest_metrics.py`, `confidence_scorer.py`, `correlation.py`, `rolling_metrics.py`, `annualization.py`
-- **Domain services that compute from bars but are not runtime-required:** `coil_detector.py`, `composite_vp.py`, `market_profile.py`, `profile_shape.py`, `profile_shape_wrappers.py`, `vwap_bands.py`, `wyckoff_phase.py`, `wyckoff_wrappers.py` — these can move later or stay as adapters; decision deferred to implementation
+- **Domain services that only backtesting needs:** `backtest_metrics.py`, `correlation.py`, `rolling_metrics.py`, `annualization.py`
+- **Domain services moved despite initial deferral:** `coil_detector.py`, `composite_vp.py`, `market_profile.py`, `profile_shape.py`, `profile_shape_wrappers.py`, `vwap_bands.py`, `wyckoff_phase.py`, `wyckoff_wrappers.py`, `confidence_scorer.py` — originally listed as deferred or backtesting-only, but moved because `pandas_ta_indicator_calculator.py` imports them directly. They are genuinely required by the runtime indicator engine.
 
 ## Package boundary
 - **Allowed:** stdlib, `typing`, `dataclasses`, optional `numpy`, optional `pandas`, optional `pandas-ta`, optional `pyyaml` (if YAML parsing stays in package).

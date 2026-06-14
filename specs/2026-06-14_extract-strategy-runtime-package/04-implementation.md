@@ -127,6 +127,7 @@ finbar_strategy_runtime/
     condition_evaluator.py              # holds crossover state (stateful)
     json_rule_based_strategy.py         # TradingStrategy impl (stateful)
     json_risk_price_calculator.py       # stop/target pricing (stateless)
+    strategy_definition_factory.py      # compiles definitions into strategies
   indicators/
     __init__.py
     pandas_indicator_calculator.py      # [pandas] extra, stateless
@@ -153,7 +154,8 @@ and future metric calculators call.
 application layer (no use cases, no DTOs). The parser is a library service.
 
 3. **`evaluation/`** groups the runtime evaluation engine: condition evaluator
-(stateful), rule-based strategy (stateful), risk calculator (stateless).
+(stateful), rule-based strategy (stateful), risk calculator (stateless),
+and strategy definition factory (compiles definitions into executable strategies).
 
 4. **`indicators/`** groups pandas-backed infrastructure that requires the
 `[pandas]` extra. If pandas is not installed, importing this package raises a
@@ -182,7 +184,7 @@ Move from current Finbar locations:
 - `finbar/infrastructure/services/json_risk_price_calculator.py` → `finbar_strategy_runtime/evaluation/`
 - `finbar/infrastructure/services/strategy_definition_factory.py` → `finbar_strategy_runtime/evaluation/`
 - `finbar/infrastructure/services/pandas_*` → `finbar_strategy_runtime/indicators/`
-- `finbar/core/domain/services/amt_signals.py`, `auction_state.py`, `volume_profile.py`, `_profile_utils.py`, `proxy_indicator.py`, `market_profile.py`, `profile_shape.py`, `profile_shape_wrappers.py`, `coil_detector.py`, `composite_vp.py`, `vwap_bands.py`, `wyckoff_phase.py`, `wyckoff_wrappers.py`, `content_hash.py` → `finbar_strategy_runtime/domain/services/`
+- `finbar/core/domain/services/amt_signals.py`, `auction_state.py`, `volume_profile.py`, `_profile_utils.py`, `proxy_indicator.py`, `market_profile.py`, `profile_shape.py`, `profile_shape_wrappers.py`, `coil_detector.py`, `composite_vp.py`, `vwap_bands.py`, `wyckoff_phase.py`, `wyckoff_wrappers.py`, `content_hash.py`, `confidence_scorer.py`, `indicator_value_mapper.py` → `finbar_strategy_runtime/domain/services/`
 - `finbar/infrastructure/services/bar_merger.py` → `finbar_strategy_runtime/indicators/`
 
 Replace all `from finbar.*` with `from finbar_strategy_runtime.*`.
