@@ -85,6 +85,14 @@ class GridSearchOptimizer(OptimizationJobRunner):
             metric = "sharpe_ratio"
 
         results: list[OptimizationResult] = []
+        # Hoist the param-invariant frame preparation out of the combination
+        # loop. The bars (and the multi-timeframe merge, whose structure is
+        # declared in the definition, not driven by params) are identical for
+        # every combination, so converting them to a frame N times is pure
+        # waste. Parse once structurally to discover timeframes.
+        base_frame, needs_merge = self._prepare_base_frame(
+            definition, primary_bars, job.metadata
+        )
         for idx, params in enumerate(combinations):
             self._manager.update(
                 job,
@@ -97,6 +105,8 @@ class GridSearchOptimizer(OptimizationJobRunner):
                 params,
                 primary_bars,
                 job.metadata,
+                base_frame,
+                needs_merge,
             )
             results.append(result)
 
@@ -127,12 +137,48 @@ class GridSearchOptimizer(OptimizationJobRunner):
             results=results,
         )
 
+    def _prepare_base_frame(
+        self,
+        definition,
+        primary_bars: list[dict],
+        metadata: dict,
+    ) -> tuple:
+        """Build the param-invariant base frame once.
+
+        Returns (base_frame, needs_merge). When the strategy declares
+        informative timeframes, the merge is performed once here (its
+        structure comes from the definition, not from params). The base
+        frame is reused across all combinations; feature calculators copy
+        before mutating, so it is safe to share.
+        """
+        structural = self._parser.parse(definition, {})
+        needs_merge = (
+            structural.valid
+            and structural.definition is not None
+            and structural.definition.timeframes is not None
+            and structural.definition.timeframes.has_informative()
+        )
+        bars = primary_bars
+        if needs_merge:
+            bars = _merge_informative(
+                bars,
+                metadata,
+                structural,
+                self._artifact_provider,
+                self._converter,
+                self._timeframe_merger,
+            )
+        base_frame = self._converter.bars_to_frame(bars)
+        return base_frame, needs_merge
+
     def _backtest_one(
         self,
         definition,
         params: dict,
         primary_bars: list[dict],
         metadata: dict,
+        base_frame=None,
+        needs_merge: bool = False,
     ) -> OptimizationResult:
         try:
             validation = self._parser.parse(definition, params)
@@ -142,20 +188,26 @@ class GridSearchOptimizer(OptimizationJobRunner):
                     params=params,
                     error="Strategy validation failed with these params",
                 )
-            bars = primary_bars
-            if (
-                validation.definition.timeframes
-                and validation.definition.timeframes.has_informative()
-            ):
-                bars = _merge_informative(
-                    bars,
-                    metadata,
-                    validation,
-                    self._artifact_provider,
-                    self._converter,
-                    self._timeframe_merger,
-                )
-            frame = self._converter.bars_to_frame(bars)
+            # Reuse the param-invariant base frame when available; only fall
+            # back to rebuilding it per combination if the caller did not
+            # pre-prepare one (back-compat for any direct callers).
+            if base_frame is None:
+                bars = primary_bars
+                if (
+                    validation.definition.timeframes
+                    and validation.definition.timeframes.has_informative()
+                ):
+                    bars = _merge_informative(
+                        bars,
+                        metadata,
+                        validation,
+                        self._artifact_provider,
+                        self._converter,
+                        self._timeframe_merger,
+                    )
+                frame = self._converter.bars_to_frame(bars)
+            else:
+                frame = base_frame
             if self._feature_calculator is not None and validation.definition.features:
                 frame = self._feature_calculator.calculate(
                     frame, validation.definition.features

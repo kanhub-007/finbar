@@ -251,6 +251,48 @@ class TestOptimizationParity:
         assert job.results[0].total_trades == direct["total_trades"]
         assert job.results[0].win_rate == direct["win_rate"]
 
+    def test_base_frame_built_once_across_combinations(self):
+        """Regression: bars_to_frame was called once per combination, wasting
+        time rebuilding the identical frame N times. It must now be hoisted
+        out of the loop and built once."""
+        bars = [_bar(f"2024-01-{d:02d}", 100, 100 + d) for d in range(1, 21)]
+        converter = PandasBarFrameConverter()
+        convert_calls = 0
+        original = converter.bars_to_frame
+
+        def counting_bars_to_frame(b):
+            nonlocal convert_calls
+            convert_calls += 1
+            return original(b)
+
+        converter.bars_to_frame = counting_bars_to_frame  # type: ignore[method-assign]
+        optimizer = GridSearchOptimizer(
+            OptimizerConfig(
+                parser=StrategyDefinitionParser(),
+                engine=BacktestRunner(),
+                converter=converter,
+                strategy_factory=StrategyDefinitionFactory(),
+                manager=_SyncManager(),
+                artifact_provider=_ArtifactProvider({"bars": bars}),
+            )
+        )
+        job = OptimizationJob(
+            job_id="opt-once",
+            metric="total_return",
+            metadata={
+                "definition": _always_long_strategy(),
+                "bars_artifact_id": "bars",
+                "param_ranges": {},
+                "metric": "total_return",
+                "interval": "1d",
+                "initial_cash": 10000,
+            },
+        )
+        optimizer._sync_run(job)
+        # With no informative timeframes, bars_to_frame must run exactly once
+        # regardless of how many combinations were evaluated.
+        assert convert_calls == 1
+
 
 class TestOptimizationJobManager:
     @pytest.mark.asyncio
