@@ -29,24 +29,16 @@ class SaveStrategyDefinitionUseCase:
     def __init__(
         self,
         repository: StrategyDocumentRepository,
-        parser: StrategyDefinitionParser | None = None,
+        parser: StrategyDefinitionParser,
     ):
-        """Create the use case with a document repository and optional parser.
+        """Create the use case with a document repository and parser.
 
         Args:
             repository: StrategyDocumentRepository for persistence.
-            parser: Optional parser; defaults to concrete implementation.
+            parser: Strategy definition parser (domain interface).
         """
         self._repository = repository
-
-        if parser is not None:
-            self._parser = parser
-        else:
-            from finbar_strategy_runtime.parser.strategy_definition_parser import (
-                StrategyDefinitionParser as ConcreteParser,
-            )
-
-            self._parser = ConcreteParser()
+        self._parser = parser
 
     def execute(
         self, request: SaveStrategyDefinitionRequest

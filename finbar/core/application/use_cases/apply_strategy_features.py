@@ -11,7 +11,7 @@ from finbar.core.application.dto.apply_strategy_features_result import (
 from finbar_strategy_runtime.parser.feature_input_column_collector import (
     FeatureInputColumnCollector,
 )
-from finbar_strategy_runtime.parser.strategy_definition_parser import (
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
@@ -32,12 +32,12 @@ class ApplyStrategyFeaturesUseCase:
         self,
         converter: BarFrameConverter,
         feature_calculator: StrategyFeatureCalculator,
-        parser: StrategyDefinitionParser | None = None,
+        parser: StrategyDefinitionParser,
     ):
-        """Create the use case with injected converter and calculator."""
+        """Create the use case with injected dependencies."""
         self._converter = converter
         self._feature_calculator = feature_calculator
-        self._parser = parser or StrategyDefinitionParser()
+        self._parser = parser
 
     def execute(
         self, request: ApplyStrategyFeaturesRequest

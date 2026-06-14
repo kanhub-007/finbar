@@ -7,6 +7,12 @@ to the domain proxy_indicator module.
 Implements the IndicatorCalculator domain interface via the Strategy pattern.
 Uses the Pipeline pattern — the calculate() dispatcher stays under 30 lines,
 each indicator group is its own private method.
+
+TODO(refactor): Split into sub-modules by indicator category (trend, momentum,
+volatility, VP/profile, auction/AMT, Wyckoff, dynamic). Currently ~1400 lines
+because handler functions reference shared helpers (_safe_ta, _compute_true_ib,
+_compute_vwap_bands) and each other, making naive extraction cause circular
+imports. Extract shared helpers to a _shared.py module first, then split.
 """
 
 from __future__ import annotations

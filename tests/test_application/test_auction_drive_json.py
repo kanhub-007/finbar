@@ -25,11 +25,14 @@ def test_auction_drive_json_parses():
 
 def test_auction_drive_json_explains():
     text = Path("tests/fixtures/strategies/auction_drive_json.json").read_text()
+    from finbar.core.application.services.strategy_definition_parser import (
+        StrategyDefinitionParser,
+    )
     from finbar.core.application.use_cases.explain_strategy_definition import (
         ExplainStrategyDefinitionUseCase,
     )
 
-    result = ExplainStrategyDefinitionUseCase().execute(text)
+    result = ExplainStrategyDefinitionUseCase(parser=StrategyDefinitionParser()).execute(text)
 
     assert result.get("valid") is True
     explanation = result.get("explanation", "")

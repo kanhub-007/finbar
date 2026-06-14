@@ -1,25 +1,22 @@
 """ExplainStrategyDefinitionUseCase — explain strategy JSON."""
 
-from finbar_strategy_runtime.parser.description_visitor import DescriptionVisitor
-from finbar_strategy_runtime.parser.strategy_definition_parser import (
-    StrategyDefinitionParser,
-)
 from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
 from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
-    StrategyDefinitionParser as ParserInterface,
+    StrategyDefinitionParser,
 )
+from finbar_strategy_runtime.parser.description_visitor import DescriptionVisitor
 
 
 class ExplainStrategyDefinitionUseCase:
     """Produce a concise human-readable explanation for a JSON strategy."""
 
-    def __init__(self, parser: ParserInterface | None = None):
+    def __init__(self, parser: StrategyDefinitionParser):
         """Create the use case with an injectable parser.
 
         Args:
             parser: V2 strategy JSON parser (domain interface).
         """
-        self._parser = parser or StrategyDefinitionParser()
+        self._parser = parser
 
     def execute(self, definition: str | dict, params: dict | None = None) -> dict:
         """Validate and explain a strategy definition."""
@@ -92,7 +89,7 @@ def _append_indicators(definition: StrategyDefinition, lines: list[str]) -> None
     lines.append("## Indicators")
     for ind in definition.indicators:
         period = f", period={ind.period}" if ind.period else ""
-        lines.append(f"- {ind.name} \u2248 {ind.concrete_name} ({ind.type}{period})")
+        lines.append(f"- {ind.name} ≈ {ind.concrete_name} ({ind.type}{period})")
 
 
 def _append_features(definition: StrategyDefinition, lines: list[str]) -> None:
@@ -138,7 +135,7 @@ def _append_sides(definition: StrategyDefinition, lines: list[str]) -> None:
             exit_visitor.visit_group(rules.exit)
             lines.append(f"Exit: {exit_visitor.result}")
         else:
-            lines.append("Exit: (none \u2014 position held indefinitely)")
+            lines.append("Exit: (none — position held indefinitely)")
 
 
 def _risk_line(risk_type: str, multiplier: float, pct: float) -> str:

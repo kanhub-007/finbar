@@ -60,8 +60,14 @@ def mem_db():
     engine.dispose()
 
 
+def _make_parser() -> StrategyDefinitionParser:
+    return StrategyDefinitionParser()
+
+
 def _make_save_use_case(db) -> SaveStrategyDefinitionUseCase:
-    return SaveStrategyDefinitionUseCase(SqlStrategyDocumentRepository(db))
+    return SaveStrategyDefinitionUseCase(
+        SqlStrategyDocumentRepository(db), parser=_make_parser()
+    )
 
 
 def _sma_json_str() -> str:
@@ -690,6 +696,7 @@ def _make_feature_use_case() -> ApplyStrategyFeaturesUseCase:
     return ApplyStrategyFeaturesUseCase(
         converter=PandasBarFrameConverter(),
         feature_calculator=PandasStrategyFeatureCalculator(),
+        parser=_make_parser(),
     )
 
 
@@ -1134,31 +1141,31 @@ class TestValidationWarningsAndLimits:
 
     def test_explainer_includes_risk_when_defined(self):
         strategy = _momentum_breakout_strategy()
-        result = ExplainStrategyDefinitionUseCase().execute(strategy)
+        result = ExplainStrategyDefinitionUseCase(parser=_make_parser()).execute(strategy)
         assert result["valid"] is True
         assert "Stop-loss: ATR" in result["explanation"]
 
     def test_explainer_includes_features_when_defined(self):
         strategy = _momentum_breakout_strategy()
-        result = ExplainStrategyDefinitionUseCase().execute(strategy)
+        result = ExplainStrategyDefinitionUseCase(parser=_make_parser()).execute(strategy)
         assert result["valid"] is True
         assert "rolling_max" in result["explanation"]
 
     def test_explainer_includes_warnings(self):
         strategy = _sma_strategy()
         strategy["sides"]["long"].pop("exit", None)
-        result = ExplainStrategyDefinitionUseCase().execute(strategy)
+        result = ExplainStrategyDefinitionUseCase(parser=_make_parser()).execute(strategy)
         assert result["valid"] is True
         assert "no exit condition" in result["explanation"].lower()
 
     def test_explainer_includes_required_indicators(self):
-        result = ExplainStrategyDefinitionUseCase().execute(_sma_strategy())
+        result = ExplainStrategyDefinitionUseCase(parser=_make_parser()).execute(_sma_strategy())
         assert result["valid"] is True
         assert "sma_20" in result["explanation"]
         assert "sma_50" in result["explanation"]
 
     def test_explainer_handles_invalid_strategy(self):
-        result = ExplainStrategyDefinitionUseCase().execute(
+        result = ExplainStrategyDefinitionUseCase(parser=_make_parser()).execute(
             json.dumps({"schema_version": "2.0", "name": "bad"})
         )
         assert result["valid"] is False
