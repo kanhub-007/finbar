@@ -76,6 +76,9 @@ from finbar_strategy_runtime.domain.services.market_regime import (  # noqa: E40
     day_type_classification as _day_type,
     market_regime as _mkt_regime,
 )
+from finbar_strategy_runtime.indicators.rolling_scalar_wrapper import (  # noqa: E402
+    broadcast_scalar_over_series,
+)
 
 
 # --- Fibonacci (5) ---
@@ -349,7 +352,9 @@ def _h_zf_bear(df, _name, _cache):
 
 @_register("hurst_exponent", requires={"close"})
 def _h_hurst(df, _name, _cache):
-    df["hurst_exponent"] = rolling_scalar_series(_hurst, df["close"])
+    # Hurst is a regime classifier — meaningful over the full series,
+    # not a 20-bar trailing window. Compute once and broadcast.
+    df["hurst_exponent"] = broadcast_scalar_over_series(_hurst, df["close"])
     return df
 
 @_register("fractal_regime", requires={"close"})
