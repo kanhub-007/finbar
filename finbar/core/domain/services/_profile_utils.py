@@ -36,15 +36,25 @@ def expand_value_area(
     lower_idx = poc_idx
     upper_idx = poc_idx
     num_buckets = len(profile)
+    # Tolerance for treating two candidate buckets as tied. Without it, the
+    # greedy "pick the larger side" decision is chaotic: a floating-point
+    # perturbation as small as 1e-13 (e.g. from incremental add/subtract
+    # accumulation in the rolling-window profile) can flip the choice and
+    # cascade into a wildly different value area. Differences below this
+    # tolerance are treated as ties and resolved in the original direction
+    # (expand upward), so the result is stable under negligible noise.
+    tol = max(total, 0.0) * 1e-9
 
     while accumulated < target and (lower_idx > 0 or upper_idx < num_buckets - 1):
         val_below = profile[lower_idx - 1] if lower_idx > 0 else -1.0
         val_above = profile[upper_idx + 1] if upper_idx < num_buckets - 1 else -1.0
 
-        if val_below > val_above:
+        if val_below > val_above + tol:
             lower_idx -= 1
             accumulated += profile[lower_idx]
-        elif val_above >= val_below and upper_idx < num_buckets - 1:
+        elif upper_idx < num_buckets - 1:
+            # val_above is larger, or within tol of val_below (tied):
+            # expand upward, matching the prior tie direction.
             upper_idx += 1
             accumulated += profile[upper_idx]
         elif lower_idx > 0:

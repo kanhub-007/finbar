@@ -351,6 +351,13 @@ def compute_rolling_window_vp(
     trailing ``window_bars`` bars. Works for any market — crypto (24/7),
     equities (with after-hours), forex.
 
+    Implementation: a single fixed bucket grid spanning the whole frame's
+    price range is used for every window. The running volume profile is
+    updated incrementally — each bar adds its distributed volume and the
+    bar leaving the window is subtracted — so each bar costs O(buckets)
+    rather than O(window*buckets). This is ~window/2x faster than rebuilding
+    the full profile from scratch per bar (e.g. ~24x for window=48).
+
     Args:
         df: DataFrame with columns [high, low, close, volume]
             and a datetime index.
@@ -372,14 +379,115 @@ def compute_rolling_window_vp(
     result[vah_col] = np.nan
     result[val_col] = np.nan
 
-    if len(result) < window_bars:
+    n = len(result)
+    if n < window_bars or window_bars < 1:
         return result
 
-    for i in range(window_bars - 1, len(result)):
-        window = df.iloc[i - window_bars + 1 : i + 1]
-        profile = compute_session_volume_profile(window, num_buckets=num_buckets)
-        result.iloc[i, result.columns.get_loc(poc_col)] = profile.poc
-        result.iloc[i, result.columns.get_loc(vah_col)] = profile.vah
-        result.iloc[i, result.columns.get_loc(val_col)] = profile.val
+    # Fixed global bucket grid (one grid for all windows enables incremental
+    # add/subtract updates instead of a full per-window recompute).
+    price_buckets, bucket_size = _global_bucket_grid(df, num_buckets)
+    if price_buckets is None:
+        # Degenerate price range; nothing to compute.
+        return result
 
+    highs = df["high"].to_numpy()
+    lows = df["low"].to_numpy()
+    closes = df["close"].to_numpy()
+    volumes = df["volume"].to_numpy()
+
+    running_profile = np.zeros(num_buckets)
+    running_volume = 0.0
+    # Ring buffer caching each in-window bar's distributed volume so the
+    # bar leaving the window can be subtracted in O(buckets).
+    contrib_buffer = np.zeros((window_bars, num_buckets))
+    volume_buffer = np.zeros(window_bars)
+
+    poc_vals = np.full(n, np.nan)
+    vah_vals = np.full(n, np.nan)
+    val_vals = np.full(n, np.nan)
+
+    for i in range(n):
+        raw_volume = volumes[i]
+        bar_volume = float(raw_volume) if raw_volume > 0 else 0.0
+        contrib = _distribute_bar_volume(
+            float(highs[i]),
+            float(lows[i]),
+            float(closes[i]),
+            bar_volume,
+            price_buckets,
+            bucket_size,
+        )
+
+        slot = i % window_bars
+        if i >= window_bars:
+            # Subtract the bar that just fell out of the window (stored at
+            # this slot window_bars iterations ago).
+            running_profile -= contrib_buffer[slot]
+            running_volume -= volume_buffer[slot]
+
+        running_profile += contrib
+        running_volume += bar_volume
+        contrib_buffer[slot] = contrib
+        volume_buffer[slot] = bar_volume
+
+        # Only emit a value once the window is full (matching the prior
+        # behaviour, which left the first window_bars-1 bars as NaN).
+        if i >= window_bars - 1 and running_volume > 0:
+            extracted = _extract_poc_vah_val(
+                running_profile, price_buckets, bucket_size, running_volume
+            )
+            if extracted is not None:
+                poc, vah, val = extracted
+                poc_vals[i] = poc
+                vah_vals[i] = vah
+                val_vals[i] = val
+
+    result[poc_col] = poc_vals
+    result[vah_col] = vah_vals
+    result[val_col] = val_vals
     return result
+
+
+def _global_bucket_grid(
+    df: pd.DataFrame, num_buckets: int
+) -> tuple[np.ndarray | None, float]:
+    """Return (price_buckets, bucket_size) spanning the frame's price range.
+
+    Returns (None, 0.0) when the price range is degenerate.
+    """
+    global_high = float(df["high"].max())
+    global_low = float(df["low"].min())
+    if global_high <= global_low:
+        return None, 0.0
+    buffer = (global_high - global_low) * 0.02
+    price_min = global_low - buffer
+    price_max = global_high + buffer
+    bucket_size = (price_max - price_min) / num_buckets
+    price_buckets = np.linspace(
+        price_min + bucket_size / 2,
+        price_max - bucket_size / 2,
+        num_buckets,
+    )
+    return price_buckets, bucket_size
+
+
+def _extract_poc_vah_val(
+    profile: np.ndarray,
+    price_buckets: np.ndarray,
+    bucket_size: float,
+    total_volume: float,
+) -> tuple[float, float, float] | None:
+    """Extract POC, VAH, VAL from a volume profile array.
+
+    Returns None when there is no volume to extract from.
+    """
+    if total_volume <= 0:
+        return None
+    poc_idx = int(np.argmax(profile))
+    poc = float(price_buckets[poc_idx])
+    lower_idx, upper_idx, _accumulated = expand_value_area(
+        profile, poc_idx, total_volume
+    )
+    vah = float(price_buckets[upper_idx]) + bucket_size / 2
+    val = float(price_buckets[lower_idx]) - bucket_size / 2
+    return poc, vah, val
