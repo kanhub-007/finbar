@@ -1,11 +1,11 @@
 """ExplainStrategyDefinitionUseCase — explain strategy JSON."""
 
-from finbar.core.application.services.description_visitor import DescriptionVisitor
-from finbar.core.application.services.strategy_definition_parser import (
+from finbar_strategy_runtime.parser.description_visitor import DescriptionVisitor
+from finbar_strategy_runtime.parser.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
-from finbar.core.domain.entities.strategy_definition import StrategyDefinition
-from finbar.core.domain.interfaces.strategy_definition_parser import (
+from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser as ParserInterface,
 )
 

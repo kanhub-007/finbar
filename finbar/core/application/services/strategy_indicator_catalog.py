@@ -1,6 +1,6 @@
 """StrategyIndicatorCatalog - supported indicator metadata for strategies."""
 
-from finbar.core.domain.interfaces.indicator_capability_provider import (
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
 

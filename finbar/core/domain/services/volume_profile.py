@@ -19,7 +19,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from finbar.core.domain.entities.volume_profile_result import VolumeProfileResult
+from finbar_strategy_runtime.domain.entities.volume_profile_result import VolumeProfileResult
 from finbar.core.domain.services._profile_utils import expand_value_area
 
 

@@ -2,27 +2,27 @@
 
 from typing import Any
 
-from finbar.core.application.services.strategy_condition_group_parser import (
+from finbar_strategy_runtime.parser.strategy_condition_group_parser import (
     StrategyConditionGroupParser,
 )
-from finbar.core.application.services.strategy_definition_parse_helpers import (
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
     extract_condition,
     make_error,
 )
-from finbar.core.application.services.strategy_indicator_catalog import (
+from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
-from finbar.core.application.services.strategy_operand_parser import (
+from finbar_strategy_runtime.parser.strategy_operand_parser import (
     StrategyOperandParser,
 )
-from finbar.core.domain.entities.condition_group import ConditionGroup
-from finbar.core.domain.entities.feature_spec import FeatureSpec
-from finbar.core.domain.entities.indicator_spec import IndicatorSpec
-from finbar.core.domain.entities.side_rules import SideRules
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
+from finbar_strategy_runtime.domain.entities.feature_spec import FeatureSpec
+from finbar_strategy_runtime.domain.entities.indicator_spec import IndicatorSpec
+from finbar_strategy_runtime.domain.entities.side_rules import SideRules
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
-from finbar.core.domain.interfaces.indicator_capability_provider import (
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
 

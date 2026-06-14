@@ -13,8 +13,8 @@ from finbar.core.application.dto.apply_indicators_request import (
 from finbar.core.application.dto.apply_indicators_result import (
     ApplyIndicatorsResult,
 )
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.indicator_calculator import (
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.indicator_calculator import (
     IndicatorCalculator,
 )
 

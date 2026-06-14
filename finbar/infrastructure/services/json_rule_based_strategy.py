@@ -1,15 +1,15 @@
 """JsonRuleBasedStrategy — execute validated JSON strategies."""
 
-from finbar.core.domain.entities.signal_result import SignalResult
-from finbar.core.domain.entities.strategy_definition import StrategyDefinition
-from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
-from finbar.core.domain.interfaces.risk_price_calculator import RiskPriceCalculator
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
-from finbar.infrastructure.services.condition_evaluator import (
+from finbar_strategy_runtime.domain.entities.signal_result import SignalResult
+from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
+from finbar_strategy_runtime.domain.entities.strategy_meta import DataMode, StrategyMeta
+from finbar_strategy_runtime.domain.interfaces.risk_price_calculator import RiskPriceCalculator
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.evaluation.condition_evaluator import (
     ConditionEvaluator,
     PrevValues,
 )
-from finbar.infrastructure.services.json_risk_price_calculator import (
+from finbar_strategy_runtime.evaluation.json_risk_price_calculator import (
     JsonRiskPriceCalculator,
 )
 

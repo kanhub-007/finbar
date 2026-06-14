@@ -8,8 +8,8 @@ must fulfill.
 
 from abc import ABC, abstractmethod
 
-from finbar.core.domain.entities.signal_result import SignalResult
-from finbar.core.domain.entities.strategy_meta import StrategyMeta
+from finbar_strategy_runtime.domain.entities.signal_result import SignalResult
+from finbar_strategy_runtime.domain.entities.strategy_meta import StrategyMeta
 
 
 class TradingStrategy(ABC):

@@ -8,7 +8,7 @@ from finbar.core.application.dto.compute_strategy_indicators_result import (
 )
 from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
 from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
-from finbar.core.domain.interfaces.strategy_definition_parser import (
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 

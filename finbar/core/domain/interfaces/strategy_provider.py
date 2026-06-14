@@ -2,8 +2,8 @@
 
 from abc import ABC, abstractmethod
 
-from finbar.core.domain.entities.strategy_meta import StrategyMeta
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.domain.entities.strategy_meta import StrategyMeta
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 
 
 class StrategyProvider(ABC):

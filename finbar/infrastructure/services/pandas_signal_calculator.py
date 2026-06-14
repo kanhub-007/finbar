@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from finbar.core.domain.entities.risk_factor import RiskFactor
-from finbar.core.domain.entities.rsi_zone import RsiZone
-from finbar.core.domain.interfaces.signal_calculator import SignalCalculator
+from finbar_strategy_runtime.domain.entities.risk_factor import RiskFactor
+from finbar_strategy_runtime.domain.entities.rsi_zone import RsiZone
+from finbar_strategy_runtime.domain.interfaces.signal_calculator import SignalCalculator
 from finbar.core.domain.services.confidence_scorer import ConfidenceScorer
 
 

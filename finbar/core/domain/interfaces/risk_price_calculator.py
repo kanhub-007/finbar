@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from finbar.core.domain.entities.risk_spec import RiskSpec
+from finbar_strategy_runtime.domain.entities.risk_spec import RiskSpec
 
 
 class RiskPriceCalculator(ABC):

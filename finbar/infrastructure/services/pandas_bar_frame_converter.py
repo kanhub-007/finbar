@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
 
 
 class PandasBarFrameConverter(BarFrameConverter):

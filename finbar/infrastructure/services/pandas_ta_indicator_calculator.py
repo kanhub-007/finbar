@@ -17,7 +17,7 @@ from collections.abc import Callable
 import pandas as pd
 import pandas_ta as ta
 
-from finbar.core.domain.interfaces.indicator_calculator import IndicatorCalculator
+from finbar_strategy_runtime.domain.interfaces.indicator_calculator import IndicatorCalculator
 from finbar.core.domain.services.proxy_indicator import (
     enrich_dataframe_with_proxies,
 )

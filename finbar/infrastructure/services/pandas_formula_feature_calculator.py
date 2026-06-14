@@ -5,8 +5,8 @@ from typing import Any
 
 import pandas as pd
 
-from finbar.core.domain.entities.formula_node import FormulaNode
-from finbar.core.domain.interfaces.formula_feature_calculator import (
+from finbar_strategy_runtime.domain.entities.formula_node import FormulaNode
+from finbar_strategy_runtime.domain.interfaces.formula_feature_calculator import (
     FormulaFeatureCalculator,
 )
 

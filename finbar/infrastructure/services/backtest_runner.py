@@ -14,7 +14,7 @@ from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.core.domain.entities.pending_exit import PendingExit
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.infrastructure.services.backtest_data_validator import (
     validate_backtest_frame,
 )

@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
 

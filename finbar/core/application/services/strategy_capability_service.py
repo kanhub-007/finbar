@@ -1,9 +1,9 @@
 """StrategyCapabilityService — compose SDK capability metadata."""
 
-from finbar.core.application.services.strategy_indicator_catalog import (
+from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
-from finbar.core.domain.interfaces.indicator_capability_provider import (
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
 

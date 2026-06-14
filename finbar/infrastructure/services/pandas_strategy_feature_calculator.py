@@ -5,11 +5,11 @@ from collections.abc import Callable
 
 import pandas as pd
 
-from finbar.core.domain.entities.feature_spec import FeatureSpec
-from finbar.core.domain.interfaces.formula_feature_calculator import (
+from finbar_strategy_runtime.domain.entities.feature_spec import FeatureSpec
+from finbar_strategy_runtime.domain.interfaces.formula_feature_calculator import (
     FormulaFeatureCalculator,
 )
-from finbar.core.domain.interfaces.strategy_feature_calculator import (
+from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
 

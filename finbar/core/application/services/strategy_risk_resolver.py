@@ -2,19 +2,19 @@
 
 from typing import Any
 
-from finbar.core.application.services.strategy_definition_parse_helpers import (
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
     make_error,
     resolve_expression,
 )
-from finbar.core.application.services.strategy_indicator_catalog import (
+from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
-from finbar.core.domain.entities.indicator_spec import IndicatorSpec
-from finbar.core.domain.entities.risk_spec import RiskSpec
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.indicator_spec import IndicatorSpec
+from finbar_strategy_runtime.domain.entities.risk_spec import RiskSpec
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
-from finbar.core.domain.interfaces.indicator_capability_provider import (
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
 

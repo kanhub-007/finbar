@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from finbar.core.domain.entities.strategy_document import StrategyDocument
+from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
 from finbar.core.domain.interfaces.strategy_document_repository import (
     StrategyDocumentRepository,
 )

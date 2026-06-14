@@ -4,8 +4,8 @@ No pandas, no I/O. Takes individual indicator values and returns a
 ConfidenceScore with full component breakdown.
 """
 
-from finbar.core.domain.entities.confidence_score import ConfidenceScore
-from finbar.core.domain.entities.risk_factor import RiskFactor
+from finbar_strategy_runtime.domain.entities.confidence_score import ConfidenceScore
+from finbar_strategy_runtime.domain.entities.risk_factor import RiskFactor
 
 
 class ConfidenceScorer:

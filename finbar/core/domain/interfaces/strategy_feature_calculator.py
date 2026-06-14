@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from finbar.core.domain.entities.feature_spec import FeatureSpec
+from finbar_strategy_runtime.domain.entities.feature_spec import FeatureSpec
 
 
 class StrategyFeatureCalculator(ABC):

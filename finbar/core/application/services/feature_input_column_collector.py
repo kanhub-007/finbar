@@ -1,6 +1,6 @@
 """FeatureInputColumnCollector — collect columns needed to calculate features."""
 
-from finbar.core.domain.entities.feature_spec import FeatureSpec
+from finbar_strategy_runtime.domain.entities.feature_spec import FeatureSpec
 
 _OHLC_COLUMNS = ("open", "high", "low", "close")
 _RANGE_COLUMNS = ("high", "low", "close")

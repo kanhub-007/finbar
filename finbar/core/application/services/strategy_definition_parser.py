@@ -6,52 +6,52 @@ import json
 
 import yaml
 
-from finbar.core.application.services.required_column_collector import (
+from finbar_strategy_runtime.parser.required_column_collector import (
     RequiredColumnCollector,
 )
-from finbar.core.application.services.strategy_condition_parser import (
+from finbar_strategy_runtime.parser.strategy_condition_parser import (
     StrategyConditionParser,
 )
-from finbar.core.application.services.strategy_definition_serializer import (
+from finbar_strategy_runtime.parser.strategy_definition_serializer import (
     StrategyDefinitionSerializer,
 )
-from finbar.core.application.services.strategy_feature_resolver import (
+from finbar_strategy_runtime.parser.strategy_feature_resolver import (
     StrategyFeatureResolver,
 )
-from finbar.core.application.services.strategy_indicator_catalog import (
+from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
-from finbar.core.application.services.strategy_indicator_resolver import (
+from finbar_strategy_runtime.parser.strategy_indicator_resolver import (
     StrategyIndicatorResolver,
 )
-from finbar.core.application.services.strategy_limit_rules import (
+from finbar_strategy_runtime.parser.strategy_limit_rules import (
     DEFAULT_LIMIT_RULES,
     StrategyLimitRule,
 )
-from finbar.core.application.services.strategy_parameter_resolver import (
+from finbar_strategy_runtime.parser.strategy_parameter_resolver import (
     StrategyParameterResolver,
 )
-from finbar.core.application.services.strategy_risk_resolver import (
+from finbar_strategy_runtime.parser.strategy_risk_resolver import (
     StrategyRiskResolver,
 )
-from finbar.core.application.services.strategy_timeframe_resolver import (
+from finbar_strategy_runtime.parser.strategy_timeframe_resolver import (
     StrategyTimeframeResolver,
 )
-from finbar.core.application.services.strategy_warning_rules import (
+from finbar_strategy_runtime.parser.strategy_warning_rules import (
     DEFAULT_WARNING_RULES,
     StrategyWarningRule,
 )
-from finbar.core.domain.entities.strategy_definition import StrategyDefinition
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
-from finbar.core.domain.entities.strategy_validation_result import (
+from finbar_strategy_runtime.domain.entities.strategy_validation_result import (
     StrategyValidationResult,
 )
-from finbar.core.domain.interfaces.indicator_capability_provider import (
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
-from finbar.core.domain.interfaces.strategy_definition_parser import (
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser as ParserInterface,
 )
 

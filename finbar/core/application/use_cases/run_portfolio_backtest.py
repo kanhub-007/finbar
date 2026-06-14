@@ -5,7 +5,7 @@ from finbar.core.application.dto.portfolio_backtest_request import (
 )
 from finbar.core.domain.entities.portfolio_result import PortfolioResult
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 from finbar.core.domain.services.annualization import (
     annualization_factor as _annualization_factor,

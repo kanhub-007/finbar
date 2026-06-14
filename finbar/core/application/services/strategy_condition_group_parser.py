@@ -2,17 +2,17 @@
 
 from typing import Any
 
-from finbar.core.application.services.strategy_definition_parse_helpers import (
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
     BINARY_OPERATORS,
     UNARY_OPERATORS,
     make_error,
 )
-from finbar.core.application.services.strategy_operand_parser import (
+from finbar_strategy_runtime.parser.strategy_operand_parser import (
     StrategyOperandParser,
 )
-from finbar.core.domain.entities.condition import Condition
-from finbar.core.domain.entities.condition_group import ConditionGroup
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.condition import Condition
+from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
 

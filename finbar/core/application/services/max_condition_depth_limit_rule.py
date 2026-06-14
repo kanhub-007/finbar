@@ -1,8 +1,8 @@
 """MaxConditionDepthLimitRule — limit condition tree nesting depth."""
 
-from finbar.core.application.services.strategy_limit_rule import StrategyLimitRule
-from finbar.core.domain.entities.condition_group import ConditionGroup
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.parser.strategy_limit_rule import StrategyLimitRule
+from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
 

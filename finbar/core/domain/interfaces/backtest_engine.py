@@ -8,7 +8,7 @@ initialise → loop bars → call strategy → execute signals → close positio
 from abc import ABC, abstractmethod
 from typing import Any
 
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 
 
 class BacktestEngine(ABC):

@@ -2,9 +2,9 @@
 
 from collections.abc import Callable
 
-from finbar.core.domain.entities.strategy_meta import StrategyMeta
+from finbar_strategy_runtime.domain.entities.strategy_meta import StrategyMeta
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 
 
 class BuiltinStrategyProvider(StrategyProvider):

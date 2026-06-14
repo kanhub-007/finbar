@@ -5,9 +5,9 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from finbar.core.domain.entities.condition import Condition
-from finbar.core.domain.entities.condition_group import ConditionGroup
-from finbar.core.domain.entities.operand import Operand
+from finbar_strategy_runtime.domain.entities.condition import Condition
+from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
+from finbar_strategy_runtime.domain.entities.operand import Operand
 
 PrevValues = dict[str, tuple[float, float]]
 PendingValues = dict[str, tuple[float, float]]

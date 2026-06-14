@@ -1,11 +1,11 @@
 """Factory for compiling JSON definitions into executable strategies."""
 
-from finbar.core.domain.entities.strategy_definition import StrategyDefinition
-from finbar.core.domain.interfaces.strategy_definition_strategy_factory import (
+from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_strategy_factory import (
     StrategyDefinitionStrategyFactory,
 )
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
-from finbar.infrastructure.services.json_rule_based_strategy import (
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.evaluation.json_rule_based_strategy import (
     JsonRuleBasedStrategy,
 )
 

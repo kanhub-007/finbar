@@ -9,14 +9,14 @@ from finbar.core.domain.entities.optimization_job import OptimizationJob
 from finbar.core.domain.entities.optimization_result import OptimizationResult
 from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.core.domain.entities.param_range import ParamRange
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.indicator_artifact_provider import (
     IndicatorArtifactProvider,
 )
 from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
 )
-from finbar.core.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
+from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
 from finbar.core.domain.services.correlation import (
     is_ranking_metric,
     sort_ascending,

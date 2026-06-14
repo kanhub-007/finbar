@@ -2,16 +2,16 @@
 
 from typing import Any
 
-from finbar.core.application.services.strategy_definition_parse_helpers import (
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
     OHLCV_FIELDS,
     make_error,
     resolve_expression,
 )
-from finbar.core.domain.entities.operand import Operand
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.operand import Operand
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
-from finbar.core.domain.interfaces.indicator_capability_provider import (
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
 

@@ -8,17 +8,17 @@ from finbar.core.application.dto.apply_strategy_features_request import (
 from finbar.core.application.dto.apply_strategy_features_result import (
     ApplyStrategyFeaturesResult,
 )
-from finbar.core.application.services.feature_input_column_collector import (
+from finbar_strategy_runtime.parser.feature_input_column_collector import (
     FeatureInputColumnCollector,
 )
-from finbar.core.application.services.strategy_definition_parser import (
+from finbar_strategy_runtime.parser.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.strategy_feature_calculator import (
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
 

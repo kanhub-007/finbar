@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from finbar.core.domain.entities.strategy_validation_result import (
+from finbar_strategy_runtime.domain.entities.strategy_validation_result import (
     StrategyValidationResult,
 )
 

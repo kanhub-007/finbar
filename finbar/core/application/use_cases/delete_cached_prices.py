@@ -7,7 +7,7 @@ Symbol is required; other params narrow the deletion scope.
 import logging
 
 from finbar.core.domain.entities.data_source import DataSource
-from finbar.core.domain.entities.interval import Interval
+from finbar_strategy_runtime.domain.entities.interval import Interval
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
 )

@@ -5,8 +5,8 @@ Pure dataclass — no behavior, no ORM, no framework dependencies.
 
 from dataclasses import dataclass, field
 
-from finbar.core.domain.entities.data_mode import DataMode
-from finbar.core.domain.entities.strategy_kind import StrategyKind
+from finbar_strategy_runtime.domain.entities.data_mode import DataMode
+from finbar_strategy_runtime.domain.entities.strategy_kind import StrategyKind
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from finbar.core.domain.entities.condition_group import ConditionGroup
+from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
 
 
 @dataclass(frozen=True)

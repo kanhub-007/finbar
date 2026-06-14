@@ -17,7 +17,7 @@ def __getattr__(name: str):
 
         return BacktestRunner
     if name == "PandasTaIndicatorCalculator":
-        from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
+        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
             PandasTaIndicatorCalculator,
         )
 

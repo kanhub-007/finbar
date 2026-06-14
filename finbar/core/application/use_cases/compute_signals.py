@@ -4,8 +4,8 @@ import logging
 
 from finbar.core.application.dto.compute_signals_request import ComputeSignalsRequest
 from finbar.core.application.dto.compute_signals_result import ComputeSignalsResult
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.signal_calculator import SignalCalculator
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.signal_calculator import SignalCalculator
 
 logger = logging.getLogger(__name__)
 

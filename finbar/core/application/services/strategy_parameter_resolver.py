@@ -2,13 +2,13 @@
 
 from typing import Any
 
-from finbar.core.application.services.strategy_definition_parse_helpers import (
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
     PARAMETER_TYPES,
     make_error,
     value_matches_type,
 )
-from finbar.core.domain.entities.strategy_parameter import StrategyParameter
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.domain.entities.strategy_parameter import StrategyParameter
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
 

@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
-from finbar.core.application.services.strategy_capability_service import (
+from finbar_strategy_runtime.parser.strategy_capability_service import (
     StrategyCapabilityService,
 )
-from finbar.core.application.services.strategy_definition_parser import (
+from finbar_strategy_runtime.parser.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
-from finbar.core.application.services.strategy_schema_provider import (
+from finbar_strategy_runtime.parser.strategy_schema_provider import (
     StrategySchemaProvider,
 )
 from finbar.core.application.use_cases.apply_strategy_features import (
@@ -106,7 +106,7 @@ from finbar.core.application.use_cases.validate_strategy_definition import (
     ValidateStrategyDefinitionUseCase,
 )
 from finbar.core.domain.entities.data_source import DataSource
-from finbar.core.domain.entities.interval import Interval
+from finbar_strategy_runtime.domain.entities.interval import Interval
 from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.infrastructure.data.connection import SessionLocal
 from finbar.infrastructure.repositories.sql_price_cache_repository import (
@@ -144,19 +144,19 @@ from finbar.infrastructure.services.in_memory_optimization_job_manager import (
 from finbar.infrastructure.services.indicator_job_runner import (
     CachedPriceIndicatorJobRunner,
 )
-from finbar.infrastructure.services.pandas_bar_frame_converter import (
+from finbar_strategy_runtime.indicators.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
 )
-from finbar.infrastructure.services.pandas_formula_feature_calculator import (
+from finbar_strategy_runtime.indicators.pandas_formula_feature_calculator import (
     PandasFormulaFeatureCalculator,
 )
-from finbar.infrastructure.services.pandas_strategy_feature_calculator import (
+from finbar_strategy_runtime.indicators.pandas_strategy_feature_calculator import (
     PandasStrategyFeatureCalculator,
 )
-from finbar.infrastructure.services.pandas_ta_indicator_calculator import (
+from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
-from finbar.infrastructure.services.pandas_timeframe_bar_merger import (
+from finbar_strategy_runtime.indicators.pandas_timeframe_bar_merger import (
     PandasTimeframeBarMerger,
 )
 from finbar.infrastructure.services.rate_limiter import YahooFinanceRateLimiter
@@ -180,7 +180,7 @@ if TYPE_CHECKING:
     from finbar.core.domain.interfaces.derivatives_data_provider import (
         DerivativesDataProvider,
     )
-    from finbar.infrastructure.services.pandas_signal_calculator import (
+    from finbar_strategy_runtime.indicators.pandas_signal_calculator import (
         PandasSignalCalculator,
     )
 
@@ -641,7 +641,7 @@ def _get_signal_calculator() -> "PandasSignalCalculator":
     global _signal_calculator
     if _signal_calculator is None:
         from finbar.core.domain.services.confidence_scorer import ConfidenceScorer
-        from finbar.infrastructure.services.pandas_signal_calculator import (
+        from finbar_strategy_runtime.indicators.pandas_signal_calculator import (
             PandasSignalCalculator,
         )
 

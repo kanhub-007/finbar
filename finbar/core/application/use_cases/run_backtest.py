@@ -10,11 +10,11 @@ import logging
 from finbar.core.application.backtest_result_mapper import result_dto_from_raw
 from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
-from finbar.core.domain.entities.strategy_meta import StrategyMeta
+from finbar_strategy_runtime.domain.entities.strategy_meta import StrategyMeta
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 
 logger = logging.getLogger(__name__)
 

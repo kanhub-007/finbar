@@ -1,7 +1,7 @@
 """MaxParametersLimitRule — limit the number of strategy parameters."""
 
-from finbar.core.application.services.strategy_limit_rule import StrategyLimitRule
-from finbar.core.domain.entities.strategy_validation_error import (
+from finbar_strategy_runtime.parser.strategy_limit_rule import StrategyLimitRule
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
 

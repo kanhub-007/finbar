@@ -30,7 +30,7 @@ from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunne
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
 )
-from finbar.core.domain.interfaces.strategy_definition_parser import (
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 

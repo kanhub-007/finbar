@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from finbar.core.domain.entities.strategy_document import StrategyDocument
+from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
 
 
 class StrategyDocumentRepository(ABC):

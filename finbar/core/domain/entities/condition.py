@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from finbar.core.domain.entities.operand import Operand
+from finbar_strategy_runtime.domain.entities.operand import Operand
 
 
 @dataclass(frozen=True)

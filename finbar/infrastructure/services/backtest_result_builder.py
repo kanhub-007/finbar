@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from finbar.core.domain.entities.backtest_diagnostic import BacktestDiagnostic
 from finbar.core.domain.entities.execution_config import ExecutionConfig
-from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.core.domain.services.annualization import (
     annualization_factor as _annualization_factor,
 )

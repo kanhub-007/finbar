@@ -12,8 +12,8 @@ from finbar.core.application.dto.save_strategy_definition_request import (
 from finbar.core.application.dto.save_strategy_definition_result import (
     SaveStrategyDefinitionResult,
 )
-from finbar.core.domain.entities.strategy_document import StrategyDocument
-from finbar.core.domain.interfaces.strategy_definition_parser import (
+from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 from finbar.core.domain.interfaces.strategy_document_repository import (
@@ -42,7 +42,7 @@ class SaveStrategyDefinitionUseCase:
         if parser is not None:
             self._parser = parser
         else:
-            from finbar.core.application.services.strategy_definition_parser import (
+            from finbar_strategy_runtime.parser.strategy_definition_parser import (
                 StrategyDefinitionParser as ConcreteParser,
             )
 

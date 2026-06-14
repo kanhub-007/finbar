@@ -12,14 +12,14 @@ from sqlalchemy.orm import Session
 
 from finbar.core.domain.entities.indicator_job import IndicatorJob
 from finbar.core.domain.entities.price_bar import PriceBar
-from finbar.core.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.indicator_calculator import IndicatorCalculator
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.indicator_calculator import IndicatorCalculator
 from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
 from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
-from finbar.core.domain.interfaces.strategy_definition_parser import (
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
-from finbar.core.domain.interfaces.strategy_feature_calculator import (
+from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
 from finbar.infrastructure.repositories.sql_indicator_artifact_repository import (
