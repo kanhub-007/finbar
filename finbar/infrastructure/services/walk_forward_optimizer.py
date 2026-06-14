@@ -406,12 +406,12 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         ):
             frame = test_frame
         else:
-            merged_bars = bars
+            frame = None
             if (
                 validation.definition.timeframes
                 and validation.definition.timeframes.has_informative()
             ):
-                merged_bars = _merge_informative(
+                frame = _merge_informative(
                     bars,
                     metadata,
                     validation,
@@ -419,7 +419,8 @@ class WalkForwardOptimizer(OptimizationJobRunner):
                     self._converter,
                     self._timeframe_merger,
                 )
-            frame = self._converter.bars_to_frame(merged_bars)
+            else:
+                frame = self._converter.bars_to_frame(bars)
         if self._feature_calculator is not None and validation.definition.features:
             frame = self._feature_calculator.calculate(
                 frame, validation.definition.features

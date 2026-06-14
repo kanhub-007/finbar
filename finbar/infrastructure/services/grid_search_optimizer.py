@@ -164,7 +164,7 @@ class GridSearchOptimizer(OptimizationJobRunner):
         )
         bars = primary_bars
         if needs_merge:
-            bars = _merge_informative(
+            base_frame = _merge_informative(
                 bars,
                 metadata,
                 structural,
@@ -172,7 +172,8 @@ class GridSearchOptimizer(OptimizationJobRunner):
                 self._converter,
                 self._timeframe_merger,
             )
-        base_frame = self._converter.bars_to_frame(bars)
+        else:
+            base_frame = self._converter.bars_to_frame(bars)
         return base_frame, needs_merge
 
     def _backtest_one(
@@ -332,7 +333,8 @@ def _merge_informative(
     artifact_provider: IndicatorArtifactProvider,
     converter: BarFrameConverter,
     merger: TimeframeBarMerger | None,
-) -> list[dict]:
+) -> Any:
+    """Build a merged frame with informative timeframes from artifact bars."""
     if merger is None:
         raise ValueError("Multi-timeframe optimization is not wired")
     frame = converter.bars_to_frame(primary_bars)
@@ -346,7 +348,7 @@ def _merge_informative(
             raise ValueError(f"Informative artifact not found: {job_id}")
         info_frame = converter.bars_to_frame(info_bars)
         frame = merger.merge(frame, info_frame, item.interval)
-    return converter.frame_to_bars(frame)
+    return frame
 
 
 def _missing_columns(bars: list[dict], required: list[str]) -> list[str]:
