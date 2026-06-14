@@ -245,17 +245,25 @@ def compute_all_session_volume_profiles(
     result["vp_vah"] = np.nan
     result["vp_val"] = np.nan
 
-    date_series = pd.Series(
-        pd.Series(result.index.date, index=result.index)
-    )
+    date_series = pd.Series(result.index.date, index=result.index)
+
+    # Compute per-session profiles and accumulate (date -> values),
+    # then broadcast via a single map(). This avoids the per-session
+    # ``result.loc[idx, col] =`` alignment overhead.
+    poc_map: dict = {}
+    vah_map: dict = {}
+    val_map: dict = {}
 
     for date, idx in date_series.groupby(date_series).groups.items():
         session = df.loc[idx]
         profile = compute_session_volume_profile(session, num_buckets=num_buckets)
+        poc_map[date] = profile.poc
+        vah_map[date] = profile.vah
+        val_map[date] = profile.val
 
-        result.loc[idx, "vp_poc"] = profile.poc
-        result.loc[idx, "vp_vah"] = profile.vah
-        result.loc[idx, "vp_val"] = profile.val
+    result["vp_poc"] = date_series.map(poc_map)
+    result["vp_vah"] = date_series.map(vah_map)
+    result["vp_val"] = date_series.map(val_map)
 
     return result
 
@@ -318,18 +326,25 @@ def compute_rolling_vp(
     if len(ordered_dates) < window:
         return result
 
-    # Rolling median over sessions
-    for i in range(window - 1, len(ordered_dates)):
-        w_dates = ordered_dates[i - window + 1 : i + 1]
-        rolling_poc = float(np.median([session_poc[d] for d in w_dates]))
-        rolling_vah = float(np.median([session_vah[d] for d in w_dates]))
-        rolling_val = float(np.median([session_val[d] for d in w_dates]))
+    # Rolling median over sessions. Build arrays once and use np.median
+    # on slices, then broadcast via map() to avoid per-session .loc writes.
+    poc_vals = np.array([session_poc[d] for d in ordered_dates], dtype=float)
+    vah_vals = np.array([session_vah[d] for d in ordered_dates], dtype=float)
+    val_vals = np.array([session_val[d] for d in ordered_dates], dtype=float)
 
-        current_date = ordered_dates[i]
-        idx = date_series[date_series == current_date].index
-        result.loc[idx, poc_col] = rolling_poc
-        result.loc[idx, vah_col] = rolling_vah
-        result.loc[idx, val_col] = rolling_val
+    rolling_poc_map: dict = {}
+    rolling_vah_map: dict = {}
+    rolling_val_map: dict = {}
+
+    for i in range(window - 1, len(ordered_dates)):
+        s = slice(i - window + 1, i + 1)
+        rolling_poc_map[ordered_dates[i]] = float(np.median(poc_vals[s]))
+        rolling_vah_map[ordered_dates[i]] = float(np.median(vah_vals[s]))
+        rolling_val_map[ordered_dates[i]] = float(np.median(val_vals[s]))
+
+    result[poc_col] = date_series.map(rolling_poc_map)
+    result[vah_col] = date_series.map(rolling_vah_map)
+    result[val_col] = date_series.map(rolling_val_map)
 
     return result
 

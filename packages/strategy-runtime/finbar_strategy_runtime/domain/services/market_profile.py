@@ -239,16 +239,23 @@ def compute_all_session_market_profiles(
     result["mp_vah"] = np.nan
     result["mp_val"] = np.nan
 
-    date_series = pd.Series(
-        result.index.date, index=result.index
-    )
+    date_series = pd.Series(result.index.date, index=result.index)
+
+    # Compute per-session profiles and accumulate (date -> values),
+    # then broadcast via a single map(). Avoids per-session .loc alignment.
+    poc_map: dict = {}
+    vah_map: dict = {}
+    val_map: dict = {}
 
     for date, idx in date_series.groupby(date_series).groups.items():
         session = df.loc[idx]
         profile = compute_session_market_profile(session, num_buckets=num_buckets)
+        poc_map[date] = profile.poc
+        vah_map[date] = profile.vah
+        val_map[date] = profile.val
 
-        result.loc[idx, "mp_poc"] = profile.poc
-        result.loc[idx, "mp_vah"] = profile.vah
-        result.loc[idx, "mp_val"] = profile.val
+    result["mp_poc"] = date_series.map(poc_map)
+    result["mp_vah"] = date_series.map(vah_map)
+    result["mp_val"] = date_series.map(val_map)
 
     return result

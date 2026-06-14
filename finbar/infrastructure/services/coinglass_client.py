@@ -71,19 +71,9 @@ class CoinGlassClient(DerivativesDataProvider):
         """Fetch and cache supported exchange pairs from CoinGlass."""
         if self._pairs_loaded:
             return
-        raw = self._get("/api/futures/supported-exchange-pairs", {})
-        pairs_data = (
-            raw[0] if isinstance(raw, list) and raw and isinstance(raw[0], dict) else {}
-        )
-        if not pairs_data and isinstance(raw, list):
-            # Response might be nested differently
-            pairs_data = {}
-
-        # Re-fetch with correct parsing. The endpoint returns:
-        # {code, data: {exchange: [pairs]}}
         self._supported_pairs.clear()
         self._symbol_exchange_map.clear()
-        # We already called _get which returns data.data — let's do a raw call
+        # Single request — endpoint returns {code, data: {exchange: [pairs]}}
         self._require_key()
         self._rate_limiter.wait()
         url = f"{_COINGLASS_BASE}/api/futures/supported-exchange-pairs"

@@ -97,6 +97,22 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         except json.JSONDecodeError as e:
             return json.dumps({"error": f"Invalid JSON: {e}"})
 
+        # Server-side guard: the in-memory path returns ALL bars as JSON.
+        # Cap at 500 to avoid flooding the MCP context with a huge payload.
+        # For larger datasets, use compute_indicators() which stores
+        # artifacts server-side and returns an artifact ID.
+        _MAX_IN_MEMORY_BARS = 500
+        if len(bars) > _MAX_IN_MEMORY_BARS:
+            return json.dumps(
+                {
+                    "error": (
+                        f"Too many bars ({len(bars)}) for apply_indicators "
+                        f"(max {_MAX_IN_MEMORY_BARS}). Use compute_indicators() "
+                        "instead — it runs server-side and returns an artifact ID."
+                    )
+                }
+            )
+
         use_case = _make_apply_indicators_use_case()
         result = use_case.execute(
             ApplyIndicatorsRequest(bars=bars, indicators=indicator_list)

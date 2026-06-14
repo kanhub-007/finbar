@@ -248,7 +248,8 @@ class HyperliquidFetcher(StockDataFetcher):
                 raise RuntimeError(f"Failed to fetch {symbol} chunk")
             all_bars.extend(bars)
             current_start = current_end
-            time.sleep(0.05)  # Small delay between chunks
+            # No hardcoded sleep — rate limiting is handled by
+            # HyperliquidRateLimiter.wait() inside _fetch_chunk().
 
             if len(all_bars) > 50000:  # Safety limit
                 logger.warning("%s: hit safety limit of 50000 bars", symbol)

@@ -140,23 +140,33 @@ def _run_loop(
     final_close = 0.0
     final_date = ""
 
-    # Pre-extract hot columns to numpy arrays and pre-build the per-bar
-    # dicts once. This avoids allocating a pd.Series per bar via df.iloc[i]
-    # and a second dict via Series.to_dict() inside the loop.
+    # Pre-extract hot columns to numpy arrays. The per-bar dict is
+    # built on-the-fly from numpy arrays rather than via df.to_dict("records")
+    # which would duplicate all data (potentially hundreds of MB) in memory.
     opens = df["open"].to_numpy()
     highs = df["high"].to_numpy()
     lows = df["low"].to_numpy()
     closes = df["close"].to_numpy()
     dates = _precompute_dates(df.index)
-    records = df.to_dict("records")
+    # Pre-extract indicator/feature columns as numpy arrays for the bar dict.
+    extra_cols = {
+        col: df[col].to_numpy() for col in df.columns
+        if col not in ("open", "high", "low", "close")
+    }
+    column_names = list(extra_cols.keys())
+    n_bars = len(df)
 
-    for i in range(len(df)):
+    for i in range(n_bars):
         open_price = float(opens[i])
         high = float(highs[i])
         low = float(lows[i])
         close = float(closes[i])
         bar_date = dates[i]
-        bar_dict = records[i]
+        # Build bar dict on-the-fly — only one allocation per bar instead
+        # of a full list of pre-built dicts.
+        bar_dict = {"open": open_price, "high": high, "low": low, "close": close}
+        for col_name in column_names:
+            bar_dict[col_name] = extra_cols[col_name][i]
         final_close = close
         final_date = bar_date
 

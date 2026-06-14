@@ -6,7 +6,12 @@ from finbar.infrastructure.data.connection import Base
 
 
 class IndicatorArtifact(Base):
-    """Persisted indicator job artifact — bars + metadata."""
+    """Persisted indicator job artifact — bars + metadata.
+
+    Metadata columns (``columns_json``, ``start_date``, ``end_date``)
+    are populated at save time so listing/describe operations avoid
+    deserialising the full ``bars_json`` blob.
+    """
 
     __tablename__ = "indicator_artifacts"
 
@@ -22,5 +27,9 @@ class IndicatorArtifact(Base):
     total_bar_count = Column(Integer, nullable=False, default=0)
     indicators_applied_json = Column(Text, default="[]")
     features_applied_json = Column(Text, default="[]")
-    content_hash = Column(String, default="")
+    # Pre-computed metadata so list/describe never parse bars_json.
+    columns_json = Column(Text, default="[]")
+    start_date = Column(String, default="", index=True)
+    end_date = Column(String, default="")
+    content_hash = Column(String, default="", index=True)
     created_at = Column(String, nullable=False)

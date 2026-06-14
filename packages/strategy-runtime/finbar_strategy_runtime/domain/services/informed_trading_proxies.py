@@ -50,16 +50,13 @@ def daily_vpin(
 
     result = pd.Series(np.nan, index=df.index)
 
-    for i in range(lookback - 1, len(df)):
-        window_buy = buy_vol.iloc[i - lookback + 1 : i + 1]
-        window_sell = sell_vol.iloc[i - lookback + 1 : i + 1]
+    # Vectorised rolling sums — avoids the previous O(n × lookback) loop.
+    rolling_buy = buy_vol.rolling(lookback).sum()
+    rolling_sell = sell_vol.rolling(lookback).sum()
+    rolling_total = rolling_buy + rolling_sell
 
-        total_buy = window_buy.sum()
-        total_sell = window_sell.sum()
-        total = total_buy + total_sell
-
-        if total > 0:
-            result.iloc[i] = abs(total_buy - total_sell) / total
+    mask = rolling_total > 0
+    result[mask] = (rolling_buy[mask] - rolling_sell[mask]).abs() / rolling_total[mask]
 
     return result
 

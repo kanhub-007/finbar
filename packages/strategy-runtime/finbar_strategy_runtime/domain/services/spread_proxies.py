@@ -159,28 +159,24 @@ def abdi_ranaldo_spread(
     # Efficient price proxy η_t = close_t - mid_t
     eta = close - mid
 
-    # Covariance of η_t and η_{t-1}
-    eta_t = eta.iloc[1:].reset_index(drop=True)
-    eta_tm1 = eta.iloc[:-1].reset_index(drop=True)
-    common_idx = min(len(eta_t), len(eta_tm1))
+    # Rolling serial covariance: cov(η_t, η_{t-1}) over lookback window.
+    # Vectorised via DataFrame.rolling().cov() — avoids the previous
+    # O(n × lookback) Python loop.
+    df_cov = pd.DataFrame({"current": eta, "lagged": eta.shift(1)})
+    cov_df = df_cov.rolling(lookback).cov()
+    # Extract the off-diagonal covariance term for each window.
+    # cov_df is a MultiIndex DataFrame; the off-diagonal (0,1) gives cov.
+    cov_series = cov_df.groupby(level=0).apply(
+        lambda m: m.iloc[0, 1] if len(m) >= 2 else np.nan, include_groups=False
+    )
 
-    if common_idx < lookback:
-        return pd.Series(np.nan, index=ohlc.index)
-
-    # Rolling covariance
-    cov_series = pd.Series(np.nan, index=ohlc.index)
-    for i in range(lookback - 1, common_idx):
-        cov = np.cov(eta_tm1.iloc[i - lookback + 1 : i + 1], eta_t.iloc[i - lookback + 1 : i + 1])[0, 1]
-        cov_series.iloc[i + 1] = cov  # offset for alignment
-
-    # Spread = 2 * sqrt(-cov) when cov < 0
+    # Spread = 2 * sqrt(-cov) when cov < 0, else 0
     result = pd.Series(np.nan, index=ohlc.index)
-    for i in range(len(result)):
-        c = cov_series.iloc[i]
-        if pd.notna(c) and c < 0:
-            result.iloc[i] = 2.0 * np.sqrt(-c)
-        elif pd.notna(c):
-            result.iloc[i] = 0.0
+    valid = cov_series.notna()
+    neg = valid & (cov_series < 0)
+    nonneg = valid & (cov_series >= 0)
+    result[neg] = 2.0 * np.sqrt(-cov_series[neg])
+    result[nonneg] = 0.0
 
     return result
 

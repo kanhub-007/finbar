@@ -23,10 +23,17 @@ class SqlIndicatorArtifactRepository:
         self._bars_cache: dict[str, list[dict]] = {}
 
     def save(self, job: IndicatorJob, bars: list[dict], content_hash: str = "") -> None:
-        """Upsert an indicator artifact."""
+        """Upsert an indicator artifact.
+
+        Pre-computes ``columns_json``, ``start_date``, and ``end_date``
+        from the bars list at save time so that ``list_metadata`` and
+        ``describe`` never need to deserialise the full ``bars_json`` blob.
+        """
         bars_json = json.dumps(bars)
         indicators_json = json.dumps(job.indicators_applied)
         features_json = json.dumps(job.features_applied)
+        columns_json = json.dumps(_columns_from_bars(bars))
+        start_date, end_date = _date_range(bars)
         created_at = datetime.now(UTC).isoformat()
 
         existing = self._db.execute(
@@ -38,6 +45,9 @@ class SqlIndicatorArtifactRepository:
             existing.total_bar_count = len(bars)
             existing.indicators_applied_json = indicators_json
             existing.features_applied_json = features_json
+            existing.columns_json = columns_json
+            existing.start_date = start_date
+            existing.end_date = end_date
             existing.status = job.status
             if content_hash:
                 existing.content_hash = content_hash
@@ -55,11 +65,16 @@ class SqlIndicatorArtifactRepository:
                     total_bar_count=len(bars),
                     indicators_applied_json=indicators_json,
                     features_applied_json=features_json,
+                    columns_json=columns_json,
+                    start_date=start_date,
+                    end_date=end_date,
                     content_hash=content_hash,
                     created_at=created_at,
                 )
             )
         self._db.commit()
+        # Invalidate cache so a stale copy isn't returned after re-save.
+        self._bars_cache.pop(job.job_id, None)
 
     def get_bars(self, job_id: str) -> list[dict] | None:
         """Return all enriched bars for a job, or None if missing.
@@ -102,7 +117,11 @@ class SqlIndicatorArtifactRepository:
         source: str | None = None,
         interval: str | None = None,
     ) -> list[dict]:
-        """Return artifact metadata records matching optional filters."""
+        """Return artifact metadata records matching optional filters.
+
+        Uses pre-computed ``columns_json`` / ``start_date`` / ``end_date``
+        columns so the full ``bars_json`` blob is never deserialised.
+        """
         query = select(OrmArtifact)
         if symbol:
             query = query.where(OrmArtifact.symbol == symbol.upper())
@@ -182,10 +201,29 @@ def _loads_bars(raw: str) -> list[dict]:
 
 
 def _metadata_from_orm(orm: OrmArtifact, include_null_counts: bool) -> dict:
-    """Build compact artifact metadata from an ORM row."""
-    bars = _loads_bars(orm.bars_json)
-    columns = _columns_from_bars(bars)
-    start_date, end_date = _date_range(bars)
+    """Build compact artifact metadata from an ORM row.
+
+    Uses pre-computed ``columns_json`` / ``start_date`` / ``end_date``
+    columns when available. Falls back to parsing ``bars_json`` only when
+    the metadata columns are empty (backward compat with old rows).
+    """
+    columns = _orm_columns(orm)
+    start_date = orm.start_date or ""
+    end_date = orm.end_date or ""
+    null_counts: dict[str, int] = {}
+
+    # Only parse the full bars blob when null_counts are needed
+    # (describe with include_null_counts=True) or when the metadata
+    # columns weren't populated (legacy rows).
+    if include_null_counts or not columns or (not start_date and not end_date):
+        bars = _loads_bars(orm.bars_json)
+        if not columns:
+            columns = _columns_from_bars(bars)
+        if not start_date:
+            start_date, end_date = _date_range(bars)
+        if include_null_counts:
+            null_counts = _null_counts(bars, columns)
+
     return {
         "artifact_id": orm.job_id,
         "symbol": orm.symbol,
@@ -200,11 +238,21 @@ def _metadata_from_orm(orm: OrmArtifact, include_null_counts: bool) -> dict:
         "columns": columns,
         "indicators_applied": json.loads(orm.indicators_applied_json),
         "features_applied": json.loads(orm.features_applied_json),
-        "null_counts": _null_counts(bars, columns) if include_null_counts else {},
+        "null_counts": null_counts,
         "created_at": orm.created_at,
         "expires_at": None,
         "retention_policy": _RETENTION_POLICY,
     }
+
+
+def _orm_columns(orm: OrmArtifact) -> list[str]:
+    """Return columns from the pre-computed ``columns_json`` column."""
+    raw = getattr(orm, "columns_json", "[]") or "[]"
+    try:
+        cols = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return cols if isinstance(cols, list) else []
 
 
 def _columns_from_bars(bars: list[dict]) -> list[str]:

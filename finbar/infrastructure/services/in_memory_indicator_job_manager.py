@@ -31,6 +31,8 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
     provides the fast path during a live session and is safe to evict.
     """
 
+    _MAX_CONCURRENT_JOBS = 3
+
     def __init__(
         self,
         max_jobs: int = 50,
@@ -43,9 +45,15 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
         self._tasks: dict[str, asyncio.Task] = {}
         self._results: dict[str, list[dict]] = {}
         self._frames: dict[str, bytes] = {}
+        # Lightweight metadata cache: columns + dates computed once at
+        # store time so listing doesn't load all bars.
+        self._meta_cache: dict[str, dict] = {}
         self._lock = threading.Lock()
         self._max_jobs = max(1, max_jobs)
         self._ttl = timedelta(seconds=max(1, ttl_seconds))
+        # Semaphore limits concurrent indicator jobs to prevent
+        # memory/CPU exhaustion from unbounded parallel computation.
+        self._semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_JOBS)
 
     def start(
         self,
@@ -65,7 +73,13 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
             end_date=params.get("end_date"),
             metadata=dict(params),
         )
-        task = asyncio.create_task(runner(job))
+        # Wrap the runner with the concurrency semaphore so at most
+        # _MAX_CONCURRENT_JOBS run in parallel.
+        async def _gated_runner(j: IndicatorJob) -> None:
+            async with self._semaphore:
+                await runner(j)
+
+        task = asyncio.create_task(_gated_runner(job))
         with self._lock:
             self._jobs[job.job_id] = job
             self._tasks[job.job_id] = task
@@ -88,8 +102,12 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
 
     def store_result(self, job: IndicatorJob, bars: list[dict]) -> None:
         """Store enriched bars in-memory and persist to SQLite."""
+        # Pre-compute lightweight metadata (columns, dates) ONCE so
+        # list/describe never need to load all bars.
+        meta = _compute_lightweight_meta(bars)
         with self._lock:
             self._results[job.job_id] = list(bars)
+            self._meta_cache[job.job_id] = meta
             job.total_bar_count = len(bars)
         content_hash = job.metadata.get("content_hash", "")
         self._persist_artifact(job, bars, content_hash)
@@ -145,8 +163,16 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
         if self._session_factory is not None:
             return self._with_repo(lambda repo: repo.describe(job_id))
         job = self.get_artifact_job(job_id)
+        if job is None:
+            return None
+        # Use cached lightweight metadata when available to avoid
+        # loading all bars just for column names and dates.
+        with self._lock:
+            meta = self._meta_cache.get(job_id)
+        if meta is not None:
+            return _metadata_from_cache(job, meta, include_null_counts=False)
         bars = self.get_artifact_bars(job_id)
-        if job is None or bars is None:
+        if bars is None:
             return None
         return _metadata_from_job(job, bars, include_null_counts=True)
 
@@ -184,6 +210,7 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
             self._tasks.pop(job_id, None)
             self._results.pop(job_id, None)
             self._frames.pop(job_id, None)
+            self._meta_cache.pop(job_id, None)
         existed_sql = False
         if self._session_factory is not None:
             existed_sql = self._with_repo(lambda repo: repo.delete(job_id))
@@ -240,6 +267,7 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
                 self._tasks.pop(job_id, None)
                 self._results.pop(job_id, None)
                 self._frames.pop(job_id, None)
+                self._meta_cache.pop(job_id, None)
 
     def _enforce_max_jobs_locked(self) -> None:
         if len(self._jobs) <= self._max_jobs:
@@ -252,6 +280,7 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
                 self._jobs.pop(job.job_id, None)
                 self._tasks.pop(job.job_id, None)
                 self._results.pop(job.job_id, None)
+                self._meta_cache.pop(job.job_id, None)
 
     def _persist_artifact(
         self, job: IndicatorJob, bars: list[dict], content_hash: str = ""
@@ -276,15 +305,33 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
         source: str | None,
         interval: str | None,
     ) -> list[dict]:
-        """Return artifact metadata from memory when persistence is unavailable."""
+        """Return artifact metadata from memory when persistence is unavailable.
+
+        Uses the cached lightweight metadata (columns, dates) computed at
+        store time. Does NOT load the full bars list.
+        """
         with self._lock:
             jobs = list(self._jobs.values())
+            meta_snapshot = {
+                jid: dict(m) for jid, m in self._meta_cache.items()
+            }
         items = []
         for job in jobs:
-            bars = self.get_artifact_bars(job.job_id)
-            if bars is None or not _matches(job, symbol, source, interval):
+            if not _matches(job, symbol, source, interval):
                 continue
-            items.append(_metadata_from_job(job, bars, include_null_counts=False))
+            meta = meta_snapshot.get(job.job_id)
+            if meta is None:
+                # Fallback: bars not yet cached (job may still be running)
+                bars = self.get_artifact_bars(job.job_id)
+                if bars is None:
+                    continue
+                items.append(
+                    _metadata_from_job(job, bars, include_null_counts=False)
+                )
+            else:
+                items.append(
+                    _metadata_from_cache(job, meta, include_null_counts=False)
+                )
         return items
 
     def _with_repo(self, callback):
@@ -294,6 +341,48 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
             return callback(SqlIndicatorArtifactRepository(db))
         finally:
             db.close()
+
+
+def _compute_lightweight_meta(bars: list[dict]) -> dict:
+    """Compute columns + date range from bars (no null counts).
+
+    Called once at store time so list/describe avoid loading all bars.
+    """
+    if not bars:
+        return {"columns": [], "start_date": "", "end_date": "", "bar_count": 0}
+    return {
+        "columns": _columns_from_bars(bars),
+        "start_date": str(bars[0].get("timestamp", "")),
+        "end_date": str(bars[-1].get("timestamp", "")),
+        "bar_count": len(bars),
+    }
+
+
+def _metadata_from_cache(
+    job: IndicatorJob,
+    meta: dict,
+    include_null_counts: bool,
+) -> dict:
+    """Build artifact metadata from the cached lightweight dict."""
+    return {
+        "artifact_id": job.job_id,
+        "symbol": job.symbol,
+        "source": job.source,
+        "interval": job.interval,
+        "mode": job.mode,
+        "timeframe_alias": job.timeframe_alias,
+        "status": job.status,
+        "bar_count": meta.get("bar_count", job.total_bar_count),
+        "start_date": meta.get("start_date", ""),
+        "end_date": meta.get("end_date", ""),
+        "columns": meta.get("columns", []),
+        "indicators_applied": list(job.indicators_applied),
+        "features_applied": list(job.features_applied),
+        "null_counts": {},
+        "created_at": job.created_at.isoformat(),
+        "expires_at": None,
+        "retention_policy": _RETENTION_POLICY,
+    }
 
 
 def _matches(
