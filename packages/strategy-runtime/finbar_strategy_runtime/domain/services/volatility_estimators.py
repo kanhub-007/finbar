@@ -235,3 +235,80 @@ def yang_zhang_vol(
         vol *= np.sqrt(trading_days)
 
     return vol
+
+
+# ---------------------------------------------------------------------------
+# Garman-Klass + Overnight
+# ---------------------------------------------------------------------------
+
+
+def gk_plus_overnight_vol(
+    ohlc: pd.DataFrame,
+    lookback: int = 20,
+    annualize: bool = False,
+    trading_days: int = 252,
+) -> pd.Series:
+    """Garman-Klass volatility with overnight gap component."""
+    if len(ohlc) < lookback:
+        return pd.Series(np.nan, index=ohlc.index)
+    open_ = ohlc["open"].astype(float)
+    high = ohlc["high"].astype(float)
+    low = ohlc["low"].astype(float)
+    close = ohlc["close"].astype(float)
+    term1 = 0.5 * np.log(high / low) ** 2
+    term2 = (2.0 * np.log(2.0) - 1.0) * np.log(close / open_) ** 2
+    gk_var = (term1 - term2).clip(lower=0)
+    overnight_ret = np.log(open_ / close.shift(1))
+    on_var = overnight_ret**2
+    combined = gk_var + on_var
+    vol = np.sqrt(combined.rolling(lookback).mean())
+    if annualize:
+        vol *= np.sqrt(trading_days)
+    return vol
+
+
+def meilijson_vol(
+    ohlc: pd.DataFrame,
+    lookback: int = 20,
+    annualize: bool = False,
+    trading_days: int = 252,
+) -> pd.Series:
+    """Meilijson (2009) OHLC volatility estimator."""
+    if len(ohlc) < lookback:
+        return pd.Series(np.nan, index=ohlc.index)
+    high = ohlc["high"].astype(float)
+    low = ohlc["low"].astype(float)
+    close = ohlc["close"].astype(float)
+    open_ = ohlc["open"].astype(float)
+    hl = np.log(high / low)
+    ho = np.log(high / open_)
+    hc = np.log(high / close)
+    lc = np.log(low / close)
+    lo = np.log(low / open_)
+    co = np.log(close / open_)
+    var = hl * co + ho * hc + lc * lo
+    var = var.clip(lower=0)
+    vol = np.sqrt(var.rolling(lookback).mean())
+    if annualize:
+        vol *= np.sqrt(trading_days)
+    return vol
+
+
+def daily_return_skewness(
+    close: pd.Series,
+    lookback: int = 60,
+) -> pd.Series:
+    """Rolling skewness of daily returns."""
+    if len(close) < lookback:
+        return pd.Series(np.nan, index=close.index)
+    return close.pct_change().rolling(lookback).skew()
+
+
+def daily_return_kurtosis(
+    close: pd.Series,
+    lookback: int = 60,
+) -> pd.Series:
+    """Rolling kurtosis of daily returns (excess)."""
+    if len(close) < lookback:
+        return pd.Series(np.nan, index=close.index)
+    return close.pct_change().rolling(lookback).kurt()
