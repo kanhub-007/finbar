@@ -95,9 +95,15 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
         self._persist_artifact(job, bars, content_hash)
 
     def store_frame(self, job: IndicatorJob, frame: Any) -> None:
-        """Cache a pickled DataFrame for hot-path backtest access."""
+        """Cache a pickled DataFrame for hot-path backtest access.
+
+        Serialization happens OUTSIDE the lock so other threads accessing the
+        manager (progress polls, result reads) are not blocked for the full
+        pickle duration.
+        """
+        data = pickle.dumps(frame)
         with self._lock:
-            self._frames[job.job_id] = pickle.dumps(frame)
+            self._frames[job.job_id] = data
 
     def get_artifact_job(self, job_id: str) -> IndicatorJob | None:
         """Return metadata for an indicator artifact job."""
@@ -112,10 +118,14 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
         return self._load_bars_from_sql(job_id)
 
     def get_artifact_frame(self, job_id: str) -> Any:
-        """Return a cached DataFrame or None if not available."""
+        """Return a cached DataFrame or None if not available.
+
+        Deserialization happens OUTSIDE the lock so other threads are not
+        blocked for the full unpickle duration.
+        """
         with self._lock:
             data = self._frames.get(job_id)
-            return pickle.loads(data) if data is not None else None
+        return pickle.loads(data) if data is not None else None
 
     def list_artifacts(
         self,

@@ -151,3 +151,67 @@ class TestArtifactHashReuse:
 
         new_bars = manager.get_artifact_bars("reuse-existing-1")
         assert new_bars == existing_bars
+
+
+class TestFrameCaching:
+    """store_frame / get_artifact_frame round-trip and lock hygiene."""
+
+    def _job(self) -> IndicatorJob:
+        return IndicatorJob(
+            job_id="frame-job-1",
+            symbol="AAPL",
+            source="yfinance",
+            interval="1d",
+            timeframe_alias="primary",
+            status="completed",
+            indicators_applied=[],
+        )
+
+    def test_store_and_get_frame_round_trip(self):
+        import pandas as pd
+
+        manager = InMemoryIndicatorJobManager()
+        frame = pd.DataFrame(
+            {"close": [100.0, 101.0, 102.5]},
+            index=pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+        )
+        manager.store_frame(self._job(), frame)
+        loaded = manager.get_artifact_frame("frame-job-1")
+        assert loaded is not None
+        assert list(loaded["close"]) == [100.0, 101.0, 102.5]
+
+    def test_get_artifact_frame_missing_returns_none(self):
+        manager = InMemoryIndicatorJobManager()
+        assert manager.get_artifact_frame("does-not-exist") is None
+
+    def test_store_frame_serialises_outside_lock(self, monkeypatch):
+        """Regression: pickle.dumps ran under self._lock, blocking all other
+        manager calls for the full serialization duration."""
+        import pandas as pd
+
+        import finbar.infrastructure.services.in_memory_indicator_job_manager as mod
+
+        manager = InMemoryIndicatorJobManager()
+        frame = pd.DataFrame({"close": [1.0, 2.0]})
+
+        # Instrument pickle.dumps to detect whether the manager lock is held
+        # while serializing. A reentrant check: if we can acquire it (non-blocking),
+        # it was NOT held during the call.
+        held_during_calls = []
+        original_dumps = mod.pickle.dumps
+
+        def spy_dumps(obj):
+            acquired = manager._lock.acquire(blocking=False)
+            if not acquired:
+                held_during_calls.append(True)
+            else:
+                held_during_calls.append(False)
+                manager._lock.release()
+            return original_dumps(obj)
+
+        monkeypatch.setattr(mod.pickle, "dumps", spy_dumps)
+        manager.store_frame(self._job(), frame)
+        assert held_during_calls, "pickle.dumps was not called"
+        assert not any(held_during_calls), (
+            "pickle.dumps ran while the manager lock was held"
+        )
