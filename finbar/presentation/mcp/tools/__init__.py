@@ -11,6 +11,7 @@ from .analysis import register_analysis_tools
 from .derivatives import register_derivatives_tools
 from .indicators import register_indicator_tools
 from .jobs import register_job_tools
+from .metrics_catalog import register_metric_catalog_tools
 from .optimization import register_optimization_tools
 from .prices import register_price_tools
 from .signals import register_signal_tools
@@ -25,6 +26,7 @@ def register_tools(mcp: FastMCP) -> None:
     register_job_tools(mcp)
     register_analysis_tools(mcp)
     register_derivatives_tools(mcp)
+    register_metric_catalog_tools(mcp)
     register_indicator_tools(mcp)
     register_optimization_tools(mcp)
     register_signal_tools(mcp)
