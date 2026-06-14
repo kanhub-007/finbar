@@ -58,15 +58,14 @@ class TestUnifiedCatalogDualRole:
         """sma_20 (period-based) is still recognised by the parser side."""
         assert catalog.supports_concrete("sma_20") is True
 
-    def test_new_metric_supported_but_not_yet_computable(self, catalog):
-        """A new catalogued OHLCV metric is recognised (supported=True) but
-        reports computable=False until its handler is registered (Slice 2/3)."""
+    def test_new_metric_supported_and_computable(self, catalog):
+        """A catalogued OHLCV metric with a registered handler is computable."""
         assert catalog.supports_concrete("corwin_schultz_spread") is True
 
         result = catalog.check("corwin_schultz_spread", "daily_ohlcv")
         assert result.supported is True
-        # No handler registered yet in Slice 1 → confidence honesty
-        assert result.computable is False
+        assert result.computable is True
+        assert result.confidence == MetricConfidence.PROXY
 
     def test_unknown_name_not_supported(self, catalog):
         """An unknown metric name is not supported."""
