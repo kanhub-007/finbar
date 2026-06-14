@@ -177,8 +177,13 @@ class TestDerivativesMetricsCatalogued:
         result = catalog.check(metric_name, "daily_ohlcv")
         assert result.supported is True, f"{metric_name} not found!"
 
-    def test_funding_rate_requires_coinglass(self, catalog):
-        """funding_rate reports missing providers without CoinGlass."""
+    def test_funding_rate_documents_coinglass_provider(self, catalog):
+        """funding_rate is computable on OHLCV frames (after merge) but
+        documents that CoinGlass is the data source."""
+        d = catalog.get("funding_rate")
+        assert d is not None
+        assert "coinglass" in d.required_providers
+        # With a handler + OHLCV data class, it's computable
         result = catalog.check("funding_rate", "daily_ohlcv")
-        assert result.computable is False
-        assert any("coinglass" in p.lower() for p in result.missing_providers)
+        assert result.computable is True
+        assert result.confidence == MetricConfidence.ACTUAL
