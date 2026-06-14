@@ -95,10 +95,10 @@ def _build_available_informative_frame(
 def _availability_index(index, informative_interval: str) -> pd.DatetimeIndex:
     """Return timestamps when informative bars are safe to consume."""
     timestamps = pd.to_datetime(index)
-    return pd.DatetimeIndex(timestamps + _interval_offset(informative_interval))
+    return pd.DatetimeIndex(timestamps + interval_offset(informative_interval))
 
 
-def _interval_offset(interval: str) -> pd.Timedelta:
+def interval_offset(interval: str) -> pd.Timedelta:
     """Convert a Finbar interval string to a pandas Timedelta.
 
     Raises ValueError for unknown intervals. Returning a zero offset for an

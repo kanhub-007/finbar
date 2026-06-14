@@ -2180,3 +2180,43 @@ def _h_mkt_regime(df, _name, _cache):
 def _h_day_type(df, _name, _cache):
     df["day_type_classification"] = _day_type(df["high"], df["low"], df["close"])
     return df
+
+
+# ===========================================================================
+# Derivatives metric handlers — these pass through pre-merged columns.
+# The actual data comes from merge_derivatives_asof (called by the job
+# runner before calculate()). The handler just ensures the column exists
+# (Invariant #2) and registers the name for catalog/handler name-sync.
+# ===========================================================================
+
+_DERIV_HANDLER_NAMES = [
+    "funding_rate",
+    "funding_rate_annualised",
+    "open_interest",
+    "open_interest_delta_1h",
+    "open_interest_delta_24h",
+    "cumulative_volume_delta",
+    "long_short_ratio",
+    "liquidations_long_1h",
+    "liquidations_short_1h",
+    "liquidations_long_24h",
+    "liquidations_short_24h",
+]
+
+
+def _register_derivatives_handlers() -> None:
+    """Register pass-through handlers for derivatives metrics."""
+
+    def _make_handler(col_name: str):
+        @_register(col_name)
+        def _handler(df, _name, _cache):
+            if col_name not in df.columns:
+                df[col_name] = np.nan
+            return df
+        return _handler
+
+    for name in _DERIV_HANDLER_NAMES:
+        _make_handler(name)
+
+
+_register_derivatives_handlers()

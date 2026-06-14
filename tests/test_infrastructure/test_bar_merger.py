@@ -12,7 +12,7 @@ import pandas as pd
 import pytest
 
 from finbar_strategy_runtime.indicators.bar_merger import (
-    _interval_offset,
+    interval_offset,
     merge_timeframes,
 )
 
@@ -41,18 +41,18 @@ class TestIntervalOffset:
     )
     def test_known_intervals_parse(self, interval, expected):
         # Previously 5m/15m/4h/etc. fell through to Timedelta(0).
-        assert _interval_offset(interval) == expected
+        assert interval_offset(interval) == expected
 
     @pytest.mark.parametrize("interval", ["4h", "15m", "15min", "5m", "2h"])
     def test_previously_broken_intervals_are_nonzero(self, interval):
         """All supported intervals must shift availability forward."""
-        assert _interval_offset(interval) > pd.Timedelta(0)
+        assert interval_offset(interval) > pd.Timedelta(0)
 
     @pytest.mark.parametrize("interval", ["", "monthly", "abc", "h"])
     def test_unknown_interval_raises(self, interval):
         # A zero offset would silently enable lookahead bias; raise instead.
         with pytest.raises(ValueError):
-            _interval_offset(interval)
+            interval_offset(interval)
 
 
 class TestNoLookaheadMerge:

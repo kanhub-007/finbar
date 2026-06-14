@@ -30,6 +30,22 @@ from finbar.infrastructure.repositories.sql_price_cache_repository import (
 )
 
 
+# Derivatives metric names that require pre-merged data from the repository.
+_DERIVATIVES_INDICATORS = {
+    "funding_rate",
+    "funding_rate_annualised",
+    "open_interest",
+    "open_interest_delta_1h",
+    "open_interest_delta_24h",
+    "cumulative_volume_delta",
+    "long_short_ratio",
+    "liquidations_long_1h",
+    "liquidations_short_1h",
+    "liquidations_long_24h",
+    "liquidations_short_24h",
+}
+
+
 class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
     """Run indicator jobs against cached bars using infrastructure services."""
 
@@ -41,14 +57,22 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         converter: BarFrameConverter,
         feature_calculator: StrategyFeatureCalculator,
         parser: StrategyDefinitionParser,
+        derivatives_repository=None,
     ):
-        """Create the runner with injected infrastructure collaborators."""
+        """Create the runner with injected infrastructure collaborators.
+
+        Args:
+            derivatives_repository: Optional DerivativesRepository. When
+                provided, derivatives metrics are merged onto the frame
+                before indicator calculation (no-lookahead as-of join).
+        """
         self._session_factory = session_factory
         self._manager = manager
         self._indicator_calculator = indicator_calculator
         self._converter = converter
         self._feature_calculator = feature_calculator
         self._parser = parser
+        self._derivatives_repository = derivatives_repository
 
     async def run(self, job: IndicatorJob) -> None:
         """Run indicator computation without blocking the event loop."""
@@ -174,6 +198,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         )
         try:
             frame = self._converter.bars_to_frame(bars)
+            frame = self._merge_derivatives_if_needed(job, frame, indicators)
             enriched = self._indicator_calculator.calculate(frame, indicators)
             result = self._converter.frame_to_bars(enriched)
         except Exception as exc:
@@ -181,6 +206,29 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             return None
         self._manager.update(job, indicators_applied=list(indicators))
         return result, enriched
+
+    def _merge_derivatives_if_needed(self, job, frame, indicators: list[str]):
+        """Merge derivatives data onto the frame if any derivatives metric
+        is requested and a repository is configured.
+
+        Uses the no-lookahead as-of merge: a derivatives value at T is
+        only visible at bar T+1.
+        """
+        if not self._derivatives_repository:
+            return frame
+        if not any(name in _DERIVATIVES_INDICATORS for name in indicators):
+            return frame
+        deriv_rows = self._derivatives_repository.find(
+            symbol=job.symbol,
+        )
+        if not deriv_rows:
+            return frame
+        from finbar.infrastructure.services.derivatives_merger import (
+            merge_derivatives_asof,
+        )
+
+        interval = getattr(job, "interval", "1d") or "1d"
+        return merge_derivatives_asof(frame, deriv_rows, interval=interval)
 
     def _compute_content_hash(
         self, job: IndicatorJob, indicators: list[str], validation
