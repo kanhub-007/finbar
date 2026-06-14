@@ -38,12 +38,28 @@ class MarketMetricCatalog(ABC):
         name: str,
         available_data_class: str,
     ) -> MetricCapabilityResult:
-        """Check whether a metric can be computed with the given data class.
+        """Check whether a metric can be computed with the given data class."""
 
-        Returns a capability result with:
-        - Whether the metric is known (supported)
-        - Whether it is computable (computable)
-        - The confidence level for the result
-        - Proxy candidates when the metric is unavailable
-        - Missing data classes / providers when not computable
+    @abstractmethod
+    def resolve_best(
+        self,
+        concept: str,
+        available_data_class: str,
+        interval: str = "1d",
+        force_proxy: bool = False,
+    ) -> MetricCapabilityResult:
+        """Auto-select the best computation path for a conceptual metric.
+
+        For conceptual metrics like 'volatility' that have multiple
+        resolution paths (intraday actual, daily proxy), this selects
+        the highest-confidence path whose data requirements are satisfied.
+
+        Args:
+            concept: Conceptual metric name (e.g. 'volatility', 'spread').
+            available_data_class: The data class available.
+            interval: Bar interval (e.g. '5min', '1h', '1d').
+            force_proxy: If True, skip 'actual' and 'approximation' paths.
+
+        Returns:
+            MetricCapabilityResult with the best selected path.
         """

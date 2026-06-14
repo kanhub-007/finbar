@@ -264,3 +264,60 @@ class TestElliottWaveCatalogued:
         assert result.supported is True
         assert result.computable is False
         assert any("not yet implemented" in w.lower() for w in result.warnings)
+
+
+# ---------------------------------------------------------------------------
+# Scenario 4: Dual-path resolution (intraday vs proxy auto-selection)
+# ---------------------------------------------------------------------------
+
+
+class TestDualPathResolution:
+    """resolve_best() auto-selects highest-confidence path for available data."""
+
+    def test_volatility_intraday_selects_actual(self, catalog):
+        """With intraday 5-min data → realized_vol_5m (actual)."""
+        result = catalog.resolve_best("volatility", "intraday_ohlcv", interval="5min")
+        assert result.computable is True
+        assert result.selected_metric == "realized_vol_5m"
+        assert result.confidence.value == "actual"
+
+    def test_volatility_1h_selects_approximation(self, catalog):
+        """With intraday 1h data → realized_vol_1h (approximation)."""
+        result = catalog.resolve_best("volatility", "intraday_ohlcv", interval="1h")
+        assert result.computable is True
+        assert result.selected_metric == "realized_vol_1h"
+        assert result.confidence.value == "approximation"
+
+    def test_volatility_daily_selects_proxy(self, catalog):
+        """With daily data only → yang_zhang_vol (proxy)."""
+        result = catalog.resolve_best("volatility", "daily_ohlcv", interval="1d")
+        assert result.computable is True
+        assert result.selected_metric == "yang_zhang_vol"
+        assert result.confidence.value == "proxy"
+
+    def test_force_proxy_overrides(self, catalog):
+        """force_proxy=True skips actual paths even when data is available."""
+        result = catalog.resolve_best(
+            "volatility", "intraday_ohlcv", interval="5min", force_proxy=True
+        )
+        assert result.computable is True
+        assert result.selected_metric == "yang_zhang_vol"
+        assert result.confidence.value == "proxy"
+
+    def test_unknown_concept_returns_unsupported(self, catalog):
+        """Unknown conceptual metric returns supported=False."""
+        result = catalog.resolve_best("nonexistent_concept", "daily_ohlcv")
+        assert result.supported is False
+
+    def test_unavailable_paths_reported(self, catalog):
+        """When no path matches, computable=False with available paths listed."""
+        result = catalog.resolve_best("spread", "daily_ohlcv", interval="1d")
+        assert result.computable is True
+        assert result.selected_metric == "corwin_schultz_spread"
+
+    def test_multiple_paths_in_available_paths(self, catalog):
+        """available_paths lists all resolution paths for the concept."""
+        result = catalog.resolve_best("volatility", "daily_ohlcv")
+        assert len(result.available_paths) >= 2
+        path_names = [p.metric_name for p in result.available_paths]
+        assert "yang_zhang_vol" in path_names
