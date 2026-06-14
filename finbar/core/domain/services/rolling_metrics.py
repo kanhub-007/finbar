@@ -97,7 +97,7 @@ def calculate_rolling_win_rate(
         prefix_wins[i + 1] = prefix_wins[i] + wins_at[i]
         prefix_total[i + 1] = prefix_total[i] + total_at[i]
 
-    for i in range(window, n):
+    for i in range(window - 1, n):
         window_start = max(0, i - window + 1)
         wins_in_window = prefix_wins[i + 1] - prefix_wins[window_start]
         total_in_window = prefix_total[i + 1] - prefix_total[window_start]

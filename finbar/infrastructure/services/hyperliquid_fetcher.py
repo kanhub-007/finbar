@@ -232,8 +232,8 @@ class HyperliquidFetcher(StockDataFetcher):
         interval_ms = INTERVAL_MS.get(interval, 60 * 60 * 1000)
         chunk_ms = interval_ms * max_bars
 
-        start_dt = datetime.fromisoformat(start_date)
-        end_dt = datetime.fromisoformat(end_date)
+        start_dt = _to_utc(start_date)
+        end_dt = _to_utc(end_date)
         start_ms = int(start_dt.timestamp() * 1000)
         end_ms = int(end_dt.timestamp() * 1000)
 
@@ -343,7 +343,7 @@ class HyperliquidFetcher(StockDataFetcher):
                     continue
 
                 ts = datetime.fromtimestamp(ts_ms / 1000, tz=UTC).strftime(
-                    "%Y-%m-%d %H:%M:%S.%f"
+                    "%Y-%m-%dT%H:%M:%S.%f"
                 )
 
                 o = float(candle.get("o", 0))
@@ -615,3 +615,15 @@ def _safe_float(value: object) -> float | None:
         return float(value)
     except (ValueError, TypeError):
         return None
+
+
+def _to_utc(date_str: str):
+    """Parse an ISO date string into a UTC-aware datetime.
+
+    Naive date/date-time strings are treated as UTC, not local time, so
+    that API time-window calculations are correct on any host.
+    """
+    dt = datetime.fromisoformat(date_str)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt

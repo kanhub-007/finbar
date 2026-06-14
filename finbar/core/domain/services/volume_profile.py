@@ -387,7 +387,15 @@ def compute_rolling_window_vp(
     # add/subtract updates instead of a full per-window recompute).
     price_buckets, bucket_size = _global_bucket_grid(df, num_buckets)
     if price_buckets is None:
-        # Degenerate price range; nothing to compute.
+        # Degenerate price range (all bars at same price). If there is
+        # volume and the window is full, the constant close IS the POC.
+        if num_buckets > 0:
+            flat_price = float(df["close"].iloc[0])
+            flat_vals = np.full(n, np.nan)
+            flat_vals[window_bars - 1:] = flat_price
+            result[poc_col] = flat_vals
+            result[vah_col] = flat_vals
+            result[val_col] = flat_vals
         return result
 
     highs = df["high"].to_numpy()

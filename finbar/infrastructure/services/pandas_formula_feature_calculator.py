@@ -78,10 +78,10 @@ def _parse_node(raw: dict) -> FormulaNode:
 
 def _parse_operand(raw: Any) -> FormulaNode:
     """Parse a leaf operand."""
-    if isinstance(raw, (int, float)):
-        return FormulaNode(kind="literal", value=float(raw), label=str(raw))
     if isinstance(raw, bool):
         return FormulaNode(kind="literal", value=raw, label=str(raw))
+    if isinstance(raw, (int, float)):
+        return FormulaNode(kind="literal", value=float(raw), label=str(raw))
     if isinstance(raw, str):
         return FormulaNode(kind="indicator", value=raw, label=raw)
     if isinstance(raw, dict):

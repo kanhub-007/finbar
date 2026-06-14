@@ -58,6 +58,10 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         except asyncio.CancelledError:
             self._manager.update(job, status="cancelled", error="Cancelled by user")
             raise
+        except Exception as exc:
+            self._manager.update(
+                job, status="failed", error=f"Walk-forward failed: {exc}"
+            )
 
     def _sync_run(self, job: OptimizationJob) -> None:
         metadata = job.metadata

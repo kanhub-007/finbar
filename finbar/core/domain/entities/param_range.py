@@ -22,6 +22,8 @@ class ParamRange:
 
     def values(self) -> list[float]:
         """Generate all grid values for this range."""
+        if self.step <= 0:
+            return [self.min] if self.min <= self.max else []
         result: list[float] = []
         current = self.min
         while current <= self.max + (self.step * 0.001):

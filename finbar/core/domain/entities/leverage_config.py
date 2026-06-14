@@ -24,7 +24,11 @@ class LeverageConfig:
         Assumes isolated margin with zero maintenance margin buffer.
         In practice exchanges use ~0.5-1% maintenance margin, but
         we use the exact price for a conservative backtest.
+
+        Returns entry_price when leverage <= 1 (spot / no liquidation).
         """
+        if self.multiplier <= 1:
+            return entry_price
         if direction == "long":
             return entry_price * (1.0 - 1.0 / self.multiplier)
         if direction == "short":

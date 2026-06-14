@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -20,7 +22,6 @@ from finbar.core.domain.interfaces.strategy_definition_parser import (
 from finbar.core.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
-from finbar.core.domain.services.content_hash import compute_artifact_hash
 from finbar.infrastructure.repositories.sql_indicator_artifact_repository import (
     SqlIndicatorArtifactRepository,
 )
@@ -66,20 +67,6 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             )
 
     def _sync_run(self, job: IndicatorJob) -> None:
-        # Check for existing artifact with matching content hash
-        content_hash = compute_artifact_hash(
-            job.symbol,
-            job.source,
-            job.interval,
-            job.metadata.get("indicators", []),
-            job.timeframe_alias,
-            job.start_date,
-            job.end_date,
-        )
-        existing = self._try_reuse_artifact(job, content_hash)
-        if existing:
-            return
-
         _mark(self._manager, job, 5, "query_cached_prices", "Loading cached bars")
         bars = _load_cached_bars(job, self._session_factory)
         if not bars:
@@ -91,6 +78,14 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             return
         indicators, validation = self._resolve_indicators(job)
         if indicators is None:
+            return
+        # Content hash is deferred until after parsing so it can include
+        # mode, definition, resolved indicators, params, and features —
+        # preventing reuse of an unrelated artifact that merely shares
+        # symbol/source/interval/date.
+        content_hash = self._compute_content_hash(job, indicators, validation)
+        existing = self._try_reuse_artifact(job, content_hash)
+        if existing:
             return
         result = self._apply_indicators(job, bars, indicators)
         if result is None:
@@ -164,10 +159,11 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         job: IndicatorJob,
         bars: list[dict],
         indicators: list[str],
-    ) -> list[dict] | None:
+    ) -> tuple[list[dict], Any] | None:
         if not indicators:
             self._manager.update(job, indicators_applied=[])
-            return bars
+            frame = self._converter.bars_to_frame(bars)
+            return bars, frame
         _mark(
             self._manager,
             job,
@@ -184,6 +180,35 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             return None
         self._manager.update(job, indicators_applied=list(indicators))
         return result, enriched
+
+    def _compute_content_hash(
+        self, job: IndicatorJob, indicators: list[str], validation
+    ) -> str:
+        """Return a content hash that includes all job inputs.
+
+        Previous hash omitted mode, definition, resolved indicators, params,
+        and features, allowing a strategy_required job to reuse an unrelated
+        artifact.
+        """
+        payload = {
+            "symbol": job.symbol.upper(),
+            "source": job.source,
+            "interval": job.interval,
+            "mode": job.mode,
+            "indicators": sorted(indicators),
+            "timeframe_alias": job.timeframe_alias,
+            "start_date": job.start_date,
+            "end_date": job.end_date,
+            "definition": job.metadata.get("definition"),
+            "params": dict(job.metadata.get("params", {})),
+        }
+        if validation is not None and validation.definition is not None:
+            features = [
+                f.name for f in (validation.definition.features or [])
+            ]
+            payload["features"] = sorted(features)
+        data = json.dumps(payload, sort_keys=True, default=str)
+        return hashlib.sha256(data.encode()).hexdigest()
 
     def _try_reuse_artifact(self, job: IndicatorJob, content_hash: str) -> bool:
         """Return True and mark job completed if an artifact with the same
@@ -240,7 +265,7 @@ def _apply_features(
         job,
         features_applied=[feature.name for feature in validation.definition.features],
     )
-    return result
+    return result, enriched
 
 
 def _load_cached_bars(

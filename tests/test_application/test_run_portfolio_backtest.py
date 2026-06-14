@@ -192,17 +192,17 @@ class TestHelperFunctions:
         ]
         result = _compute_returns(eq)
         assert len(result) == 2
-        assert result[0] == pytest.approx(0.1)
-        assert result[1] == pytest.approx(0.1)
+        assert result["D2"] == pytest.approx(0.1)
+        assert result["D3"] == pytest.approx(0.1)
 
     def test_correlation_identical_series(self):
-        r1 = [0.01, 0.02, -0.01, 0.03]
-        r2 = [0.01, 0.02, -0.01, 0.03]
+        r1 = {"D2": 0.01, "D3": 0.02, "D4": -0.01, "D5": 0.03}
+        r2 = {"D2": 0.01, "D3": 0.02, "D4": -0.01, "D5": 0.03}
         m = _correlation_matrix([r1, r2])
         assert m[0][1] == pytest.approx(1.0)
 
     def test_correlation_one_series(self):
-        r1 = [0.01, 0.02]
+        r1 = {"D2": 0.01, "D3": 0.02}
         m = _correlation_matrix([r1])
         assert m == [[1.0]]
 

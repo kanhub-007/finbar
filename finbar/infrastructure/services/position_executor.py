@@ -56,7 +56,6 @@ class PositionExecutor:
         """
         if self._full_margin:
             self._margin = MarginAccountManager(self._config, initial_cash)
-            self._margin.sync_state_equity(None)  # pending first sync in loop
 
     def sync_margin_equity(self, state: BacktestLoopState) -> None:
         """Sync BacktestLoopState.cash to margin account equity.

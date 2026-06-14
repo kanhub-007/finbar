@@ -165,7 +165,7 @@ class YFinanceStockFetcher(StockDataFetcher):
         timestamps = pd.to_datetime(df[timestamp_col])
         if timestamps.dt.tz is not None:
             timestamps = timestamps.dt.tz_convert("UTC")
-        df["timestamp_utc"] = timestamps.dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+        df["timestamp_utc"] = timestamps.dt.strftime("%Y-%m-%dT%H:%M:%S.%f")
 
         bars: list[PriceBar] = []
         for _, row in df.iterrows():

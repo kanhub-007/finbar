@@ -35,9 +35,10 @@ def validate_bar(
     Returns:
         True if the bar is valid, False if it should be dropped.
     """
-    if high < low:
+    if high < low or high <= 0 or low <= 0:
         logger.warning(
-            "Invalid bar dropped for %s at %s: high (%s) < low (%s)",
+            "Invalid bar dropped for %s at %s: invalid range "
+            "(high=%s, low=%s)",
             symbol,
             timestamp,
             high,
@@ -51,6 +52,18 @@ def validate_bar(
             symbol,
             timestamp,
             open_price,
+            close,
+        )
+        return False
+    if high < open_price or high < close or low > open_price or low > close:
+        logger.warning(
+            "Invalid bar dropped for %s at %s: OHLC enclosure "
+            "(open=%s, high=%s, low=%s, close=%s)",
+            symbol,
+            timestamp,
+            open_price,
+            high,
+            low,
             close,
         )
         return False

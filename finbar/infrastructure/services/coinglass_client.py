@@ -280,7 +280,7 @@ def _parse_funding(
             symbol=symbol,
             timestamp=_parse_ts(item),
             interval=interval,
-            funding_rate=of(item.get("close") or item.get("fundingRate")),
+            funding_rate=of(_first_not_none(item, "close", "fundingRate")),
         )
         for item in raw
     ]
@@ -293,7 +293,7 @@ def _parse_cvd(raw: list[dict], symbol: str, interval: str) -> list[DerivativesM
             symbol=symbol,
             timestamp=_parse_ts(item),
             interval=interval,
-            cumulative_volume_delta=of(item.get("close") or item.get("cvd")),
+            cumulative_volume_delta=of(_first_not_none(item, "close", "cvd")),
         )
         for item in raw
     ]
@@ -306,7 +306,7 @@ def _parse_oi(raw: list[dict], symbol: str, interval: str) -> list[DerivativesMe
             symbol=symbol,
             timestamp=_parse_ts(item),
             interval=interval,
-            open_interest=of(item.get("close") or item.get("openInterest")),
+            open_interest=of(_first_not_none(item, "close", "openInterest")),
         )
         for item in raw
     ]
@@ -327,3 +327,16 @@ def _opt_float(value: Any) -> float | None:
         return float(value)
     except (ValueError, TypeError):
         return None
+
+
+def _first_not_none(item: dict, *keys: str) -> Any:
+    """Return the first non-None value from a sequence of dict keys.
+
+    Unlike ``item.get(k1) or item.get(k2)``, this does NOT treat numeric
+    zero as missing, so a valid funding rate / CVD / OI of 0.0 is preserved.
+    """
+    for k in keys:
+        v = item.get(k)
+        if v is not None:
+            return v
+    return None

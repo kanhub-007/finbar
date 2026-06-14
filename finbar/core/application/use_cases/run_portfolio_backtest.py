@@ -43,7 +43,7 @@ class RunPortfolioBacktestUseCase:
 
         per_asset: dict = {}
         equity_curves: dict[str, list[dict]] = {}
-        all_returns: dict[str, list[float]] = {}
+        all_returns: dict[str, dict[str, float]] = {}
         errors: list[str] = []
 
         for asset in request.assets:
@@ -116,18 +116,19 @@ class RunPortfolioBacktestUseCase:
         )
 
 
-def _compute_returns(eq: list[dict]) -> list[float]:
-    """Compute bar-to-bar returns from an equity curve."""
-    if len(eq) < 2:
-        return []
-    returns = []
+def _compute_returns(eq: list[dict]) -> dict[str, float]:
+    """Compute bar-to-bar returns from an equity curve, keyed by date.
+
+    Date keys enable correct per-date alignment across assets with
+    different bar calendars — avoids correlating the wrong bars together.
+    """
+    returns: dict[str, float] = {}
     for i in range(1, len(eq)):
         prev = eq[i - 1].get("value", 0)
         curr = eq[i].get("value", 0)
-        if prev > 0:
-            returns.append((curr - prev) / prev)
-        else:
-            returns.append(0.0)
+        d = str(eq[i].get("date", ""))
+        if prev > 0 and d:
+            returns[d] = (curr - prev) / prev
     return returns
 
 
@@ -220,8 +221,15 @@ def _value_at(eq: list[dict], date: str) -> float:
     return prev
 
 
-def _correlation_matrix(returns_list: list[list[float]]) -> list[list[float]]:
-    """Compute pairwise Pearson correlation between return series."""
+def _correlation_matrix(
+    returns_list: list[dict[str, float]],
+) -> list[list[float]]:
+    """Compute pairwise Pearson correlation between return series.
+
+    Each series is a date→return mapping. Only dates present in both
+    series are compared, so assets with mismatched calendars are
+    aligned correctly.
+    """
     n = len(returns_list)
     if n < 2:
         return [[1.0]]
@@ -233,6 +241,20 @@ def _correlation_matrix(returns_list: list[list[float]]) -> list[list[float]]:
             if i == j:
                 row.append(1.0)
             else:
-                row.append(_pearson(returns_list[i], returns_list[j]))
+                row.append(
+                    _date_aligned_pearson(returns_list[i], returns_list[j])
+                )
         matrix.append(row)
     return matrix
+
+
+def _date_aligned_pearson(
+    xs: dict[str, float], ys: dict[str, float]
+) -> float:
+    """Pearson correlation on the intersection of date keys."""
+    common = sorted(set(xs) & set(ys))
+    if len(common) < 2:
+        return 0.0
+    xv = [xs[d] for d in common]
+    yv = [ys[d] for d in common]
+    return _pearson(xv, yv)

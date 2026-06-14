@@ -49,6 +49,10 @@ class GridSearchOptimizer(OptimizationJobRunner):
         except asyncio.CancelledError:
             self._manager.update(job, status="cancelled", error="Cancelled by user")
             raise
+        except Exception as exc:
+            self._manager.update(
+                job, status="failed", error=f"Optimization failed: {exc}"
+            )
 
     def _sync_run(self, job: OptimizationJob) -> None:
         ranges = _parse_ranges(job.metadata.get("param_ranges", {}))
@@ -247,10 +251,15 @@ def _parse_ranges(raw: dict) -> dict[str, ParamRange]:
     ranges: dict[str, ParamRange] = {}
     for name, spec in raw.items():
         if isinstance(spec, dict):
+            step = float(spec.get("step", 1))
+            if step <= 0:
+                raise ValueError(
+                    f"ParamRange step for '{name}' must be positive, got {step}"
+                )
             ranges[name] = ParamRange(
                 min=float(spec.get("min", 0)),
                 max=float(spec.get("max", 0)),
-                step=float(spec.get("step", 1)),
+                step=step,
             )
     return ranges
 

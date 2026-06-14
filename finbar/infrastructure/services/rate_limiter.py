@@ -48,9 +48,13 @@ class YahooFinanceRateLimiter:
         request recording stay atomic under the lock.
         """
         # --- Backoff phase: read the deadline, release the lock, sleep. ---
-        with self._lock:
-            backoff_remaining = self._backoff_until - time.time()
-        if backoff_remaining > 0:
+        # Loop/re-check so that if another thread extends the deadline
+        # while we sleep, we do NOT proceed before the new deadline.
+        while True:
+            with self._lock:
+                backoff_remaining = self._backoff_until - time.time()
+            if backoff_remaining <= 0:
+                break
             logger.debug("Rate limit backoff: sleeping %.1fs", backoff_remaining)
             time.sleep(backoff_remaining)
 
