@@ -20,6 +20,7 @@ class SqlIndicatorArtifactRepository:
     def __init__(self, db: Session):
         """Create the repository with a database session."""
         self._db = db
+        self._bars_cache: dict[str, list[dict]] = {}
 
     def save(self, job: IndicatorJob, bars: list[dict], content_hash: str = "") -> None:
         """Upsert an indicator artifact."""
@@ -61,11 +62,21 @@ class SqlIndicatorArtifactRepository:
         self._db.commit()
 
     def get_bars(self, job_id: str) -> list[dict] | None:
-        """Return all enriched bars for a job, or None if missing."""
+        """Return all enriched bars for a job, or None if missing.
+
+        Deserialized bars are cached per repository instance so that
+        repeated page requests for the same artifact avoid re-parsing the
+        full JSON blob.
+        """
+        cached = self._bars_cache.get(job_id)
+        if cached is not None:
+            return cached
         orm = self._get_orm(job_id)
         if orm is None:
             return None
-        return _loads_bars(orm.bars_json)
+        bars = _loads_bars(orm.bars_json)
+        self._bars_cache[job_id] = bars
+        return bars
 
     def get_metadata(self, job_id: str) -> IndicatorJob | None:
         """Return minimal job metadata from SQLite, or None if missing."""
