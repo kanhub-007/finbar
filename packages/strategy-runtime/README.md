@@ -1,8 +1,8 @@
-# finbar-strategy-runtime
+# strategy-runtime
 
 > Strategy definition parser, condition evaluator, risk calculator, and
-> technical indicator engine — shared between Finbar (authoring/backtesting)
-> and Finbot (live trading).
+> technical indicator engine — a reusable runtime for JSON/YAML trading
+> strategy definitions.
 
 [![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue)](https://www.python.org/)
 [![Schema](https://img.shields.io/badge/strategy_schema-2.0-green)](#strategy-schema-version)
@@ -11,9 +11,8 @@
 
 ## Overview
 
-`finbar-strategy-runtime` is the canonical runtime for Finbar JSON/YAML strategy
-definitions. It handles the full lifecycle of a strategy from parsing through
-signal generation:
+`strategy-runtime` provides a complete pipeline for executing rule-based trading
+strategies defined in JSON or YAML:
 
 ```
 YAML/JSON definition  ──►  Parser  ──►  StrategyDefinition
@@ -30,10 +29,11 @@ YAML/JSON definition  ──►  Parser  ──►  StrategyDefinition
               Risk Calculator  ──►  Stop-loss & take-profit prices
 ```
 
-The package **stops at signal generation**. It never submits orders, fetches
-data from exchanges, writes to databases, or starts servers. Both Finbar
-(backtesting) and Finbot (live execution) consume the same runtime, guaranteeing
-**identical strategy behaviour** across historical and live environments.
+The package is **application-agnostic**: it parses strategies, enriches market
+data with technical indicators, evaluates condition trees, and computes risk
+prices — then stops. It does not fetch data, submit orders, persist to
+databases, or start servers. Use it as the runtime engine inside a backtester,
+a live trading bot, a strategy validator, or an analytics dashboard.
 
 ---
 
@@ -41,16 +41,23 @@ data from exchanges, writes to databases, or starts servers. Both Finbar
 
 ```bash
 # Core package (parser + evaluator, no data-science deps)
-pip install finbar-strategy-runtime
+pip install strategy-runtime
+
+# From a local path (no PyPI upload needed)
+pip install /absolute/path/to/packages/strategy-runtime
+pip install -e /absolute/path/to/packages/strategy-runtime   # editable
+
+# In pyproject.toml of a consuming project:
+# "strategy-runtime @ file:///../packages/strategy-runtime"
 
 # With YAML support
-pip install finbar-strategy-runtime[yaml]
+pip install strategy-runtime[yaml]
 
 # Full install (indicators, pandas, numpy)
-pip install finbar-strategy-runtime[pandas,yaml]
+pip install strategy-runtime[pandas,yaml]
 
 # Development
-pip install finbar-strategy-runtime[dev]
+pip install strategy-runtime[dev]
 ```
 
 ### Python version
@@ -63,11 +70,11 @@ Requires **Python ≥ 3.12**. The `[pandas]` extra additionally requires
 ## Package structure
 
 ```
-finbar_strategy_runtime/
+strategy_runtime/
 ├── domain/
 │   ├── entities/          # 25 pure dataclasses/enums — no framework deps
 │   ├── interfaces/        # 12 ABCs — contracts for DI
-│   └── services/          # Pure math functions (numpy/pandas, no IO)
+│   └── services/          # Pure math functions (numpy/pandas, no I/O)
 ├── parser/                # YAML/JSON loader, validators, serializers
 ├── evaluation/            # Condition evaluator, rule-based strategy, risk calc
 └── indicators/            # Pandas-backed indicator calculator [pandas extra]
@@ -80,7 +87,7 @@ finbar_strategy_runtime/
 ### Parse a strategy
 
 ```python
-from finbar_strategy_runtime.parser.strategy_definition_parser import (
+from strategy_runtime.parser.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 
@@ -114,7 +121,7 @@ sides:
 
 if result.valid:
     print(f"Strategy: {result.definition.name}")
-    print(f"Indicators: {result.required_indicators}")
+    print(f"Required indicators: {result.required_indicators}")
 else:
     for err in result.errors:
         print(f"  {err.path}: {err.message}")
@@ -124,34 +131,35 @@ else:
 
 ```python
 import pandas as pd
-from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+from strategy_runtime.indicators.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
 
 calc = PandasTaIndicatorCalculator()
-df = pd.DataFrame(...)  # OHLCV bars
+df = pd.DataFrame(...)  # OHLCV bars with datetime index
 
 enriched = calc.calculate(df, ["rsi_14", "sma_20", "sma_50", "atr"])
 # enriched now has columns: open, high, low, close, volume,
 #   rsi_14, sma_20, sma_50, atr
 ```
 
-### Evaluate a strategy
+### Evaluate a strategy against market data
 
 ```python
-from finbar_strategy_runtime.evaluation.json_rule_based_strategy import (
+from strategy_runtime.evaluation.json_rule_based_strategy import (
     JsonRuleBasedStrategy,
 )
 
-# definition from parser result
+# definition comes from the parser result above
 strategy = JsonRuleBasedStrategy(result.definition)
 
 # Feed bars one at a time; crossover state persists across calls
 for bar in enriched_bars:
     signal = strategy.on_bar(bar, position)
-    print(f"Action: {signal.action}, Stop: {signal.stop_price}")
+    print(f"Action: {signal.action}, Direction: {signal.direction}")
+    print(f"  Stop: {signal.stop_price}, Target: {signal.target_price}")
 
-# Reset state between backtest runs
+# Reset state between independent runs
 strategy.on_reset()
 ```
 
@@ -163,13 +171,13 @@ strategy.on_reset()
 
 | Entity | Description |
 |--------|-------------|
-| `StrategyDefinition` | Root parsed strategy — name, parameters, indicators, features, risk, sides, metadata |
-| `StrategyParameter` | Typed runtime parameter with min/max bounds |
+| `StrategyDefinition` | Root parsed strategy — name, parameters, indicators, features, risk, sides |
+| `StrategyParameter` | Typed runtime parameter with min/max bounds and default value |
 | `IndicatorSpec` | Declares one indicator column (name, type, period, timeframe) |
 | `FeatureSpec` | Derived feature declaration (source, window, shift, expression) |
 | `FormulaNode` | Expression AST for formula-based features |
 | `RiskSpec` | Risk settings — stop-loss type, take-profit type, multipliers, ratios |
-| `TimeframeDeclaration` | Primary interval + up to 3 informative timeframes |
+| `TimeframeDeclaration` | Primary interval + up to 3 informative timeframes with aliases |
 | `SideRules` | Entry/exit condition trees for long/short sides |
 | `ConditionGroup` | Nested boolean tree node (all / any / not / condition) |
 | `Condition` | Atomic comparison — left operand, operator, right operand |
@@ -196,22 +204,21 @@ strategy.on_reset()
 ## Strategy Schema (v2.0)
 
 The strategy schema version is `"2.0"`. This is a **strategy contract version**,
-separate from the package semver. The package may release bug fixes (0.1.x →
-0.2.x) without changing the schema. Schema version bumps indicate breaking
-changes to the strategy format.
+separate from the package semver. Bug-fix releases do not require a schema bump.
+Breaking changes to the strategy format require a schema version increment.
 
 ### Supported schema features
 
 | Feature | Support |
 |---------|---------|
 | **Parameters** | int, float, bool, string with type-checking, min/max bounds, defaults, overrides |
-| **Indicators** | Fixed-period (sma_20, rsi_14), dynamic-period (sma_37, rsi_21), parameterized names via `{{ param }}` |
+| **Indicators** | Fixed-period (sma_20, rsi_14), dynamic-period (sma_37, rsi_21), parameterized via `{{ param }}` |
 | **Features** | Rolling max/min, momentum, rate-of-change, z-score, percent-rank, formula-based |
 | **Timeframes** | Primary + up to 3 informative timeframes with aliases (e.g., `daily`, `4h`) |
 | **Sides** | long, short — each with entry and exit condition trees |
 | **Risk** | ATR stop, fixed-percentage stop, risk/reward take-profit, ATR take-profit |
 | **Operators** | `<`, `>`, `<=`, `>=`, `==`, `!=`, `between`, `not_between`, `is_true`, `is_false`, `exists`, `missing`, `crosses_above`, `crosses_below` |
-| **Groups** | `all`, `any`, `not` — arbitrary nesting |
+| **Groups** | `all`, `any`, `not` — arbitrary nesting depth |
 | **Operand sources** | Primary + fallback chain — resolves the first non-None, non-NaN bar value |
 
 ### Validation & limits
@@ -233,7 +240,8 @@ The parser enforces:
 ## Indicators catalog
 
 The `[pandas]` extra provides `PandasTaIndicatorCalculator`, which computes
-all supported indicators on OHLCV DataFrames. Indicators are grouped by theory:
+all supported indicators on OHLCV DataFrames. Indicators are grouped by
+trading theory:
 
 ### Momentum & trend
 
@@ -249,7 +257,7 @@ all supported indicators on OHLCV DataFrames. Indicators are grouped by theory:
 | `ker` | KAMA Efficiency Ratio (10) | — |
 | `kama` | Kaufman Adaptive MA (10) | — |
 
-### Trend classification (compound)
+### Trend classification (compound indicators)
 
 | Indicator | Requires | Output |
 |-----------|----------|--------|
@@ -306,8 +314,8 @@ all supported indicators on OHLCV DataFrames. Indicators are grouped by theory:
 | `rejection_from_value` | bool | Price touches VA edge and reverses out |
 | `value_area_breakout` | bool | Price breaks through VA edge with conviction |
 | `excess` | bool | Price spikes far beyond VA (potential exhaustion) |
-| `responsive_buying` | bool | Absorption at VAL (aggressive selling met by passive buying) |
-| `responsive_selling` | bool | Absorption at VAH (aggressive buying met by passive selling) |
+| `responsive_buying` | bool | Absorption at VAL — aggressive selling met by passive buying |
+| `responsive_selling` | bool | Absorption at VAH — aggressive buying met by passive selling |
 | `initiative_buying` | bool | Breakout above VAH with follow-through |
 | `initiative_selling` | bool | Breakdown below VAL with follow-through |
 
@@ -384,10 +392,10 @@ all supported indicators on OHLCV DataFrames. Indicators are grouped by theory:
 |-----------|-------------|
 | `proxy_ibs` | Internal Bar Strength (close − low) / (high − low) |
 | `proxy_rvol` | Relative Volume — volume / SMA(volume, 20) |
-| `proxy_parkinson` | Parkinson volatility estimator from daily range |
+| `proxy_parkinson` | Parkinson volatility estimator (daily range) |
 | `proxy_garman_klass` | Garman-Klass volatility estimator (OHLC) |
 | `proxy_rogers_satchell` | Rogers-Satchell volatility (drift-robust) |
-| `proxy_yang_zhang` | Yang-Zhang volatility (overnight-aware) |
+| `proxy_yang_zhang` | Yang-Zhang volatility (overnight-aware, up to 14x efficiency vs close-to-close) |
 | `proxy_typical_price` | (H + L + C) / 3 — VWAP proxy |
 | `proxy_ohlc4` | (O + H + L + C) / 4 |
 | `proxy_atr` | Wilder RMA ATR from OHLC |
@@ -398,7 +406,7 @@ all supported indicators on OHLCV DataFrames. Indicators are grouped by theory:
 
 ### Dynamic period indicators
 
-Any supported base indicator can be parameterized:
+Any supported base indicator can be parameterized with an arbitrary period:
 
 ```
 sma_37    → SMA with period 37
@@ -414,31 +422,30 @@ Period ranges are validated against the catalog (e.g., SMA: 2–200, RSI: 2–10
 
 ## Statefulness contract
 
-The package has two kinds of components. Both Finbar (batch backtesting) and
-Finbot (incremental live execution) must respect these rules:
+The package has two kinds of components with different state management rules:
 
 | Component | Stateful? | Who owns state? | Rules |
 |-----------|-----------|-----------------|-------|
-| `TradingStrategy` | **Yes** | The strategy instance | Holds crossover tracking for `crosses_above`/`crosses_below`. Call `on_reset()` before each backtest run or on session restart. |
-| `ConditionEvaluator` | **Yes** | Held inside `JsonRuleBasedStrategy` | Crossover state committed per-bar. Never shared across strategies. |
+| `TradingStrategy` | **Yes** | The strategy instance | Holds crossover tracking for `crosses_above`/`crosses_below`. Call `on_reset()` before each independent run. |
+| `ConditionEvaluator` | **Yes** | Held inside `JsonRuleBasedStrategy` | Crossover state committed per-bar. Never share across strategy instances. |
 | `IndicatorCalculator` | **No** | Stateless | Recomputes all columns from a full DataFrame each call. Pass the full bar window, not just the latest bar. |
 | `RiskPriceCalculator` | **No** | Stateless | Pure function: RiskSpec + bar + side → (stop, target). |
 | `StrategyDefinitionParser` | **No** | Stateless | Pure function: text → StrategyValidationResult. |
 
-### Batch usage (Finbar backtesting)
+### Batch usage (backtesting)
 
 ```python
-strategy = factory.create(definition)        # one instance per backtest run
+strategy = factory.create(definition)        # one instance per run
 strategy.on_reset()                          # clear crossover state
-enriched = calculator.calculate(df, indicators)  # enrich once
-for bar in enriched.iter_dicts():            # iterate all bars
-    signal = strategy.on_bar(bar, position)  # state accumulates
+enriched = calculator.calculate(df, indicators)  # enrich all bars at once
+for bar in enriched.iter_dicts():            # iterate bars sequentially
+    signal = strategy.on_bar(bar, position)  # state accumulates across bars
 ```
 
-### Incremental usage (Finbot live trading)
+### Incremental usage (live / streaming)
 
 ```python
-strategy = factory.create(definition)        # one instance per symbol per session
+strategy = factory.create(definition)        # one instance per symbol
 # NEVER recreate mid-session, NEVER share across symbols
 for each closed candle:
     warmup_window.append(candle)
@@ -518,72 +525,79 @@ for each closed candle:
 
 ## Interfaces (for dependency injection)
 
-All concrete implementations implement domain interfaces (ABCs):
+All concrete implementations implement domain interfaces (ABCs), enabling
+callers to swap implementations without changing orchestration code:
 
-| Interface | Method | Implemented by |
-|-----------|--------|----------------|
-| `StrategyDefinitionParser` | `parse(text, overrides) → StrategyValidationResult` | `StrategyDefinitionParser` (parser) |
-| `TradingStrategy` | `on_bar(bar, position) → SignalResult` | `JsonRuleBasedStrategy` (evaluation) |
-| `RiskPriceCalculator` | `calculate(risk, bar, side) → (stop, target)` | `JsonRiskPriceCalculator` (evaluation) |
-| `IndicatorCalculator` | `calculate(frame, indicators) → frame` | `PandasTaIndicatorCalculator` (indicators) |
-| `IndicatorCapabilityProvider` | `resolve(type, period)`, `supports_concrete(name)` | `StrategyIndicatorCatalog` (parser) |
-| `ConditionTreeVisitor` | `visit_group(group)`, `visit_condition(condition)` | Serializer, Explainer, ColumnCollector |
+| Interface | Method | Concrete implementation |
+|-----------|--------|------------------------|
+| `StrategyDefinitionParser` | `parse(text, overrides) → StrategyValidationResult` | Parser (YAML/JSON) |
+| `TradingStrategy` | `on_bar(bar, position) → SignalResult` | Rule-based strategy |
+| `RiskPriceCalculator` | `calculate(risk, bar, side) → (stop, target)` | JSON risk calculator |
+| `IndicatorCalculator` | `calculate(frame, indicators) → frame` | Pandas-TA calculator |
+| `IndicatorCapabilityProvider` | `resolve(type, period)`, `supports_concrete(name)` | Indicator catalog |
+| `ConditionTreeVisitor` | `visit_group(group)`, `visit_condition(condition)` | Serializer, explainer, column collector |
 
-Use cases depend on these interfaces — never on concrete implementations.
-Concrete wiring happens in the composition root (startup layer).
-
----
-
-## What stays OUT of this package
-
-The package is deliberately limited to the runtime subset. These are explicitly
-**not** included:
-
-| Concern | Owned by |
-|---------|----------|
-| Data fetching (Yahoo Finance, Hyperliquid, CoinGlass) | Finbar / Finbot |
-| REST API / MCP tools / HTTP servers | Finbar |
-| SQL repositories / ORM tables | Finbar |
-| Backtest engine (fills, slippage, position sizing, equity curve) | Finbar |
-| Optimization (grid search, walk-forward) | Finbar |
-| Job managers (indicator jobs, optimization jobs) | Finbar |
-| Live order execution / exchange gateways | Finbot |
-| Risk gates / idempotency / dry-run logic | Finbot |
-| Portfolio construction / correlation / allocation | Finbar |
-| Annualization / rolling metrics | Finbar |
+Orchestration code should depend on these interfaces — never on concrete
+implementations. Wire concrete classes in a composition root or factory.
 
 ---
 
-## Architecture
+## What this package does NOT do
 
-Dependencies flow **Finbar → package** and **Finbot → package**. The package
-has zero dependencies on Finbar or Finbot:
+The package is deliberately limited to the runtime subset:
 
-```
-┌──────────┐     ┌──────────┐
-│  Finbar  │     │  Finbot  │
-│ (author) │     │  (live)  │
-└────┬─────┘     └────┬─────┘
-     │                │
-     └───────┬────────┘
-             ▼
-  ┌──────────────────────┐
-  │ finbar-strategy-     │
-  │ runtime              │
-  │                      │
-  │  • Parser            │
-  │  • Evaluator         │
-  │  • Risk Calculator   │
-  │  • Indicator Engine  │
-  │  • Domain Entities   │
-  └──────────────────────┘
-```
+| Concern | Not included — add in your application |
+|---------|---------------------------------------|
+| Data fetching (exchange APIs, web scrapers) | Build your own fetcher |
+| REST API / HTTP servers | Add FastAPI, Flask, or similar |
+| SQL repositories / ORM tables | Add SQLAlchemy or your preferred ORM |
+| Backtest engine (fills, slippage, position sizing, equity curves) | Implement in your backtester |
+| Optimization (grid search, walk-forward) | Implement in your optimizer |
+| Job managers / async queues | Add Celery, RQ, or asyncio |
+| Live order execution / exchange gateways | Implement in your trading bot |
+| Portfolio construction / correlation / allocation | Add your allocation logic |
 
-**Forbidden dependencies:** FastAPI, FastMCP, SQLAlchemy, yfinance,
-Hyperliquid SDK, CoinGlass clients, `finbar.*`, `finbot.*`.
+**Forbidden dependencies:** FastAPI, FastMCP, SQLAlchemy, HTTP clients,
+exchange SDKs, or any application-specific packages.
 
 **Allowed dependencies:** stdlib, `typing`, `dataclasses`, optional `numpy`,
 optional `pandas`, optional `pandas-ta`, optional `pyyaml`.
+
+---
+
+## Installing without PyPI
+
+You do **not** need to publish this package to PyPI. Consuming applications
+can install it directly from a local path:
+
+```bash
+# Direct install
+pip install /path/to/packages/strategy-runtime
+
+# Editable install (changes to the package are reflected immediately)
+pip install -e /path/to/packages/strategy-runtime
+
+# With extras
+pip install /path/to/packages/strategy-runtime[pandas,yaml]
+```
+
+In a consuming project's `pyproject.toml`:
+
+```toml
+[project]
+dependencies = [
+    "strategy-runtime @ file:///../packages/strategy-runtime",
+]
+```
+
+Or in `requirements.txt`:
+
+```
+strategy-runtime @ file:///path/to/packages/strategy-runtime#egg=strategy-runtime
+```
+
+This works across machines as long as the relative path is consistent (e.g.,
+both projects live in the same monorepo).
 
 ---
 
