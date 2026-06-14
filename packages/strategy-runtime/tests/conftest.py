@@ -1,0 +1,1 @@
+"""Pytest configuration for finbar-strategy-runtime contract tests."""

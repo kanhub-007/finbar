@@ -1,0 +1,36 @@
+[project]
+name = "finbar-strategy-runtime"
+version = "0.1.0"
+description = "Finbar strategy runtime — parser, evaluator, indicator calculator for strategy definitions"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+pandas = ["numpy>=1.26.0", "pandas>=2.0.0", "pandas-ta>=0.3.14"]
+yaml = ["pyyaml>=6.0.0"]
+dev = ["pytest>=8.0.0", "ruff>=0.6.0", "black>=24.0.0", "build>=1.2.0"]
+
+[project.urls]
+Repository = "https://github.com/..."
+
+[build-system]
+requires = ["setuptools>=75.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
