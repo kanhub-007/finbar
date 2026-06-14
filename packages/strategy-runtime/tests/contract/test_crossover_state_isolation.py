@@ -10,6 +10,7 @@ from finbar_strategy_runtime.domain.entities.condition import Condition
 from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
 from finbar_strategy_runtime.domain.entities.operand import Operand
 from finbar_strategy_runtime.evaluation.condition_evaluator import (
+    _CROSSOVER_OPERATORS,
     ConditionEvaluator,
 )
 
@@ -367,3 +368,157 @@ class TestRegressionParity:
             assert evaluator.evaluate(entry, {}, pv) is expected, (
                 f"Operator {op} failed: {left} {op} {right}"
             )
+
+
+# ---------------------------------------------------------------------------
+# Slice 2 Scenario 5: Short-circuit avoids unnecessary evaluations
+# ---------------------------------------------------------------------------
+
+
+class CountingEvaluator(ConditionEvaluator):
+    """Test double that counts how many boolean (non-crossover) conditions
+    are evaluated in pass 2.  This is a *fake* (not a mock) — the counter is
+    observable state, not an interaction assertion."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.boolean_count: int = 0
+
+    def _evaluate_condition(
+        self,
+        condition: Condition,
+        bar: dict,
+        previous_values: dict,
+        pending_values: dict,
+    ) -> bool:
+        # Count only non-crossover evaluations (crossovers are handled
+        # in pass 1; their boolean check in pass 2 is idempotent).
+        if condition.operator not in _CROSSOVER_OPERATORS:
+            self.boolean_count += 1
+        return super()._evaluate_condition(
+            condition, bar, previous_values, pending_values
+        )
+
+
+class TestShortCircuitAvoidsUnnecessaryEvaluations:
+    """Verify that short-circuit in pass 2 skips non-crossover children
+    once the group result is determined."""
+
+    def test_all_group_short_circuits_on_first_false(self):
+        """all: [close < 40, volume > 500, rsi < 30]
+        Bar: close=50 → first child False.  Second and third children
+        must NOT be evaluated."""
+        evaluator = CountingEvaluator()
+        pv: dict = {}
+
+        entry = _group(
+            "all",
+            _leaf(_cond("close", "<", 40)),
+            _leaf(_cond("volume", ">", 500)),
+            _leaf(_cond("rsi_14", "<", 30)),
+        )
+
+        bar = {"close": 50, "volume": 100, "rsi_14": 50}
+        result = evaluator.evaluate(entry, bar, pv)
+
+        assert result is False
+        # Only the first child should be evaluated; children 2 and 3 skipped
+        assert evaluator.boolean_count == 1, (
+            f"Expected 1 boolean eval, got {evaluator.boolean_count}"
+        )
+
+    def test_any_group_short_circuits_on_first_true(self):
+        """any: [close > 40, volume > 500, rsi < 30]
+        Bar: close=50 → first child True.  Children 2 and 3 must NOT
+        be evaluated."""
+        evaluator = CountingEvaluator()
+        pv: dict = {}
+
+        entry = _group(
+            "any",
+            _leaf(_cond("close", ">", 40)),
+            _leaf(_cond("volume", ">", 500)),
+            _leaf(_cond("rsi_14", "<", 30)),
+        )
+
+        bar = {"close": 50, "volume": 100, "rsi_14": 50}
+        result = evaluator.evaluate(entry, bar, pv)
+
+        assert result is True
+        assert evaluator.boolean_count == 1, (
+            f"Expected 1 boolean eval, got {evaluator.boolean_count}"
+        )
+
+    def test_all_group_no_short_circuit_when_all_pass(self):
+        """all: [close > 40, volume > 500, rsi < 30]
+        All children pass → all three must be evaluated."""
+        evaluator = CountingEvaluator()
+        pv: dict = {}
+
+        entry = _group(
+            "all",
+            _leaf(_cond("close", ">", 40)),
+            _leaf(_cond("volume", ">", 500)),
+            _leaf(_cond("rsi_14", "<", 30)),
+        )
+
+        bar = {"close": 50, "volume": 600, "rsi_14": 25}
+        result = evaluator.evaluate(entry, bar, pv)
+
+        assert result is True
+        assert evaluator.boolean_count == 3, (
+            f"Expected 3 boolean evals (all passed), got {evaluator.boolean_count}"
+        )
+
+    def test_mixed_group_crossover_always_evaluated_state(self):
+        """all: [close < 40, crosses_above(fast, slow), volume > 500]
+        Bar: close=50 → first child False → pass 2 short-circuits.
+        Crossover state must still be recorded (pass 1 visited it).
+        Non-crossover children after first False are NOT evaluated."""
+        evaluator = CountingEvaluator()
+        pv: dict = {}
+
+        entry = _group(
+            "all",
+            _leaf(_cond("close", "<", 40)),
+            _leaf(_cond("fast", "crosses_above", "slow")),
+            _leaf(_cond("volume", ">", 500)),
+        )
+
+        bar = {"close": 50, "fast": 10, "slow": 20, "volume": 100}
+        result = evaluator.evaluate(entry, bar, pv)
+
+        assert result is False
+        # Crossover state recorded by pass 1
+        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        # Only close<40 was evaluated in pass 2; crossover not counted
+        # (counted in pass 1), volume>500 short-circuited
+        assert evaluator.boolean_count == 1, (
+            f"Expected 1 boolean eval (close<40), got {evaluator.boolean_count}"
+        )
+
+    def test_mixed_group_crossover_at_position_one(self):
+        """all: [crosses_above(fast, slow), close < 40, volume > 500]
+        Crossover is first child.  Pass 1 records state.  Pass 2 evaluates
+        crossover (no previous → False) → short-circuits all."""
+        evaluator = CountingEvaluator()
+        pv: dict = {}
+
+        entry = _group(
+            "all",
+            _leaf(_cond("fast", "crosses_above", "slow")),
+            _leaf(_cond("close", "<", 40)),
+            _leaf(_cond("volume", ">", 500)),
+        )
+
+        bar = {"fast": 10, "slow": 20, "close": 50, "volume": 100}
+        result = evaluator.evaluate(entry, bar, pv)
+
+        assert result is False  # crossover False (no previous), all short-circuits
+        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        # Only crossover evaluated in pass 2 (close and volume were
+        # short-circuited).  Crossover is not counted as boolean.
+        assert evaluator.boolean_count == 0, (
+            f"Expected 0 boolean evals (crossover False → short-circuit),"
+            f" got {evaluator.boolean_count}"
+        )
