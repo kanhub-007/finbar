@@ -189,4 +189,4 @@ def _to_numeric_subset(
             parts[col] = frame[col].astype(float)
         else:
             parts[col] = pd.to_numeric(frame[col], errors="coerce")
-    return pd.DataFrame(parts)
+    return pd.DataFrame(parts, index=frame.index)

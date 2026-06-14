@@ -1,6 +1,7 @@
 """SqlBacktestResultRepository — SQLite-backed backtest result persistence."""
 
 import json
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -38,7 +39,7 @@ class SqlBacktestResultRepository:
                     start_date=str(result.get("start_date", "")),
                     end_date=str(result.get("end_date", "")),
                     result_json=result_json,
-                    created_at=str(result.get("start_date", "")),
+                    created_at=datetime.now(UTC).isoformat(),
                 )
             )
         self._db.commit()

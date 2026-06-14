@@ -251,7 +251,9 @@ def _apply_features(
     """Return (bars, frame) tuple. Frame is for hot-path caching."""
     if not _should_apply_features(job, validation):
         try:
-            frame = converter.bars_to_frame(bars) if base_frame is None else base_frame
+            if base_frame is not None:
+                return bars, base_frame
+            frame = converter.bars_to_frame(bars)
             return bars, frame
         except Exception:
             return bars, None

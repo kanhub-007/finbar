@@ -169,11 +169,21 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         test_start = _bar_timestamp(test_bars[0])
         test_end = _bar_timestamp(test_bars[-1])
 
-        # Pre-convert bars to frames once per fold — every parameter
-        # combination in the grid search and the OOS validation reuses
-        # the same bars, so converting them N times is wasteful.
-        train_frame = self._converter.bars_to_frame(train_bars)
-        test_frame = self._converter.bars_to_frame(test_bars)
+        try:
+            # Pre-convert bars to frames once per fold.
+            train_frame = self._converter.bars_to_frame(train_bars)
+            test_frame = self._converter.bars_to_frame(test_bars)
+        except Exception as exc:
+            return WalkForwardFold(
+                fold_index=fold_index,
+                train_start=train_start,
+                train_end=train_end,
+                test_start=test_start,
+                test_end=test_end,
+                train_bars=len(train_bars),
+                test_bars=len(test_bars),
+                error=str(exc),
+            )
 
         try:
             grid_result, sensitivity = self._run_grid_search(

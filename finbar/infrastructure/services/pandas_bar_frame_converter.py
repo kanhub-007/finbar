@@ -10,6 +10,10 @@ class PandasBarFrameConverter(BarFrameConverter):
 
     def bars_to_frame(self, bars: list[dict]) -> pd.DataFrame:
         """Convert list of OHLCV bar dicts to a DataFrame with datetime index."""
+        if isinstance(bars, pd.DataFrame):
+            raise TypeError(
+                "bars_to_frame expects a list of dicts, got DataFrame"
+            )
         df = pd.DataFrame(bars)
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(df["timestamp"])

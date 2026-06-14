@@ -110,7 +110,6 @@ class GridSearchOptimizer(OptimizationJobRunner):
                 primary_bars,
                 job.metadata,
                 base_frame,
-                needs_merge,
             )
             results.append(result)
 
@@ -183,7 +182,6 @@ class GridSearchOptimizer(OptimizationJobRunner):
         primary_bars: list[dict],
         metadata: dict,
         base_frame=None,
-        needs_merge: bool = False,
     ) -> OptimizationResult:
         try:
             validation = self._parser.parse(definition, params)
@@ -202,7 +200,7 @@ class GridSearchOptimizer(OptimizationJobRunner):
                     validation.definition.timeframes
                     and validation.definition.timeframes.has_informative()
                 ):
-                    bars = _merge_informative(
+                    frame = _merge_informative(
                         bars,
                         metadata,
                         validation,
@@ -210,7 +208,8 @@ class GridSearchOptimizer(OptimizationJobRunner):
                         self._converter,
                         self._timeframe_merger,
                     )
-                frame = self._converter.bars_to_frame(bars)
+                else:
+                    frame = self._converter.bars_to_frame(bars)
             else:
                 frame = base_frame
             if self._feature_calculator is not None and validation.definition.features:
