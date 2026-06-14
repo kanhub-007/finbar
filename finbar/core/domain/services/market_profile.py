@@ -240,7 +240,7 @@ def compute_all_session_market_profiles(
     result["mp_val"] = np.nan
 
     date_series = pd.Series(
-        pd.to_datetime(result.index).strftime("%Y-%m-%d"), index=result.index
+        result.index.date, index=result.index
     )
 
     for date, idx in date_series.groupby(date_series).groups.items():

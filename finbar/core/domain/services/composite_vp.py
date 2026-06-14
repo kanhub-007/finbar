@@ -56,7 +56,7 @@ def compute_composite_vp(
 
     # Group by calendar date
     date_series = pd.Series(
-        pd.to_datetime(result.index).strftime("%Y-%m-%d"), index=result.index
+        result.index.date, index=result.index
     )
 
     # Get ordered list of session dates

@@ -34,9 +34,7 @@ def compute_poc_slope(df: pd.DataFrame, window: int = 5) -> pd.Series:
     if "vp_poc" not in df.columns:
         return pd.Series(0.0, index=df.index)
 
-    date_series = pd.Series(
-        pd.to_datetime(df.index).strftime("%Y-%m-%d"), index=df.index
-    )
+    date_series = pd.Series(df.index.date, index=df.index)
     ordered_dates = sorted(date_series.unique())
 
     session_pocs: dict[str, float] = {}

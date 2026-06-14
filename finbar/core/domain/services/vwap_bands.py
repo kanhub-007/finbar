@@ -47,7 +47,7 @@ def compute_vwap_session_bands(df: pd.DataFrame) -> pd.DataFrame:
 
     # Group by calendar date for session-scoped computation
     date_series = pd.Series(
-        pd.to_datetime(result.index).strftime("%Y-%m-%d"), index=result.index
+        result.index.date, index=result.index
     )
 
     for _date, group_idx in date_series.groupby(date_series).groups.items():

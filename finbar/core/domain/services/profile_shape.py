@@ -102,7 +102,7 @@ def classify_all_profile_shapes(
     result["profile_shape"] = "NEUTRAL"
 
     date_series = pd.Series(
-        pd.to_datetime(result.index).strftime("%Y-%m-%d"), index=result.index
+        result.index.date, index=result.index
     )
     ordered_dates = sorted(date_series.unique())
 

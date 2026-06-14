@@ -604,7 +604,7 @@ def _compute_true_ib(df: pd.DataFrame, ib_bars: int) -> None:
         return
     df.attrs["ib_cache"] = True
 
-    date_series = pd.to_datetime(df.index).strftime("%Y-%m-%d")
+    date_series = pd.Series(df.index.date, index=df.index)
 
     ib_highs: dict[str, float] = {}
     ib_lows: dict[str, float] = {}

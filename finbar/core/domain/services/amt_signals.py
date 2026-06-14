@@ -198,7 +198,7 @@ def _value_area_migration(df: pd.DataFrame) -> pd.Series:
 
     # Detect session changes via date boundary (robust, not POC comparison)
     date_series = pd.Series(
-        pd.to_datetime(df.index).strftime("%Y-%m-%d"), index=df.index
+        df.index.date, index=df.index
     )
     session_change = date_series != date_series.shift(1)
 

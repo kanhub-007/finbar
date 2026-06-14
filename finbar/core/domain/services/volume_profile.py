@@ -246,7 +246,7 @@ def compute_all_session_volume_profiles(
     result["vp_val"] = np.nan
 
     date_series = pd.Series(
-        pd.to_datetime(result.index).strftime("%Y-%m-%d"), index=result.index
+        pd.Series(result.index.date, index=result.index)
     )
 
     for date, idx in date_series.groupby(date_series).groups.items():
@@ -299,7 +299,7 @@ def compute_rolling_vp(
         return result
 
     date_series = pd.Series(
-        pd.to_datetime(result.index).strftime("%Y-%m-%d"),
+        result.index.date,
         index=result.index,
     )
 
