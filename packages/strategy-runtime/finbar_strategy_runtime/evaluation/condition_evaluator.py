@@ -85,7 +85,7 @@ class ConditionEvaluator:
         if group.kind in ("all", "any"):
             for child in group.children:
                 self._collect_state(child, bar, pending_values)
-        elif group.kind == "not":
+        elif group.kind == "not" and group.children:
             self._collect_state(group.children[0], bar, pending_values)
         elif group.kind == "condition" and group.condition is not None:
             self._collect_crossover(group.condition, bar, pending_values)
@@ -135,7 +135,7 @@ class ConditionEvaluator:
                 for child in group.children
             )
             return all(results) if group.kind == "all" else any(results)
-        if group.kind == "not":
+        if group.kind == "not" and group.children:
             return not self._evaluate_bool(
                 group.children[0], bar, previous_values, pending_values
             )

@@ -1351,18 +1351,21 @@ _DYNAMIC_PREFIXES: dict[str, tuple[Callable, str]] = {
 
 def _resolve_dynamic(
     name: str,
-) -> tuple[Callable, str, int] | None:
+) -> tuple[Callable, str, int, str] | None:
     """Try to resolve a dynamic indicator name like sma_37.
 
-    Returns (func, source_col, period) or None.
+    Returns (func, source_col, period, prefix) or None.
+    The prefix is the matched key without trailing underscore (e.g. 'bb_upper').
     """
-    for prefix, (func, source_col) in _DYNAMIC_PREFIXES.items():
-        if name.startswith(prefix):
-            period_str = name[len(prefix):]
+    for prefix_key, (func, source_col) in _DYNAMIC_PREFIXES.items():
+        if name.startswith(prefix_key):
+            period_str = name[len(prefix_key):]
             if period_str.isdigit():
                 period = int(period_str)
                 if period >= 2:
-                    return func, source_col, period
+                    # Strip trailing underscore from prefix key
+                    prefix = prefix_key[:-1]
+                    return func, source_col, period, prefix
             return None
     return None
 
@@ -1378,7 +1381,7 @@ def _compute_dynamic(df: pd.DataFrame, name: str) -> pd.DataFrame:
     if resolved is None:
         return df
 
-    func, source_col, period = resolved
+    func, source_col, period, prefix = resolved
     if source_col == "hlc":
         result = func(df["high"], df["low"], df["close"], length=period)
         if result is None:
@@ -1387,13 +1390,13 @@ def _compute_dynamic(df: pd.DataFrame, name: str) -> pd.DataFrame:
             df[name] = result
         else:
             # ta.adx returns a DataFrame — extract the named column
-            col = f"{name.split('_')[0].upper()}_{period}"
+            col = f"{prefix.upper()}_{period}"
             if col in result.columns:
                 df[name] = result[col]
     elif source_col == "bb":
         result_df = func(df["close"], length=period, std=2)
         if result_df is not None:
-            bb_col = _extract_bb_column(result_df, name.split("_")[0], period)
+            bb_col = _extract_bb_column(result_df, prefix, period)
             if bb_col:
                 df[name] = result_df[bb_col]
     else:
