@@ -1,4 +1,4 @@
-"""PandasSignalCalculator — pandas implementation of SignalCalculator.
+"""PandasSignalCalculator - pandas implementation of SignalCalculator.
 
 Computes signal interpretation columns from enriched OHLCV DataFrames.
 Uses the ConfidenceScorer domain service for pure scoring logic.
@@ -106,33 +106,92 @@ class PandasSignalCalculator(SignalCalculator):
         return valid & (distance < 0.5 * atr)
 
     def _compute_confidence(self, df: pd.DataFrame) -> pd.Series:
-        """Row‑wise confidence scoring — calls the domain scorer per row.
+        """Row-wise confidence scoring.
 
-        This is intentionally per‑row (not vectorised) because
-        ConfidenceScorer is a pure domain service, not pandas‑aware.
-        For typical backtest frame sizes (500–2,000 rows) this is fine.
+        The ConfidenceScorer is a pure domain service (not pandas-aware), so it
+        is called once per row. To keep this affordable on large intraday frames
+        (~30k rows), the needed columns are extracted to numpy arrays ONCE and
+        indexed by position inside the loop, avoiding a per-row pd.Series
+        allocation via df.iloc[i] and the repeated row.get() dict lookups.
         """
+
+        n = len(df)
+        if n == 0:
+            return pd.Series([], index=df.index, dtype="float64")
+
+        adx = self._numcol(df, "adx", 0.0)
+        rsi = self._numcol(df, "rsi_14", 50.0)
+        rvol = self._numcol(df, "rvol", 1.0)
+        direction = self._objcol(df, "trend_direction")
+        is_power_zone = self._boolcol(df, "is_power_zone")
+        near_resistance = self._boolcol(df, "near_resistance")
+        near_support = self._boolcol(df, "near_support")
+        is_squeeze = self._boolcol(df, "is_squeeze")
+
         scores: list[int] = []
-        for idx in range(len(df)):
-            row = df.iloc[idx]
-            risk_factors = self._gather_risk_factors(row)
+        for i in range(n):
+            # `or default` preserves the prior per-row semantics exactly:
+            # 0.0 is falsy (-> default), NaN is truthy (-> passed through).
+            adx_i = float(adx[i] or 0.0)
+            rsi_i = float(rsi[i] or 50.0)
+            rvol_i = float(rvol[i] or 1.0)
+            risk_factors = self._gather_risk_factors(
+                adx_i,
+                rsi_i,
+                rvol_i,
+                bool(near_resistance[i]),
+                bool(near_support[i]),
+                bool(is_squeeze[i]),
+            )
             result = self._scorer.score(
-                adx=float(row.get("adx", 0) or 0),
-                direction=str(row.get("trend_direction", "")),
-                rvol=float(row.get("rvol", 0) or 0),
-                is_power_zone=bool(row.get("is_power_zone", False)),
+                adx=adx_i,
+                direction=str(direction[i]),
+                rvol=rvol_i,
+                is_power_zone=bool(is_power_zone[i]),
                 risk_factors=risk_factors,
             )
             scores.append(result.score)
         return pd.Series(scores, index=df.index, dtype="float64")
 
     @staticmethod
-    def _gather_risk_factors(row: pd.Series) -> list[str]:
-        factors: list[str] = []
-        adx = float(row.get("adx", 0) or 0)
-        rsi = float(row.get("rsi_14", 50) or 50)
-        rvol = float(row.get("rvol", 1.0) or 1.0)
+    def _numcol(df: pd.DataFrame, name: str, default: float):
+        import numpy as np
 
+        series = df.get(name)
+        if series is None:
+            return np.full(len(df), default, dtype="float64")
+        return series.to_numpy(dtype="float64")
+
+    @staticmethod
+    def _boolcol(df: pd.DataFrame, name: str):
+        import numpy as np
+
+        series = df.get(name)
+        if series is None:
+            return np.zeros(len(df), dtype="bool")
+        # to_numpy(dtype=bool) converts NaN->True, matching bool(float('nan'))
+        # in the previous per-row implementation.
+        return series.to_numpy(dtype="bool")
+
+    @staticmethod
+    def _objcol(df: pd.DataFrame, name: str):
+        import numpy as np
+
+        series = df.get(name)
+        if series is None:
+            return np.array([""] * len(df), dtype=object)
+        return series.to_numpy(dtype=object)
+
+    @staticmethod
+    def _gather_risk_factors(
+        adx: float,
+        rsi: float,
+        rvol: float,
+        near_resistance: bool,
+        near_support: bool,
+        is_squeeze: bool,
+    ) -> list[str]:
+        factors: list[str] = []
         if adx < 20:
             factors.append(RiskFactor.WEAK_TREND)
         if rvol < 0.5:
@@ -141,10 +200,10 @@ class PandasSignalCalculator(SignalCalculator):
             factors.append(RiskFactor.OVEREXTENDED_UP)
         elif rsi < 20:
             factors.append(RiskFactor.OVEREXTENDED_DOWN)
-        if row.get("near_resistance"):
+        if near_resistance:
             factors.append(RiskFactor.NEAR_RESISTANCE)
-        if row.get("near_support"):
+        if near_support:
             factors.append(RiskFactor.NEAR_SUPPORT)
-        if row.get("is_squeeze"):
+        if is_squeeze:
             factors.append(RiskFactor.BB_SQUEEZE)
         return factors
