@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 from hyperliquid.info import Info
 from hyperliquid.utils import constants
 
+from finbar.core.domain.entities.derivatives_metrics import DerivativesMetrics
 from finbar.core.domain.entities.price_bar import PriceBar
 from finbar.core.domain.entities.symbol_info import SymbolInfo
 from finbar.core.domain.interfaces.stock_data_fetcher import StockDataFetcher
@@ -392,6 +393,36 @@ class HyperliquidFetcher(StockDataFetcher):
         tickers = self._get_cached_tickers(include_hip3=True)
         return tickers.get("hip3", [])
 
+    def fetch_funding_history(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[DerivativesMetrics]:
+        """Fetch funding-rate history from Hyperliquid (free, no API key).
+
+        Args:
+            symbol: Base coin symbol (e.g. 'BTC'). For HIP-3 symbols
+                like 'flx:TSLA', pass the plain coin name.
+            interval: Bar interval (informational; Hyperliquid funding
+                events are hourly).
+            start_date: ISO date string. Defaults to 30 days ago.
+            end_date: ISO date string. Defaults to now.
+
+        Returns:
+            List of DerivativesMetrics with funding_rate populated.
+        """
+        info = self._get_info()
+        end_dt = _to_utc(end_date) if end_date else datetime.now(UTC)
+        start_dt = _to_utc(start_date) if start_date else (end_dt - timedelta(days=30))
+        start_ms = int(start_dt.timestamp() * 1000)
+        end_ms = int(end_dt.timestamp() * 1000)
+        # info.funding_history takes the plain coin name, not dex:COIN
+        coin = symbol.split(":")[-1] if ":" in symbol else symbol
+        raw = info.funding_history(coin, start_ms, end_ms)
+        return _parse_hl_funding(raw, symbol, interval)
+
     def _get_cached_tickers(self, include_hip3: bool = False) -> dict[str, list[dict]]:
         """Return cached ticker lists, refreshing if TTL expired."""
         current_time = time.time()
@@ -627,3 +658,34 @@ def _to_utc(date_str: str):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     return dt
+
+
+def _parse_hl_funding(
+    raw: list[dict],
+    symbol: str,
+    interval: str,
+) -> list[DerivativesMetrics]:
+    """Parse Hyperliquid funding_history response into DerivativesMetrics.
+
+    Each item has 'time' (ms) and 'fundingRate' (string decimal).
+    """
+    results: list[DerivativesMetrics] = []
+    for item in raw:
+        ts = item.get("time")
+        rate = item.get("fundingRate")
+        if ts is None or rate is None:
+            continue
+        try:
+            timestamp = datetime.fromtimestamp(int(ts) / 1000, tz=UTC).isoformat()
+            funding = float(rate)
+        except (ValueError, TypeError):
+            continue
+        results.append(
+            DerivativesMetrics(
+                symbol=symbol,
+                timestamp=timestamp,
+                interval=interval,
+                funding_rate=funding,
+            )
+        )
+    return results

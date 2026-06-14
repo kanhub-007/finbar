@@ -187,6 +187,68 @@ class CoinGlassClient(DerivativesDataProvider):
         raw = self._get("/api/futures/open-interest/aggregated-history", params)
         return _parse_oi(raw, symbol, interval)
 
+    def fetch_liquidations(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        exchange: str = "Binance",
+        limit: int = 500,
+    ) -> list[DerivativesMetrics]:
+        """Fetch aggregated liquidation history.
+
+        Args:
+            symbol: Base symbol (e.g. 'BTC').
+            interval: Bar interval (e.g. '1h', '4h', '1d').
+            exchange: Exchange name.
+            limit: Max records to fetch.
+
+        Returns:
+            List of DerivativesMetrics with liquidations_long_1h and
+            liquidations_short_1h populated.
+        """
+        self._require_key()
+        full_symbol = self._get_full_symbol(symbol, exchange) or _to_full_symbol(symbol)
+        params = {
+            "exchange_list": exchange,
+            "symbol": full_symbol,
+            "interval": interval,
+            "limit": limit,
+        }
+        raw = self._get("/api/futures/liquidation/aggregated-history", params)
+        return _parse_liquidations(raw, symbol, interval)
+
+    def fetch_long_short_ratio(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        exchange: str = "Binance",
+        limit: int = 500,
+    ) -> list[DerivativesMetrics]:
+        """Fetch global long/short account ratio history.
+
+        Args:
+            symbol: Base symbol (e.g. 'BTC').
+            interval: Bar interval (e.g. '1h', '4h', '1d').
+            exchange: Exchange name.
+            limit: Max records to fetch.
+
+        Returns:
+            List of DerivativesMetrics with long_short_ratio populated.
+        """
+        self._require_key()
+        full_symbol = self._get_full_symbol(symbol, exchange) or _to_full_symbol(symbol)
+        params = {
+            "exchange_list": exchange,
+            "symbol": full_symbol,
+            "interval": interval,
+            "limit": limit,
+        }
+        raw = self._get(
+            "/api/futures/global-long-short-account-ratio/history",
+            params,
+        )
+        return _parse_long_short(raw, symbol, interval)
+
     # ── HTTP helpers ──────────────────────────────────────────────────
 
     def _require_key(self) -> None:
@@ -307,6 +369,57 @@ def _parse_oi(raw: list[dict], symbol: str, interval: str) -> list[DerivativesMe
             timestamp=_parse_ts(item),
             interval=interval,
             open_interest=of(_first_not_none(item, "close", "openInterest")),
+        )
+        for item in raw
+    ]
+
+
+def _parse_liquidations(
+    raw: list[dict],
+    symbol: str,
+    interval: str,
+) -> list[DerivativesMetrics]:
+    """Parse liquidation history into DerivativesMetrics.
+
+    CoinGlass liquidation endpoint returns per-interval long/short
+    liquidation volumes. Field names may vary between API versions;
+    common keys are tried in order of likelihood.
+    """
+    of = _opt_float
+    return [
+        DerivativesMetrics(
+            symbol=symbol,
+            timestamp=_parse_ts(item),
+            interval=interval,
+            liquidations_long_1h=of(
+                _first_not_none(item, "long_usd", "longUsd", "long_liq_usd")
+            ),
+            liquidations_short_1h=of(
+                _first_not_none(item, "short_usd", "shortUsd", "short_liq_usd")
+            ),
+        )
+        for item in raw
+    ]
+
+
+def _parse_long_short(
+    raw: list[dict],
+    symbol: str,
+    interval: str,
+) -> list[DerivativesMetrics]:
+    """Parse long/short ratio history into DerivativesMetrics.
+
+    Common field names are tried in order of likelihood.
+    """
+    of = _opt_float
+    return [
+        DerivativesMetrics(
+            symbol=symbol,
+            timestamp=_parse_ts(item),
+            interval=interval,
+            long_short_ratio=of(
+                _first_not_none(item, "long_short_ratio", "ratio", "longShortRatio")
+            ),
         )
         for item in raw
     ]
