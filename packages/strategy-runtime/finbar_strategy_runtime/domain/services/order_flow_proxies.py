@@ -168,3 +168,32 @@ def bvc_ofi(
     """
     buy, sell = _bvc_components(df, volatility_col, lookback)
     return buy - sell
+
+
+# ---------------------------------------------------------------------------
+# Return-volume correlation
+# ---------------------------------------------------------------------------
+
+
+def return_volume_correlation(
+    df: pd.DataFrame,
+    lookback: int = 60,
+) -> pd.Series:
+    """Rolling correlation between absolute returns and volume.
+
+    Args:
+        df: DataFrame with 'close' and 'volume' columns.
+        lookback: Rolling window.
+
+    Returns:
+        Series of correlation coefficients.
+    """
+    if len(df) < lookback:
+        return pd.Series(np.nan, index=df.index)
+
+    close = df["close"].astype(float)
+    volume = df["volume"].astype(float)
+
+    abs_ret = close.pct_change().abs()
+
+    return abs_ret.rolling(lookback).corr(volume)
