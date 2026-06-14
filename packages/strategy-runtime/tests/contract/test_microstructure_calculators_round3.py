@@ -213,7 +213,26 @@ class TestInformationShare:
         asset_a = pd.Series(100 + np.cumsum(np.random.randn(periods) * 0.5))
         asset_b = pd.Series(100 + np.cumsum(np.random.randn(periods) * 0.5))
         result = cross_price_leadership(asset_a, asset_b)
-        assert -1.0 <= result <= 1.0
+        # Difference of two correlations is in [-2, 2]
+        assert -2.0 <= result <= 2.0
+
+    def test_cross_price_leadership_detects_lead(self):
+        """When A leads B by 1 lag, the score should be positive."""
+        from finbar_strategy_runtime.domain.services.information_share_proxies import (
+            cross_price_leadership,
+        )
+
+        np.random.seed(42)
+        n = 200
+        ret_a = pd.Series(np.random.randn(n) * 0.02)
+        ret_b = pd.Series(np.zeros(n))
+        for i in range(1, n):
+            ret_b.iloc[i] = 0.8 * ret_a.iloc[i - 1] + np.random.randn() * 0.005
+        price_a = (1 + ret_a).cumprod()
+        price_b = (1 + ret_b).cumprod()
+
+        score = cross_price_leadership(price_a, price_b, lookback=100)
+        assert score > 0.5, f"Expected A to lead B, got score={score:.4f}"
 
     def test_volume_weighted_is(self):
         from finbar_strategy_runtime.domain.services.information_share_proxies import (

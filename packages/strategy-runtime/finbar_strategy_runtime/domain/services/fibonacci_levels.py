@@ -40,7 +40,7 @@ def _detect_swings(
 def _last_completed_swing(
     close: pd.Series,
     window: int = 5,
-) -> tuple[float, float, int] | None:
+) -> tuple[float, float, int, bool] | None:
     """Return (low_price, high_price, end_index) of last completed swing move.
 
     A swing move is the range from the last swing point (high or low) to
@@ -66,9 +66,10 @@ def _last_completed_swing(
     if s1_kind == s2_kind:
         return None  # Same type — no valid move
 
-    if s1_price < s2_price:
-        return s1_price, s2_price, s2_idx  # Uptrend
-    return s2_price, s1_price, s2_idx  # Downtrend
+    is_uptrend = s1_kind == "low" and s2_kind == "high"
+    low_price = min(s1_price, s2_price)
+    high_price = max(s1_price, s2_price)
+    return low_price, high_price, s2_idx, is_uptrend
 
 
 def _fib_levels(
@@ -112,9 +113,13 @@ def fib_382_retrace(
     swing = _last_completed_swing(close, swing_window)
     if swing is None:
         return pd.Series(np.nan, index=close.index)
-    low, high, end_idx = swing
-    level = high - 0.382 * (high - low)
+    low, high, end_idx, is_uptrend = swing
+    rng = high - low
     result = pd.Series(np.nan, index=close.index)
+    if is_uptrend:
+        level = high - 0.382 * rng
+    else:
+        level = low + 0.382 * rng
     result.iloc[end_idx:] = level
     return result
 
@@ -126,9 +131,13 @@ def fib_500_retrace(
     swing = _last_completed_swing(close, swing_window)
     if swing is None:
         return pd.Series(np.nan, index=close.index)
-    low, high, end_idx = swing
-    level = high - 0.500 * (high - low)
+    low, high, end_idx, is_uptrend = swing
+    rng = high - low
     result = pd.Series(np.nan, index=close.index)
+    if is_uptrend:
+        level = high - 0.500 * rng
+    else:
+        level = low + 0.500 * rng
     result.iloc[end_idx:] = level
     return result
 
@@ -140,9 +149,13 @@ def fib_618_retrace(
     swing = _last_completed_swing(close, swing_window)
     if swing is None:
         return pd.Series(np.nan, index=close.index)
-    low, high, end_idx = swing
-    level = high - 0.618 * (high - low)
+    low, high, end_idx, is_uptrend = swing
+    rng = high - low
     result = pd.Series(np.nan, index=close.index)
+    if is_uptrend:
+        level = high - 0.618 * rng
+    else:
+        level = low + 0.618 * rng
     result.iloc[end_idx:] = level
     return result
 
@@ -154,9 +167,13 @@ def fib_1618_extension(
     swing = _last_completed_swing(close, swing_window)
     if swing is None:
         return pd.Series(np.nan, index=close.index)
-    low, high, end_idx = swing
-    level = high + 0.618 * (high - low)
+    low, high, end_idx, is_uptrend = swing
+    rng = high - low
     result = pd.Series(np.nan, index=close.index)
+    if is_uptrend:
+        level = high + 0.618 * rng
+    else:
+        level = low - 0.618 * rng
     result.iloc[end_idx:] = level
     return result
 
@@ -171,15 +188,13 @@ def fib_confluence_score(
     if swing is None:
         return pd.Series(0, index=close.index)
 
-    low, high, end_idx = swing
+    low, high, end_idx, is_uptrend = swing
     rng = high - low
-    levels = [
-        high - 0.236 * rng,
-        high - 0.382 * rng,
-        high - 0.500 * rng,
-        high - 0.618 * rng,
-        high - 0.786 * rng,
-    ]
+    ratios = [0.236, 0.382, 0.500, 0.618, 0.786]
+    if is_uptrend:
+        levels = [high - r * rng for r in ratios]
+    else:
+        levels = [low + r * rng for r in ratios]
 
     result = pd.Series(0, index=close.index)
     for i in range(max(end_idx, swing_window), len(close)):

@@ -41,9 +41,15 @@ def cross_price_leadership(
     recent_a = ret_a.iloc[-lookback:]
     recent_b = ret_b.iloc[-lookback:]
 
-    # Lead-lag correlations
-    corr_a_leads_b = recent_a.iloc[:-1].corr(recent_b.iloc[1:])
-    corr_b_leads_a = recent_b.iloc[:-1].corr(recent_a.iloc[1:])
+    # Lead-lag correlations — reset_index so .corr() doesn't realign by label
+    # (slicing shifts values but keeps original index, causing contemporaneous
+    # correlation instead of lead-lag)
+    corr_a_leads_b = recent_a.iloc[:-1].reset_index(drop=True).corr(
+        recent_b.iloc[1:].reset_index(drop=True)
+    )
+    corr_b_leads_a = recent_b.iloc[:-1].reset_index(drop=True).corr(
+        recent_a.iloc[1:].reset_index(drop=True)
+    )
 
     if pd.isna(corr_a_leads_b) and pd.isna(corr_b_leads_a):
         return 0.0

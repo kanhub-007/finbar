@@ -196,8 +196,8 @@ def zone_signal(
 
     result = pd.Series("gray", index=high.index)
 
-    green = (ao > 0) & ao_up & ac_up
-    red = (ao < 0) & (~ao_up) & (~ac_up)
+    green = (ao > 0) & ao_up & (ac > 0) & ac_up
+    red = (ao < 0) & (~ao_up) & (ac < 0) & (~ac_up)
 
     result[green] = "green"
     result[red] = "red"

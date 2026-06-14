@@ -42,6 +42,7 @@ def hurst_exponent(
         return None
 
     lags = range(4, max_lag + 1)
+    lag_list: list[int] = []
     rs_values = []
 
     for lag in lags:
@@ -65,12 +66,14 @@ def hurst_exponent(
 
         if rs_chunk:
             rs_values.append(np.mean(rs_chunk))
+            lag_list.append(lag)
 
     if len(rs_values) < 4:
         return None
 
     # log(R/S) = H * log(lag) + C
-    log_lags = np.log(list(lags)[: len(rs_values)])
+    # Use lag_list (correctly aligned with rs_values) not lags[:len]
+    log_lags = np.log(lag_list)
     log_rs = np.log(rs_values)
 
     # Linear regression

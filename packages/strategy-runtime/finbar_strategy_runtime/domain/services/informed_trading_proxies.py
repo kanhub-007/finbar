@@ -42,8 +42,11 @@ def daily_vpin(
     sell_vol = volume.copy()
     buy_vol[delta < 0] = 0.0
     sell_vol[delta > 0] = 0.0
-    buy_vol.iloc[0] = 0.0
-    sell_vol.iloc[0] = 0.0
+    # Flat bars (delta == 0 or NaN): split volume 50/50 to avoid
+    # double-counting (which inflates the denominator)
+    flat = (delta == 0) | delta.isna()
+    buy_vol[flat] = volume[flat] / 2.0
+    sell_vol[flat] = volume[flat] / 2.0
 
     result = pd.Series(np.nan, index=df.index)
 

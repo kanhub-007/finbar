@@ -351,7 +351,10 @@ def lot_zero_return_spread(
     # Logistic mapping: spread implies zero-return proportion
     # Using LOT simplification: S ≈ -ln(1 - ZR) * avg(close)
     if proportion >= 1.0:
-        return 0.0
+        # All returns zero → spread so wide no information crosses it.
+        # Cannot estimate reliably; return None (not 0.0 which would
+        # imply maximum liquidity).
+        return None
 
     avg_close = recent.mean()
     # Mapping via logistic: ZR = 1 / (1 + exp(-c/S))

@@ -35,7 +35,9 @@ def swing_high_n(
         left = high.iloc[i - n : i]
         right = high.iloc[i + 1 : i + n + 1]
         if val > left.max() and val > right.max():
-            result.iloc[i] = True
+            confirm_idx = i + n
+            if confirm_idx < length:
+                result.iloc[confirm_idx] = True
 
     return result
 
@@ -61,7 +63,9 @@ def swing_low_n(
         left = low.iloc[i - n : i]
         right = low.iloc[i + 1 : i + n + 1]
         if val < left.min() and val < right.min():
-            result.iloc[i] = True
+            confirm_idx = i + n
+            if confirm_idx < length:
+                result.iloc[confirm_idx] = True
 
     return result
 
@@ -225,6 +229,6 @@ def trend_phase(
         elif vr < 0.7 and rp < 0.015:
             result.iloc[i] = "accumulation"
         else:
-            result.iloc[i] = "markup"  # default if unclear
+            result.iloc[i] = "unknown"  # default if unclear
 
     return result

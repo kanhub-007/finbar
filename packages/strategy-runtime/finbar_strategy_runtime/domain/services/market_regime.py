@@ -94,12 +94,9 @@ def day_type_classification(
     result = pd.Series("NonTrend", index=close.index)
     if n < ib_first_bars + 2:
         return result
-    if open_ is not None:
-        ib_high = open_.iloc[:ib_first_bars].max()
-        ib_low = open_.iloc[:ib_first_bars].min()
-    else:
-        ib_high = high.iloc[:ib_first_bars].max()
-        ib_low = low.iloc[:ib_first_bars].min()
+    # IB always uses high/low of first N bars (not open prices)
+    ib_high = high.iloc[:ib_first_bars].max()
+    ib_low = low.iloc[:ib_first_bars].min()
     ib_range = ib_high - ib_low
     total_range = high.max() - low.min()
     for i in range(ib_first_bars, n):

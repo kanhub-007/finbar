@@ -115,29 +115,49 @@ def _find_swings(high: pd.Series, low: pd.Series, window: int = 5):
 
 
 def bos(high: pd.Series, low: pd.Series, window: int = 5) -> pd.Series:
-    """Break of Structure: breaks prior swing in trend direction."""
+    """Break of Structure: breaks prior swing in trend direction.
+
+    Fires once when price first exceeds the most recent confirmed swing high.
+    """
     sh, sl = _find_swings(high, low, window)
     n = len(high)
     result = pd.Series(False, index=high.index)
+    last_broken_sh = -1
+
     for i in range(window * 2, n):
-        for s in reversed(sh):
-            if s < i - window and high.iloc[i] > high.iloc[s]:
-                result.iloc[i] = True
-                break
+        confirmed_highs = [s for s in sh if s + window <= i]
+        if not confirmed_highs:
+            continue
+        recent_sh = confirmed_highs[-1]
+        # Fire only on first break of this swing high
+        if recent_sh != last_broken_sh and high.iloc[i] > high.iloc[recent_sh]:
+            result.iloc[i] = True
+            last_broken_sh = recent_sh
     return result
 
 
 def choch(high: pd.Series, low: pd.Series, window: int = 5) -> pd.Series:
-    """Change of Character: breaks prior swing against trend."""
+    """Change of Character: breaks prior swing against trend.
+
+    Fires once when price first breaks below the most recent confirmed
+    swing low (reversing an uptrend structure).
+    """
     sh, sl = _find_swings(high, low, window)
     n = len(high)
     result = pd.Series(False, index=high.index)
+    last_broken_sl = -1
+
     for i in range(window * 2, n):
-        # If trend was up (higher highs), CHOCH = break below last swing low
-        if len(sl) >= 1 and len(sh) >= 2:
-            last_sl = sl[-1]
-            if last_sl < i - window and low.iloc[i] < low.iloc[last_sl]:
-                result.iloc[i] = True
+        confirmed_highs = [s for s in sh if s + window <= i]
+        confirmed_lows = [s for s in sl if s + window <= i]
+        # Need an established uptrend structure to reverse
+        if len(confirmed_highs) < 2 or len(confirmed_lows) < 1:
+            continue
+        recent_sl = confirmed_lows[-1]
+        # Fire only on first break of this swing low
+        if recent_sl != last_broken_sl and low.iloc[i] < low.iloc[recent_sl]:
+            result.iloc[i] = True
+            last_broken_sl = recent_sl
     return result
 
 
