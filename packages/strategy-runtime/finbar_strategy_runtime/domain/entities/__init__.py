@@ -44,6 +44,21 @@ from finbar_strategy_runtime.domain.entities.market_profile_result import (
     MarketProfileResult,
 )
 from finbar_strategy_runtime.domain.entities.confidence_score import ConfidenceScore
+from finbar_strategy_runtime.domain.entities.data_class import DataClass
+from finbar_strategy_runtime.domain.entities.data_requirement import DataRequirement
+from finbar_strategy_runtime.domain.entities.market_metric_definition import (
+    MarketMetricDefinition,
+)
+from finbar_strategy_runtime.domain.entities.metric_capability_result import (
+    MetricCapabilityResult,
+)
+from finbar_strategy_runtime.domain.entities.metric_confidence import (
+    MetricConfidence,
+)
+from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
+from finbar_strategy_runtime.domain.entities.metric_resolution_path import (
+    MetricResolutionPath,
+)
 
 __all__ = [
     "Condition",
@@ -71,4 +86,11 @@ __all__ = [
     "RsiZone",
     "MarketProfileResult",
     "ConfidenceScore",
+    "DataClass",
+    "DataRequirement",
+    "MarketMetricDefinition",
+    "MetricCapabilityResult",
+    "MetricConfidence",
+    "MetricFamily",
+    "MetricResolutionPath",
 ]
