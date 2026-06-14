@@ -321,3 +321,73 @@ class TestDualPathResolution:
         assert len(result.available_paths) >= 2
         path_names = [p.metric_name for p in result.available_paths]
         assert "yang_zhang_vol" in path_names
+
+
+# ---------------------------------------------------------------------------
+# Scenario 6: External provider metrics catalogued
+# ---------------------------------------------------------------------------
+
+_EXTERNAL_PROVIDER_METRICS: dict[str, str] = {
+    # Crypto derivatives (CoinGlass/exchange)
+    "funding_rate": "coinglass",
+    "open_interest": "coinglass",
+    "open_interest_delta_1h": "coinglass",
+    "open_interest_delta_24h": "coinglass",
+    "cumulative_volume_delta": "coinglass",
+    "long_short_ratio": "coinglass",
+    "liquidations_long_1h": "coinglass",
+    "liquidations_short_1h": "coinglass",
+    "liquidations_long_24h": "coinglass",
+    "liquidations_short_24h": "coinglass",
+    "funding_rate_annualised": "coinglass",
+    # Equity sentiment / macro
+    "vix_level": "market_data",
+    "vix_regime": "market_data",
+    "put_call_ratio": "options_provider",
+    "aaii_sentiment": "aaii_provider",
+    "social_sentiment_score": "social_sentiment_api",
+    # Futures / COT
+    "cot_commercial_net": "cftc_cot",
+    "cot_nonreportable_net": "cftc_cot",
+    # Portfolio / cross-asset
+    "market_beta": "benchmark_data",
+    "sector_relative_strength": "sector_data",
+    "cross_asset_correlation": "multi_asset_data",
+}
+
+
+class TestExternalProviderMetrics:
+    """Every external-data metric must be catalogued with provider requirements."""
+
+    def test_all_external_metrics_present(self, catalog):
+        for metric_name in _EXTERNAL_PROVIDER_METRICS:
+            result = catalog.check(metric_name, "daily_ohlcv")
+            assert result.supported is True, (
+                f"{metric_name} not found in catalog!"
+            )
+
+    def test_external_metrics_unavailable_without_provider(self, catalog):
+        for metric_name in _EXTERNAL_PROVIDER_METRICS:
+            result = catalog.check(metric_name, "daily_ohlcv")
+            assert result.computable is False, (
+                f"{metric_name} should not be computable without provider"
+            )
+            assert len(result.missing_providers) > 0, (
+                f"{metric_name} should list required providers"
+            )
+
+    def test_put_call_ratio_requires_options_provider(self, catalog):
+        result = catalog.check("put_call_ratio", "daily_ohlcv")
+        assert result.supported is True
+        assert result.computable is False
+        assert "options_provider" in result.missing_providers
+
+    def test_funding_rate_requires_coinglass(self, catalog):
+        result = catalog.check("funding_rate", "daily_ohlcv")
+        assert result.computable is False
+        assert any("coinglass" in p.lower() for p in result.missing_providers)
+
+    def test_market_beta_requires_benchmark(self, catalog):
+        result = catalog.check("market_beta", "daily_ohlcv")
+        assert result.computable is False
+        assert len(result.missing_providers) > 0
