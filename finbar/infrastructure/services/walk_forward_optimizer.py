@@ -169,9 +169,15 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         test_start = _bar_timestamp(test_bars[0])
         test_end = _bar_timestamp(test_bars[-1])
 
+        # Pre-convert bars to frames once per fold — every parameter
+        # combination in the grid search and the OOS validation reuses
+        # the same bars, so converting them N times is wasteful.
+        train_frame = self._converter.bars_to_frame(train_bars)
+        test_frame = self._converter.bars_to_frame(test_bars)
+
         try:
             grid_result, sensitivity = self._run_grid_search(
-                definition, train_bars, metric, metadata
+                definition, train_bars, metric, metadata, train_frame=train_frame
             )
             if grid_result is None or grid_result.error:
                 return WalkForwardFold(
@@ -193,7 +199,10 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             is_sharpe = float(grid_result.sharpe_ratio)
             is_return = float(grid_result.total_return)
 
-            oos_result = self._run_oos(definition, best_params, test_bars, metadata)
+            oos_result = self._run_oos(
+                definition, best_params, test_bars, metadata,
+                test_frame=test_frame,
+            )
             if oos_result.error:
                 return WalkForwardFold(
                     fold_index=fold_index,
@@ -246,6 +255,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         bars: list[dict],
         metric: str,
         metadata: dict,
+        train_frame=None,
     ) -> tuple[OptimizationResult | None, dict[str, float]]:
         """Run a synchronous grid search directly on the training window.
 
@@ -280,7 +290,9 @@ class WalkForwardOptimizer(OptimizationJobRunner):
 
         results: list[OptimizationResult] = []
         for params in combinations:
-            result = self._backtest_with_bars(definition, params, bars, metadata)
+            result = self._backtest_with_bars(
+                definition, params, bars, metadata, base_frame=train_frame
+            )
             results.append(result)
 
         from finbar.core.domain.services.correlation import (
@@ -304,6 +316,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         params: dict,
         bars: list[dict],
         metadata: dict,
+        base_frame=None,
     ) -> OptimizationResult:
         """Run a single backtest against the given bars slice."""
         from finbar.infrastructure.services.grid_search_optimizer import (
@@ -318,7 +331,10 @@ class WalkForwardOptimizer(OptimizationJobRunner):
                     params=params,
                     error="Strategy validation failed with these params",
                 )
-            frame = self._converter.bars_to_frame(bars)
+            if base_frame is not None:
+                frame = base_frame
+            else:
+                frame = self._converter.bars_to_frame(bars)
             if self._feature_calculator is not None and validation.definition.features:
                 frame = self._feature_calculator.calculate(
                     frame, validation.definition.features
@@ -366,6 +382,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         params: dict,
         bars: list[dict],
         metadata: dict,
+        test_frame=None,
     ) -> OptimizationResult:
         """Backtest the best params on the OOS test window."""
         from finbar.infrastructure.services.grid_search_optimizer import (
@@ -383,21 +400,26 @@ class WalkForwardOptimizer(OptimizationJobRunner):
                 error="Strategy validation failed with best params",
             )
 
-        merged_bars = bars
-        if (
+        if test_frame is not None and not (
             validation.definition.timeframes
             and validation.definition.timeframes.has_informative()
         ):
-            merged_bars = _merge_informative(
-                bars,
-                metadata,
-                validation,
-                self._artifact_provider,
-                self._converter,
-                self._timeframe_merger,
-            )
-
-        frame = self._converter.bars_to_frame(merged_bars)
+            frame = test_frame
+        else:
+            merged_bars = bars
+            if (
+                validation.definition.timeframes
+                and validation.definition.timeframes.has_informative()
+            ):
+                merged_bars = _merge_informative(
+                    bars,
+                    metadata,
+                    validation,
+                    self._artifact_provider,
+                    self._converter,
+                    self._timeframe_merger,
+                )
+            frame = self._converter.bars_to_frame(merged_bars)
         if self._feature_calculator is not None and validation.definition.features:
             frame = self._feature_calculator.calculate(
                 frame, validation.definition.features
