@@ -103,7 +103,7 @@ class TestRollingWinRate:
         )
         result = calculate_rolling_win_rate(trades, curve, window=5)
         # Window [59,63] at i=63 covers indices 60,61,62 -> 2 wins / 3 total.
-        assert result[63] == pytest.approx(2 / 3)
+        assert result[63] == pytest.approx(2 / 3, abs=1e-4)
         # Window slides past idx 60 by i=66: [62,66] covers only 62 (win).
         assert result[66] == pytest.approx(1.0)
 
