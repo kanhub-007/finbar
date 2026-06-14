@@ -85,3 +85,51 @@ def first_last_hour_vol_fraction(
 
     fraction = (open_vol + close_vol) / total_vol.replace(0, np.nan)
     return fraction
+
+
+# ---------------------------------------------------------------------------
+# Empirical volume curves (intraday seasonality)
+# ---------------------------------------------------------------------------
+
+
+def intraday_volume_curve(
+    df: pd.DataFrame,
+    volume_col: str = "volume",
+) -> pd.Series:
+    """Empirical intraday volume curve: mean volume per time-of-day.
+
+    Groups bars by their time-of-day and computes the expanding mean
+    volume. Each bar gets the mean of all *prior* bars with the same
+    time-of-day (no lookahead: bar T cannot see itself).
+
+    Args:
+        df: DataFrame with a DatetimeIndex and a volume column.
+        volume_col: Name of the volume column.
+
+    Returns:
+        Series aligned to ``df.index``. First occurrence of each
+        time-of-day is NaN (no prior data).
+    """
+    if volume_col not in df.columns:
+        return pd.Series(np.nan, index=df.index)
+    volume = df[volume_col].astype(float)
+    time_of_day = volume.index.time
+
+    # Expanding mean per time-of-day group, shifted by 1 (no lookahead)
+    result = volume.groupby(time_of_day).transform(
+        lambda x: x.shift(1).expanding().mean()
+    )
+    return result
+
+
+def empirical_volume_curve(
+    df: pd.DataFrame,
+    volume_col: str = "volume",
+) -> pd.Series:
+    """Alias for intraday_volume_curve (same computation).
+
+    Some references distinguish 'empirical' (raw mean) from 'parametric'
+    (model-fit) volume curves. This implementation uses the empirical
+    expanding mean per time-of-day.
+    """
+    return intraday_volume_curve(df, volume_col=volume_col)

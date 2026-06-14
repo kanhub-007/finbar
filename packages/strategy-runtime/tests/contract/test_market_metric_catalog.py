@@ -48,14 +48,14 @@ class TestCatalogCapabilityChecks:
         assert result.computable is True
         assert result.confidence == MetricConfidence.PROXY
 
-    def test_intraday_metric_unimplemented(self, catalog):
-        """realized_vol_5m is catalogued but implemented=False."""
+    def test_intraday_metric_computable(self, catalog):
+        """realized_vol_5m is now implemented and computable on intraday."""
         d = catalog.get("realized_vol_5m")
         assert d is not None
-        assert d.implemented is False
+        assert d.implemented is True
         result = catalog.check("realized_vol_5m", "intraday_ohlcv")
         assert result.supported is True
-        assert result.computable is False
+        assert result.computable is True
 
     def test_result_is_json_serializable(self, catalog):
         """MetricCapabilityResult can be serialized to JSON for MCP/API."""

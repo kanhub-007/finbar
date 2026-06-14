@@ -75,14 +75,14 @@ class TestUnifiedCatalogDualRole:
         assert result.supported is False
         assert result.computable is False
 
-    def test_implemented_false_metric_not_computable(self, catalog):
-        """A metric with implemented=False (e.g. realized_vol_5m) is not computable."""
-        assert catalog.supports_concrete("realized_vol_5m") is False
+    def test_intraday_metric_now_computable(self, catalog):
+        """realized_vol_5m is now implemented with a handler."""
+        assert catalog.supports_concrete("realized_vol_5m") is True
 
         result = catalog.check("realized_vol_5m", "intraday_ohlcv")
         assert result.supported is True
-        assert result.computable is False
-        assert result.confidence == MetricConfidence.UNAVAILABLE
+        assert result.computable is True
+        assert result.confidence == MetricConfidence.ACTUAL
 
     def test_check_returns_confidence_for_computable(self, catalog):
         """A computable parser indicator returns a confidence level."""

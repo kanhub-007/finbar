@@ -116,15 +116,15 @@ class TestCheckMetric:
         assert payload["computable"] is False
 
     @pytest.mark.asyncio
-    async def test_intraday_metric_not_computable(self, mcp):
-        """realized_vol_5m (implemented=False) → computable=False."""
+    async def test_intraday_metric_computable(self, mcp):
+        """realized_vol_5m is now implemented and computable."""
         result = await mcp.call_tool(
             "check_metric",
             {"name": "realized_vol_5m", "available_data_class": "intraday_ohlcv"},
         )
         payload = _extract_payload(result)
         assert payload["supported"] is True
-        assert payload["computable"] is False
+        assert payload["computable"] is True
 
 
 # ---------------------------------------------------------------------------

@@ -484,8 +484,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Realized volatility from 5-min returns.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=78,  # ~1 day of 5-min bars
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("yang_zhang_vol", "parkinson_vol"),
     ),
     MarketMetricDefinition(
@@ -494,8 +493,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Realized volatility from 15-min returns.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=26,
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("yang_zhang_vol", "parkinson_vol"),
     ),
     MarketMetricDefinition(
@@ -504,8 +502,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Realized volatility from 1-hour returns.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=7,
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("yang_zhang_vol", "garman_klass_vol"),
     ),
     MarketMetricDefinition(
@@ -514,8 +511,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Bipower variation for jump-robust volatility from intraday returns.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=78,
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("cc_rs_jump_proxy",),
         paper_reference="Barndorff-Nielsen & Shephard (2004), 'Power and Bipower Variation'",
     ),
@@ -525,8 +521,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Skewness of intraday returns.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=78,
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("daily_return_skewness",),
     ),
     MarketMetricDefinition(
@@ -535,8 +530,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Kurtosis of intraday returns.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=78,
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("daily_return_kurtosis",),
     ),
     MarketMetricDefinition(
@@ -545,8 +539,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Empirical volume curve from intraday bars.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=130,  # 5+ days of 5-min bars
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("parametric_u_shape",),
     ),
     MarketMetricDefinition(
@@ -555,8 +548,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Lee-Mykland jump detection from intraday returns.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=78,
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("cc_rs_jump_proxy",),
         paper_reference="Lee & Mykland (2008), 'Jumps in Financial Markets'",
     ),
@@ -566,8 +558,7 @@ METRICS: list[MarketMetricDefinition] = [
         description="Empirical intraday volume curve from 5-min bars.",
         required_data_classes=(DataClass.INTRADAY_OHLCV,),
         min_lookback=78,
-        confidence=MetricConfidence.UNAVAILABLE,
-        implemented=False,
+        confidence=MetricConfidence.ACTUAL,
         proxy_candidates=("parametric_u_shape",),
     ),
     # --- Price-action: Fibonacci retracements (5) ---
