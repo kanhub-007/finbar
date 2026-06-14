@@ -135,3 +135,111 @@ class TestCatalogListing:
         assert d.name == "corwin_schultz_spread"
         assert d.min_lookback == 20
         assert "open" in d.required_columns
+
+
+# ---------------------------------------------------------------------------
+# Scenario 5: Tick, quote, and L2 metrics are catalogued but unavailable
+# ---------------------------------------------------------------------------
+
+# Every non-OHLCV metric from 03-domain.md must be in the catalog.
+# Each must return computable=False against daily_ohlcv with the correct
+# required data class in missing_data_classes.
+
+_NON_OHLCV_METRICS: dict[str, str] = {
+    # trades_and_quotes
+    "effective_spread_taq": "trades_and_quotes",
+    "quoted_spread": "trades_and_quotes",
+    "realized_spread_taq": "trades_and_quotes",
+    "lee_ready_classification": "trades_and_quotes",
+    "kyle_lambda": "trades_and_quotes",
+    "hasbrouck_var_impact": "trades_and_quotes",
+    "trade_classified_ofi": "trades_and_quotes",
+    "price_reversion_speed": "trades_and_quotes",
+    # level_2_order_book
+    "cont_kukanov_ofi": "level_2_order_book",
+    "order_book_depth_profile": "level_2_order_book",
+    "order_book_shape": "level_2_order_book",
+    "depth_recovery_time": "level_2_order_book",
+    "almgren_chriss_impact": "level_2_order_book",
+    # order_book_events
+    "noi_from_lob_events": "order_book_events",
+    "iceberg_detection": "order_book_events",
+    "spoofing_detection": "order_book_events",
+    "absorption_detection": "order_book_events",
+    "cancellation_rate": "order_book_events",
+    # intraday bars
+    "realized_vol_5m": "intraday_ohlcv",
+    "realized_vol_15m": "intraday_ohlcv",
+    "realized_vol_1h": "intraday_ohlcv",
+    "bipower_variation": "intraday_ohlcv",
+    "realized_skewness": "intraday_ohlcv",
+    "realized_kurtosis": "intraday_ohlcv",
+    "intraday_volume_curve": "intraday_ohlcv",
+    "lee_mykland_jump": "intraday_ohlcv",
+    "empirical_volume_curve": "intraday_ohlcv",
+    # tick trades
+    "realized_kernel_vol": "trades",
+    "order_arrival_rate": "trades",
+    "intraday_vpin": "trades",
+    "trade_size_distribution": "trades",
+    # multi-venue tick
+    "hasbrouck_information_share": "trades",
+    "gonzalo_granger_cs": "trades",
+    # trades_and_quotes + classified
+    "true_pin_easley": "trades_and_quotes",
+    "odd_lot_ratio": "trades_and_quotes",
+    # Level 1 quotes
+    "quote_to_trade_ratio": "quotes",
+}
+
+
+class TestNonOhlcvMetricsCatalogued:
+    """Every documented non-OHLCV metric must be in the catalog."""
+
+    def test_all_non_ohlcv_metrics_present(self, catalog):
+        """Every metric from the spec's non-OHLCV table is known to the catalog."""
+        for metric_name in _NON_OHLCV_METRICS:
+            result = catalog.check(metric_name, "daily_ohlcv")
+            assert result.supported is True, (
+                f"{metric_name} not found in catalog!"
+            )
+
+    def test_all_non_ohlcv_metrics_unavailable_with_daily(self, catalog):
+        """Every non-OHLCV metric returns computable=False for daily_ohlcv."""
+        for metric_name, expected_class in _NON_OHLCV_METRICS.items():
+            result = catalog.check(metric_name, "daily_ohlcv")
+            assert result.computable is False, (
+                f"{metric_name} should not be computable from daily_ohlcv"
+            )
+            assert expected_class in result.missing_data_classes, (
+                f"{metric_name} should require {expected_class}, "
+                f"got missing_data_classes={result.missing_data_classes}"
+            )
+
+    @pytest.mark.parametrize("metric_name", [
+        "effective_spread_taq",
+        "cont_kukanov_ofi",
+        "quoted_spread",
+        "true_pin_easley",
+        "order_book_shape",
+        "realized_vol_5m",
+        "lee_ready_classification",
+    ])
+    def test_key_metrics_have_proxy_suggestions(self, catalog, metric_name):
+        """Key metrics should suggest OHLCV proxy alternatives."""
+        result = catalog.check(metric_name, "daily_ohlcv")
+        d = catalog.get(metric_name)
+        assert d is not None
+        assert len(d.proxy_candidates) > 0, (
+            f"{metric_name} should have proxy_candidates"
+        )
+
+    def test_no_silent_fallback_to_proxy(self, catalog):
+        """effective_spread_taq does NOT silently substitute corwin_schultz.
+        The user must explicitly choose the proxy."""
+        result = catalog.check("effective_spread_taq", "daily_ohlcv")
+        assert result.computable is False
+        # selected_metric is empty when not computable
+        assert result.selected_metric == ""
+        # proxy_candidates are suggested but NOT auto-selected
+        assert "corwin_schultz_spread" in result.proxy_candidates
