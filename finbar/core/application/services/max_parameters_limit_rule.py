@@ -1,21 +1,5 @@
-"""MaxParametersLimitRule — limit the number of strategy parameters."""
+"""Re-exported from finbar_strategy_runtime.parser.max_parameters_limit_rule."""
 
-from finbar_strategy_runtime.parser.strategy_limit_rule import StrategyLimitRule
-from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
-    StrategyValidationError,
-)
+from finbar_strategy_runtime.parser.max_parameters_limit_rule import MaxParametersLimitRule
 
-
-class MaxParametersLimitRule(StrategyLimitRule):
-    """Reject strategies with more than the allowed number of parameters."""
-
-    def __init__(self, maximum: int = 20):
-        self._maximum = maximum
-
-    def check(self, definition, params, indicators, features):
-        if len(params) > self._maximum:
-            return StrategyValidationError(
-                path="$.parameters",
-                message=f"max {self._maximum} parameters (got {len(params)})",
-            )
-        return None
+__all__ = ['MaxParametersLimitRule']

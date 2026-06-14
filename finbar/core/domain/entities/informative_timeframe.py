@@ -1,14 +1,5 @@
-"""InformativeTimeframe entity for multi-timeframe strategies."""
+"""Re-exported from finbar_strategy_runtime.domain.entities.informative_timeframe."""
 
-from dataclasses import dataclass
+from finbar_strategy_runtime.domain.entities.informative_timeframe import InformativeTimeframe
 
-
-@dataclass(frozen=True)
-class InformativeTimeframe:
-    """A named non-primary timeframe used for contextual indicators."""
-
-    alias: str
-    """Strategy-local timeframe alias, e.g. daily."""
-
-    interval: str
-    """Concrete bar interval, e.g. 1d."""
+__all__ = ['InformativeTimeframe']

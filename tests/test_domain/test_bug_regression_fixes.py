@@ -14,7 +14,7 @@ from finbar.infrastructure.services.coinglass_client import (
     _parse_funding,
     _parse_oi,
 )
-from finbar.infrastructure.services.pandas_formula_feature_calculator import (
+from finbar_strategy_runtime.indicators.pandas_formula_feature_calculator import (
     _parse_operand,
 )
 

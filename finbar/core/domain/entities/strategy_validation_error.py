@@ -1,17 +1,5 @@
-"""StrategyValidationError entity for JSON diagnostics."""
+"""Re-exported from finbar_strategy_runtime.domain.entities.strategy_validation_error."""
 
-from dataclasses import dataclass
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import StrategyValidationError
 
-
-@dataclass(frozen=True)
-class StrategyValidationError:
-    """A path-specific validation diagnostic for an agent-authored strategy."""
-
-    path: str
-    """JSONPath-like location of the problem."""
-
-    message: str
-    """Human-readable diagnostic message."""
-
-    code: str = "validation_error"
-    """Stable machine-readable error code."""
+__all__ = ['StrategyValidationError']

@@ -1,18 +1,5 @@
-"""StrategyDocument — domain entity for a persisted JSON strategy."""
+"""Re-exported from finbar_strategy_runtime.domain.entities.strategy_document."""
 
-from dataclasses import dataclass, field
+from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
 
-
-@dataclass
-class StrategyDocument:
-    """A saved JSON strategy definition with metadata."""
-
-    name: str
-    schema_version: str
-    definition_json: str
-    normalized_json: str = ""
-    description: str = ""
-    created_at: str = ""
-    updated_at: str = ""
-    id: int | None = None
-    tags: list[str] = field(default_factory=list)
+__all__ = ['StrategyDocument']

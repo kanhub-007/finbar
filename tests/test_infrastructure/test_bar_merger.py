@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from finbar.infrastructure.services.bar_merger import (
+from finbar_strategy_runtime.indicators.bar_merger import (
     _interval_offset,
     merge_timeframes,
 )

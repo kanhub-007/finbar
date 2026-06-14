@@ -1,20 +1,5 @@
-"""PandasTimeframeBarMerger — pandas implementation of timeframe merging."""
+"""Re-exported from finbar_strategy_runtime.indicators.pandas_timeframe_bar_merger."""
 
-from typing import Any
+from finbar_strategy_runtime.indicators.pandas_timeframe_bar_merger import PandasTimeframeBarMerger
 
-from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
-from finbar_strategy_runtime.indicators.bar_merger import merge_timeframes
-
-
-class PandasTimeframeBarMerger(TimeframeBarMerger):
-    """Merge informative pandas DataFrame columns into primary bars."""
-
-    def merge(
-        self,
-        primary: Any,
-        informative: Any,
-        informative_interval: str,
-        columns: list[str] | None = None,
-    ) -> Any:
-        """Return primary frame enriched with suffixed informative columns."""
-        return merge_timeframes(primary, informative, informative_interval, columns)
+__all__ = ['PandasTimeframeBarMerger']

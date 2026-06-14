@@ -11,10 +11,10 @@ no escaping hell) or JSON.
 ```bash
 git clone https://github.com/kanhub-007/finbar.git
 cd finbar
-python -m venv .venv
+py -3.13 -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
-copy .env.example .env
+cp .env.example .env
 
 # REST API (port 8000)
 python run_api.py          # OpenAPI docs at http://127.0.0.1:8000/docs

@@ -1,23 +1,5 @@
-"""StrategyLimitRule — interface for enforcing SDK limits."""
+"""Re-exported from finbar_strategy_runtime.parser.strategy_limit_rule."""
 
-from abc import ABC, abstractmethod
+from finbar_strategy_runtime.parser.strategy_limit_rule import StrategyLimitRule
 
-from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
-from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
-    StrategyValidationError,
-)
-
-
-class StrategyLimitRule(ABC):
-    """Enforce a specific limit on strategy definitions."""
-
-    @abstractmethod
-    def check(
-        self,
-        definition: StrategyDefinition,
-        params: dict,
-        indicators: list,
-        features: list,
-    ) -> StrategyValidationError | None:
-        """Return an error if the limit is exceeded, or None."""
-        ...
+__all__ = ['StrategyLimitRule']

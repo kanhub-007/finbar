@@ -1,10 +1,5 @@
-"""DataMode enum — whether a strategy uses proxy or real indicators."""
+"""Re-exported from finbar_strategy_runtime.domain.entities.data_mode."""
 
-from enum import Enum
+from finbar_strategy_runtime.domain.entities.data_mode import DataMode
 
-
-class DataMode(Enum):
-    """Whether a strategy uses proxy (daily) or real (intraday) indicators."""
-
-    PROXY = "proxy"
-    REAL = "real"
+__all__ = ['DataMode']

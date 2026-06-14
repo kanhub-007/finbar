@@ -1,21 +1,5 @@
-"""MaxIndicatorsLimitRule — limit the number of declared indicators."""
+"""Re-exported from finbar_strategy_runtime.parser.max_indicators_limit_rule."""
 
-from finbar_strategy_runtime.parser.strategy_limit_rule import StrategyLimitRule
-from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
-    StrategyValidationError,
-)
+from finbar_strategy_runtime.parser.max_indicators_limit_rule import MaxIndicatorsLimitRule
 
-
-class MaxIndicatorsLimitRule(StrategyLimitRule):
-    """Reject strategies with more than the allowed number of indicators."""
-
-    def __init__(self, maximum: int = 20):
-        self._maximum = maximum
-
-    def check(self, definition, params, indicators, features):
-        if len(indicators) > self._maximum:
-            return StrategyValidationError(
-                path="$.indicators",
-                message=f"max {self._maximum} indicators (got {len(indicators)})",
-            )
-        return None
+__all__ = ['MaxIndicatorsLimitRule']
