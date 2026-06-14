@@ -243,3 +243,24 @@ class TestNonOhlcvMetricsCatalogued:
         assert result.selected_metric == ""
         # proxy_candidates are suggested but NOT auto-selected
         assert "corwin_schultz_spread" in result.proxy_candidates
+
+
+class TestElliottWaveCatalogued:
+    """Elliott Wave metrics are catalogued but not implemented."""
+
+    @pytest.mark.parametrize("metric_name", [
+        "elliott_wave_count",
+        "elliott_wave_phase",
+        "elliott_zigzag_correction",
+        "elliott_flat_correction",
+        "elliott_triangle_correction",
+    ])
+    def test_present_and_unimplemented(self, catalog, metric_name):
+        d = catalog.get(metric_name)
+        assert d is not None, f"{metric_name} not in catalog"
+        assert d.implemented is False
+
+        result = catalog.check(metric_name, "daily_ohlcv")
+        assert result.supported is True
+        assert result.computable is False
+        assert any("not yet implemented" in w.lower() for w in result.warnings)

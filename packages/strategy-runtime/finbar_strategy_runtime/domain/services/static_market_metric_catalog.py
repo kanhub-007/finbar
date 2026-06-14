@@ -34,6 +34,14 @@ def _make_result(
     available_class: DataClass,
 ) -> MetricCapabilityResult:
     """Build a MetricCapabilityResult from a definition and available data class."""
+    if not definition.implemented:
+        return MetricCapabilityResult(
+            metric=definition.name,
+            supported=True,
+            computable=False,
+            confidence=MetricConfidence.UNAVAILABLE,
+            warnings=("Metric catalogued but not yet implemented.",),
+        )
     if not _is_class_available(definition.required_data_classes, available_class):
         return MetricCapabilityResult(
             metric=definition.name,
@@ -609,6 +617,53 @@ _METRICS: list[MarketMetricDefinition] = [
         confidence=MetricConfidence.UNAVAILABLE,
         proxy_candidates=("cross_price_leadership",),
         paper_reference="Hasbrouck (1995), 'One Security, Many Markets'",
+    ),
+    # Elliott Wave (catalogued, not implemented — 5 metrics)
+    MarketMetricDefinition(
+        name="elliott_wave_count",
+        family=MetricFamily.PRICE_ACTION,
+        description="Elliott Wave impulse/corrective pattern count. Requires dedicated wave-detection engine with 3 inviolable rule checks.",
+        required_data_classes=(DataClass.DAILY_OHLCV,),
+        min_lookback=100,
+        confidence=MetricConfidence.UNAVAILABLE,
+        implemented=False,
+        proxy_candidates=(),
+    ),
+    MarketMetricDefinition(
+        name="elliott_wave_phase",
+        family=MetricFamily.PRICE_ACTION,
+        description="Current Elliott Wave phase (impulse wave 1-5, corrective A-B-C).",
+        required_data_classes=(DataClass.DAILY_OHLCV,),
+        min_lookback=100,
+        confidence=MetricConfidence.UNAVAILABLE,
+        implemented=False,
+    ),
+    MarketMetricDefinition(
+        name="elliott_zigzag_correction",
+        family=MetricFamily.PRICE_ACTION,
+        description="Elliott Wave zigzag (5-3-5) correction pattern.",
+        required_data_classes=(DataClass.DAILY_OHLCV,),
+        min_lookback=100,
+        confidence=MetricConfidence.UNAVAILABLE,
+        implemented=False,
+    ),
+    MarketMetricDefinition(
+        name="elliott_flat_correction",
+        family=MetricFamily.PRICE_ACTION,
+        description="Elliott Wave flat (3-3-5) correction pattern.",
+        required_data_classes=(DataClass.DAILY_OHLCV,),
+        min_lookback=100,
+        confidence=MetricConfidence.UNAVAILABLE,
+        implemented=False,
+    ),
+    MarketMetricDefinition(
+        name="elliott_triangle_correction",
+        family=MetricFamily.PRICE_ACTION,
+        description="Elliott Wave triangle (A-B-C-D-E) correction pattern.",
+        required_data_classes=(DataClass.DAILY_OHLCV,),
+        min_lookback=100,
+        confidence=MetricConfidence.UNAVAILABLE,
+        implemented=False,
     ),
     MarketMetricDefinition(
         name="gonzalo_granger_cs",
