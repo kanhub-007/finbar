@@ -143,10 +143,12 @@ def classify_wyckoff_phase(
         & (shape.isin(["D_SHAPE", "NORMAL"]))
     )
 
-    # Apply phases in priority order (MARKUP/MARKDOWN override others)
-    result.loc[markup, "wyckoff_phase"] = "MARKUP"
-    result.loc[markdown, "wyckoff_phase"] = "MARKDOWN"
+    # Apply phases in priority order: MARKUP/MARKDOWN are applied LAST
+    # so they override ACCUMULATION/DISTRIBUTION when conditions overlap.
+    # (e.g., a bar matching both MARKUP and DISTRIBUTION gets MARKUP.)
     result.loc[accumulation, "wyckoff_phase"] = "ACCUMULATION"
     result.loc[distribution, "wyckoff_phase"] = "DISTRIBUTION"
+    result.loc[markup, "wyckoff_phase"] = "MARKUP"
+    result.loc[markdown, "wyckoff_phase"] = "MARKDOWN"
 
     return result

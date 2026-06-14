@@ -52,9 +52,14 @@ class PandasSignalCalculator(SignalCalculator):
             (rsi <= 70, RsiZone.NEUTRAL),
             (rsi <= 80, RsiZone.OVERBOUGHT),
         ]
+        # Default is EXTREME_OVERBOUGHT to handle rsi > 80 (not covered by
+        # the explicit conditions). After classification, NaN RSI values
+        # are reset to NEUTRAL (all comparisons with NaN are False, so
+        # without this guard NaN would inherit the default).
         result = pd.Series(RsiZone.EXTREME_OVERBOUGHT, index=df.index, dtype="object")
         for cond, zone in reversed(conditions):
             result = result.where(~cond, zone)
+        result = result.where(~rsi.isna(), RsiZone.NEUTRAL)
         return result
 
     @staticmethod

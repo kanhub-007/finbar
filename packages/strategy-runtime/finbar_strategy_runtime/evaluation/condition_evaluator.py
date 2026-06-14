@@ -65,6 +65,20 @@ class ConditionEvaluator:
         """Commit crossover values collected during one bar evaluation."""
         previous_values.update(pending_values)
 
+    def collect_state(
+        self,
+        group: ConditionGroup | None,
+        bar: dict,
+        pending_values: PendingValues,
+    ) -> None:
+        """Collect crossover state for a condition tree into pending_values.
+
+        Public entry point for pass 1. Allows callers to pre-populate
+        crossover state for condition trees that may not be evaluated
+        this bar (e.g., entry rules while in a position).
+        """
+        self._collect_state(group, bar, pending_values)
+
     # ------------------------------------------------------------------
     # Pass 1 — collect crossover state (side-effect only, no bool result)
     # ------------------------------------------------------------------

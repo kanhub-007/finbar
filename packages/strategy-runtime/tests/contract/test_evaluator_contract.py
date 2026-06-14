@@ -717,3 +717,46 @@ class TestJsonRuleBasedStrategy:
         assert result.stop_price == pytest.approx(90.0)
 
 
+class TestCrossoverStateDuringPosition:
+    """Regression: entry crossover state must not go stale during a position."""
+
+    def test_entry_crossover_not_fired_with_stale_state(self):
+        """After exiting a position, crossover should compare to the
+        immediately preceding bar, not the bar before position entry."""
+        entry = ConditionGroup(
+            kind="condition",
+            condition=Condition(
+                left=Operand(kind="field", value="rsi", label="rsi"),
+                operator="crosses_above",
+                right=Operand(kind="literal", value=50, label="50"),
+            ),
+        )
+        definition = StrategyDefinition(
+            name="test",
+            sides={
+                "long": SideRules(
+                    side="long", entry=entry, entry_confidence=1.0
+                )
+            },
+        )
+        strategy = JsonRuleBasedStrategy(definition)
+
+        # Bar 0-1: flat, no position, entry crossover state tracked
+        strategy.on_bar({"rsi": 40.0}, {"direction": "", "size": 0})
+        strategy.on_bar({"rsi": 48.0}, {"direction": "", "size": 0})
+
+        # Bars 2-6: in position, rsi goes 52→62→72→62→52
+        for rsi in [52, 62, 72, 62, 52]:
+            strategy.on_bar(
+                {"rsi": float(rsi)}, {"direction": "long", "size": 1}
+            )
+
+        # Bar 7: position closed, rsi=72 (was already >50 in bar 6)
+        # With stale state: prev=48 → 48<=50 and 72>50 → false crossover
+        # With correct state: prev=52 → 52>50 → no crossover
+        result = strategy.on_bar({"rsi": 72.0}, {"direction": "", "size": 0})
+        assert result.action == "hold", (
+            "False crossover fired: entry state was stale during position"
+        )
+
+

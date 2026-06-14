@@ -46,6 +46,15 @@ class JsonRuleBasedStrategy(TradingStrategy):
         size = float(position.get("size", 0) or 0)
         pending_values: PrevValues = {}
 
+        # Always collect crossover state for ALL condition trees so that
+        # crossover previous_values stay current even while in a position.
+        # Without this, entry crossover state goes stale during positions,
+        # causing false crossover signals on re-entry.
+        for side_rules in self._definition.sides.values():
+            self._evaluator.collect_state(side_rules.entry, bar, pending_values)
+            if side_rules.exit is not None:
+                self._evaluator.collect_state(side_rules.exit, bar, pending_values)
+
         if size != 0:
             signal = self._exit_signal(bar, direction, pending_values)
         else:

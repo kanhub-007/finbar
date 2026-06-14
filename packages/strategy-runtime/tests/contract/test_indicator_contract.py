@@ -308,3 +308,66 @@ class TestDomainServicesIndicatorMath:
         assert len(h1) == 64  # SHA-256 hex digest
 
 
+class TestBugFixRegressionsRound2:
+    """Regression tests for bugs found in round-2 logic review."""
+
+    def test_nan_rsi_classified_as_neutral(self):
+        """NaN RSI must be NEUTRAL, not EXTREME_OVERBOUGHT."""
+        import numpy as np
+        import pandas as pd
+
+        from finbar_strategy_runtime.indicators.pandas_signal_calculator import (
+            PandasSignalCalculator,
+        )
+
+        df = pd.DataFrame(
+            {
+                "rsi_14": [50.0, np.nan, 85.0, np.nan],
+                "adx": [25.0] * 4,
+                "close": [100.0] * 4,
+            }
+        )
+        calc = PandasSignalCalculator()
+        result = calc.calculate(df)
+        zones = result["rsi_zone"].tolist()
+        assert "NEUTRAL" in str(zones[1]), (
+            f"NaN RSI classified as {zones[1]}, expected NEUTRAL"
+        )
+        assert "EXTREME_OVERBOUGHT" in str(zones[2]), (
+            f"RSI=85 classified as {zones[2]}, expected EXTREME_OVERBOUGHT"
+        )
+
+    def test_wyckoff_markup_overrides_distribution(self):
+        """When both MARKUP and DISTRIBUTION match, MARKUP wins."""
+        import numpy as np
+        import pandas as pd
+
+        from finbar_strategy_runtime.domain.services.wyckoff_phase import (
+            classify_wyckoff_phase,
+        )
+
+        n = 30
+        # POC rising so slope > 0.5 after 20 sessions
+        poc_vals = [100.0 + i * 0.05 for i in range(n)]
+        df = pd.DataFrame(
+            {
+                "vp_poc": poc_vals,
+                "vp_vah": [p + 10 for p in poc_vals],
+                "vp_val": [p - 10 for p in poc_vals],
+                "balance_status": ["IMBALANCED_UP"] * n,
+                "profile_shape": ["D_SHAPE"] * n,
+                "rvol": [1.5] * n,
+                "value_area_width_pct": np.arange(20, 20 + n, dtype=float),
+            }
+        )
+        df.index = pd.date_range("2024-01-01", periods=n, freq="D")
+        result = classify_wyckoff_phase(df, slope_window=20)
+        phases = result["wyckoff_phase"].iloc[25:].tolist()
+        assert "MARKUP" in phases, (
+            f"Expected MARKUP in phases, got {set(phases)}"
+        )
+        assert "DISTRIBUTION" not in phases, (
+            "DISTRIBUTION overrode MARKUP despite priority comment"
+        )
+
+
