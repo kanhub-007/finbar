@@ -50,6 +50,12 @@ class ConditionEvaluator:
         if group is None:
             return False
         if group.kind in ("all", "any"):
+            # NOTE: Eager evaluation (list comprehension) is intentional here.
+            # Crossover conditions have side effects via _crossed() — they write
+            # to pending_values to track state regardless of boolean outcome.
+            # Short-circuit evaluation (generator) would skip state updates for
+            # children after a short-circuit, causing stale crossover tracking.
+            # See: test_crossover_state_updates_when_prior_all_condition_is_false
             results = [
                 self._evaluate_group(child, bar, previous_values, pending_values)
                 for child in group.children

@@ -158,21 +158,25 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
 
         # Cache for compound indicators that share computation
         cache: dict[str, pd.DataFrame] = {}
+        # Compute column set once to avoid per-indicator set construction
+        present_cols = set(result.columns)
 
         for name in indicators:
             if name.startswith("proxy_"):
                 result = _compute_proxies(result, cache)
+                present_cols = set(result.columns)
             elif name in _INDICATOR_HANDLERS:
                 handler, requires = _INDICATOR_HANDLERS[name]
-                if requires and requires - set(result.columns):
+                if requires and requires - present_cols:
                     logger.debug(
                         "Skipping '%s': missing columns %s",
                         name,
-                        requires - set(result.columns),
+                        requires - present_cols,
                     )
                     continue
                 try:
                     result = handler(result, name, cache)
+                    present_cols = set(result.columns)
                 except Exception:
                     logger.warning(
                         "Failed to compute indicator '%s'", name, exc_info=True
@@ -180,6 +184,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
             elif _is_dynamic(name):
                 try:
                     result = _compute_dynamic(result, name)
+                    present_cols = set(result.columns)
                 except Exception:
                     logger.warning(
                         "Failed to compute dynamic indicator '%s'",
@@ -189,6 +194,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
             elif _is_rolling_vp(name):
                 try:
                     result = _compute_rolling_vp_dynamic(result, name, cache)
+                    present_cols = set(result.columns)
                 except Exception:
                     logger.warning(
                         "Failed to compute rolling VP '%s'",
@@ -1336,42 +1342,62 @@ _DYNAMIC_HANDLERS: dict[str, tuple[Callable, str]] = {
     "bb_lower": (ta.bbands, "bb"),
 }
 
+# Precomputed prefix→(func, source) map to avoid per-call f-string allocations.
+_DYNAMIC_PREFIXES: dict[str, tuple[Callable, str]] = {
+    f"{prefix}_": (func, source)
+    for prefix, (func, source) in _DYNAMIC_HANDLERS.items()
+}
+
+
+def _resolve_dynamic(
+    name: str,
+) -> tuple[Callable, str, int] | None:
+    """Try to resolve a dynamic indicator name like sma_37.
+
+    Returns (func, source_col, period) or None.
+    """
+    for prefix, (func, source_col) in _DYNAMIC_PREFIXES.items():
+        if name.startswith(prefix):
+            period_str = name[len(prefix):]
+            if period_str.isdigit():
+                period = int(period_str)
+                if period >= 2:
+                    return func, source_col, period
+            return None
+    return None
+
 
 def _is_dynamic(name: str) -> bool:
     """Return True when a name matches a dynamic indicator like sma_37."""
-    for prefix in _DYNAMIC_HANDLERS:
-        if name.startswith(f"{prefix}_"):
-            rest = name[len(prefix) + 1 :]
-            return rest.isdigit() and int(rest) >= 2
-    return False
+    return _resolve_dynamic(name) is not None
 
 
 def _compute_dynamic(df: pd.DataFrame, name: str) -> pd.DataFrame:
     """Compute a dynamic period indicator and add its column to the frame."""
-    for prefix, (func, source_col) in _DYNAMIC_HANDLERS.items():
-        if name.startswith(f"{prefix}_"):
-            period = int(name[len(prefix) + 1 :])
-            if source_col == "hlc":
-                result = func(df["high"], df["low"], df["close"], length=period)
-                if result is None:
-                    return df
-                if isinstance(result, pd.Series):
-                    # ta.atr returns a Series directly (single numeric column)
-                    df[name] = result
-                else:
-                    # ta.adx returns a DataFrame with named columns
-                    col = f"{prefix.upper()}_{period}"
-                    if col in result.columns:
-                        df[name] = result[col]
-            elif source_col == "bb":
-                result_df = func(df["close"], length=period, std=2)
-                if result_df is not None:
-                    bb_col = _extract_bb_column(result_df, prefix, period)
-                    if bb_col:
-                        df[name] = result_df[bb_col]
-            else:
-                df[name] = _safe_ta(func, df[source_col], length=period)
+    resolved = _resolve_dynamic(name)
+    if resolved is None:
+        return df
+
+    func, source_col, period = resolved
+    if source_col == "hlc":
+        result = func(df["high"], df["low"], df["close"], length=period)
+        if result is None:
             return df
+        if isinstance(result, pd.Series):
+            df[name] = result
+        else:
+            # ta.adx returns a DataFrame — extract the named column
+            col = f"{name.split('_')[0].upper()}_{period}"
+            if col in result.columns:
+                df[name] = result[col]
+    elif source_col == "bb":
+        result_df = func(df["close"], length=period, std=2)
+        if result_df is not None:
+            bb_col = _extract_bb_column(result_df, name.split("_")[0], period)
+            if bb_col:
+                df[name] = result_df[bb_col]
+    else:
+        df[name] = _safe_ta(func, df[source_col], length=period)
     return df
 
 
