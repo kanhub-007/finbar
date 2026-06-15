@@ -3,14 +3,15 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser,
+)
+
 from finbar.core.application.dto.compute_strategy_indicators_result import (
     ComputeStrategyIndicatorsResult,
 )
 from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
 from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
-from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
-    StrategyDefinitionParser,
-)
 
 _BASE_COLUMNS = {"open", "high", "low", "close", "volume", "timestamp"}
 

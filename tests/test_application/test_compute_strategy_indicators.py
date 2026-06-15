@@ -7,8 +7,8 @@ from finbar.core.application.use_cases.compute_strategy_indicators import (
     ComputeStrategyIndicatorsUseCase,
 )
 from finbar.core.domain.entities.indicator_job import IndicatorJob
-from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
 from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
+from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
 from tests.fakes.recording_indicator_job_manager import (
     RecordingIndicatorJobManager,
 )

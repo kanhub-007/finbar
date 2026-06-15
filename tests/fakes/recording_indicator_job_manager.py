@@ -4,8 +4,8 @@ Records every started job's request params without spawning any async task,
 so synchronous use-case tests can assert on what was requested.
 """
 
-from typing import Any
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from finbar.core.domain.entities.indicator_job import IndicatorJob
 from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
