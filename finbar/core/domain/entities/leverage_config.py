@@ -12,6 +12,7 @@ class LeverageConfig:
     """
 
     multiplier: float = 1.0
+    maintenance_margin_pct: float = 0.0
 
     @property
     def is_spot(self) -> bool:
@@ -21,18 +22,24 @@ class LeverageConfig:
     def liquidation_price(self, entry_price: float, direction: str) -> float:
         """Price at which the position is force-closed.
 
-        Assumes isolated margin with zero maintenance margin buffer.
-        In practice exchanges use ~0.5-1% maintenance margin, but
-        we use the exact price for a conservative backtest.
+        Uses an isolated-margin approximation that accounts for the
+        configured maintenance margin percentage. When
+        ``maintenance_margin_pct == 0.0`` the formula matches the
+        previous zero-maintenance model.
 
         Returns entry_price when leverage <= 1 (spot / no liquidation).
         """
         if self.multiplier <= 1:
             return entry_price
+        initial_margin_fraction = 1.0 / self.multiplier
         if direction == "long":
-            return entry_price * (1.0 - 1.0 / self.multiplier)
+            return entry_price * (
+                1.0 - initial_margin_fraction + self.maintenance_margin_pct
+            )
         if direction == "short":
-            return entry_price * (1.0 + 1.0 / self.multiplier)
+            return entry_price * (
+                1.0 + initial_margin_fraction - self.maintenance_margin_pct
+            )
         return entry_price
 
     def max_affordable(self, cash: float, price: float) -> float:

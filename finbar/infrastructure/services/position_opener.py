@@ -36,12 +36,13 @@ class PositionOpener:
                 alone.
         """
         self._config = config
-        self._leverage = LeverageConfig(multiplier=config.leverage_multiplier)
+        self._leverage = LeverageConfig(
+            multiplier=config.leverage_multiplier,
+            maintenance_margin_pct=config.maintenance_margin_pct,
+        )
         self._margin = margin_manager
 
-    def bind_margin_manager(
-        self, margin_manager: MarginAccountManager | None
-    ) -> None:
+    def bind_margin_manager(self, margin_manager: MarginAccountManager | None) -> None:
         """Attach (or detach) the full-margin account manager.
 
         The margin manager is bound lazily from ``PositionExecutor.setup_full_margin``

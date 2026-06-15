@@ -17,7 +17,10 @@ class PositionSizer:
     def __init__(self, config: ExecutionConfig) -> None:
         """Create a sizer bound to one execution configuration."""
         self._config = config
-        self._leverage = LeverageConfig(multiplier=config.leverage_multiplier)
+        self._leverage = LeverageConfig(
+            multiplier=config.leverage_multiplier,
+            maintenance_margin_pct=config.maintenance_margin_pct,
+        )
 
     def resolve(
         self,

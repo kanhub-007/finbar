@@ -6,9 +6,10 @@ output dict. One class with a single public build() method.
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
+
 from finbar.core.domain.entities.backtest_diagnostic import BacktestDiagnostic
 from finbar.core.domain.entities.execution_config import ExecutionConfig
-from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.core.domain.services.annualization import (
     annualization_factor as _annualization_factor,
 )
@@ -219,6 +220,7 @@ class BacktestResultBuilder:
             "allow_negative_cash": config.allow_negative_cash,
             "borrow_fee_annual_pct": config.borrow_fee_annual_pct,
             "margin_mode": config.margin_mode,
+            "maintenance_margin_pct": config.maintenance_margin_pct,
             "market_calendar": config.market_calendar,
             "annualization_factor": annualization_factor,
             "annualization_warning": annualization_warning,
