@@ -452,3 +452,45 @@ class TestResolveHandlerGate:
         assert catalog.supports_concrete("brand_new_metric") is True
         assert "brand_new_metric" in catalog.supported_concrete_names()
         assert "brand_new_metric" in catalog.as_dict()["fixed_indicators"]
+
+
+# ---------------------------------------------------------------------------
+# Discovery: handled metrics surface in capabilities (Spec Slice 2)
+# ---------------------------------------------------------------------------
+
+
+# Representative handled metrics that must appear in the discovery payload.
+_DISCOVERY_SAMPLE = [
+    "bag_holding",
+    "market_regime",
+    "hurst_exponent",
+    "bos",
+    "choch",
+    "alligator_jaw",
+    "fib_618_retrace",
+    "corwin_schultz_spread",
+]
+
+
+class TestDiscoverySurfacesHandledMetrics:
+    """as_dict()['fixed_indicators'] must include every catalogued metric that
+    has a registered handler, plus the legacy fixed indicators."""
+
+    @pytest.mark.parametrize("metric", _DISCOVERY_SAMPLE)
+    def test_handled_metric_in_capabilities(self, catalog, metric):
+        assert metric in catalog.as_dict()["fixed_indicators"]
+
+    @pytest.mark.parametrize(
+        "legacy", ["vp_vah", "atr", "vwap", "acceptance_into_value"]
+    )
+    def test_legacy_metrics_still_in_capabilities(self, catalog, legacy):
+        assert legacy in catalog.as_dict()["fixed_indicators"]
+
+    def test_fixed_indicators_is_superset_of_usable_set(self, catalog):
+        """Every usable registry metric is surfaced in fixed_indicators."""
+        fixed = set(catalog.as_dict()["fixed_indicators"])
+        assert catalog._usable.names() <= fixed
+
+    def test_fixed_indicators_is_sorted_and_unique(self, catalog):
+        fixed = catalog.as_dict()["fixed_indicators"]
+        assert fixed == sorted(set(fixed))
