@@ -1,7 +1,9 @@
-"""Contract tests for UnifiedMetricCatalog — Scenario 1.1 + 1.3.
+"""Contract tests for UnifiedMetricCatalog.
 
-Verifies the unified catalog serves both parser validation
-(IndicatorCapabilityProvider) and capability checks (MarketMetricCatalog).
+Covers the unified catalog's dual role (parser validation via
+IndicatorCapabilityProvider + capability checks via MarketMetricCatalog)
+and the handler-required parser gate (resolve() agrees with
+supports_concrete() / UsableMetricSet for every registry metric).
 """
 
 import pytest
@@ -157,9 +159,7 @@ class TestNameSyncInvariant:
         unaccepted = {
             name for name in handler_names if not catalog.supports_concrete(name)
         }
-        assert unaccepted == set(), (
-            f"Handlers not accepted by parser: {unaccepted}"
-        )
+        assert unaccepted == set(), f"Handlers not accepted by parser: {unaccepted}"
 
     def test_catalogued_without_handler_not_computable(self, catalog):
         """Catalogued names that lack a handler report computable=False."""
@@ -172,9 +172,9 @@ class TestNameSyncInvariant:
 
         for name in catalog_names - handler_names:
             result = catalog.check(name, "daily_ohlcv")
-            assert result.computable is False or not result.supported, (
-                f"'{name}' has no handler but check() returned computable=True"
-            )
+            assert (
+                result.computable is False or not result.supported
+            ), f"'{name}' has no handler but check() returned computable=True"
 
     def test_unhandled_metrics_rejected_by_parser(self, catalog):
         """Catalogued MarketMetricDefinitions WITHOUT a handler must be
@@ -188,8 +188,8 @@ class TestNameSyncInvariant:
             _INDICATOR_HANDLERS,
         )
         from finbar_strategy_runtime.parser._metric_registry import (
-            METRICS,
             CONCEPTUAL_METRICS,
+            METRICS,
         )
 
         handler_names = set(_INDICATOR_HANDLERS.keys())
@@ -205,3 +205,250 @@ class TestNameSyncInvariant:
             f"Market metrics without handlers are parser-accepted "
             f"(users can reference them but they produce no column): {leaked}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Handler-required parser gate (Spec 2026-06-15)
+# ---------------------------------------------------------------------------
+
+
+# Representative sample across every theory family blocked by the original
+# resolve() bug (see spec 01-story.md blast-radius table).
+_HANDLED_FAMILY_SAMPLE = [
+    # VSA
+    "bag_holding",
+    "effort_result_divergence",
+    "stopping_volume",
+    "no_demand",
+    # SMC / ICT
+    "bos",
+    "choch",
+    "bullish_fvg",
+    # Bill Williams
+    "alligator_jaw",
+    "alligator_status",
+    # Fibonacci
+    "fib_618_retrace",
+    # Microstructure
+    "corwin_schultz_spread",
+    # Derivatives
+    "funding_rate",
+    # Regime
+    "market_regime",
+    "hurst_exponent",
+]
+
+
+class TestResolveHandlerGate:
+    """The parser gate is resolve(). It must agree with UsableMetricSet and
+    accept every catalogued metric that has a registered handler."""
+
+    # --- Scenario 1: catalogued + handled metric resolves to its name ---
+
+    @pytest.mark.parametrize("metric", _HANDLED_FAMILY_SAMPLE)
+    def test_catalogued_handled_metric_resolves(self, catalog, metric):
+        """resolve() returns the metric's own column name (was None — the bug)."""
+        assert catalog.resolve(metric, None) == metric
+
+    def test_mixed_case_input_is_lowercased_before_lookup(self, catalog):
+        """resolve() lowercases, matching _parse_one's convention."""
+        assert catalog.resolve("Bag_Holding", None) == "bag_holding"
+        assert catalog.resolve("BAG_HOLDING", None) == "bag_holding"
+
+    # --- Scenario 2: catalogued WITHOUT handler still rejected ---
+
+    def test_catalogued_unhandled_metric_rejected(self, catalog):
+        """Catalogued-but-unimplemented metrics must NOT resolve (INV-5)."""
+        from finbar_strategy_runtime.indicators._handler_registry import (
+            _INDICATOR_HANDLERS,
+        )
+        from finbar_strategy_runtime.parser._metric_registry import (
+            CONCEPTUAL_METRICS,
+            METRICS,
+        )
+
+        handler_names = set(_INDICATOR_HANDLERS.keys())
+        registry_names = {m.name for m in METRICS + CONCEPTUAL_METRICS}
+        for name in registry_names - handler_names:
+            assert (
+                catalog.resolve(name, None) is None
+            ), f"{name!r} has no handler but resolve() accepted it (over-correction)"
+
+    # --- Scenario 3: unknown metric still rejected ---
+
+    def test_unknown_metric_rejected(self, catalog):
+        assert catalog.resolve("totally_made_up_metric", None) is None
+        assert catalog.resolve("not_a_real_indicator", None) is None
+
+    # --- Scenario 4: legacy fixed + period-parameterised still resolve ---
+
+    @pytest.mark.parametrize(
+        "metric",
+        [
+            "vp_vah",
+            "vp_val",
+            "vp_poc",
+            "vwap",
+            "above_value",
+            "acceptance_into_value",
+            "value_area_width_pct",
+            "poc_slope_5",
+            "is_markdown",
+            "is_distribution",
+        ],
+    )
+    def test_legacy_fixed_indicators_resolve(self, catalog, metric):
+        assert catalog.resolve(metric, None) == metric
+
+    @pytest.mark.parametrize(
+        "name,period,expected",
+        [
+            ("sma", 50, "sma_50"),
+            ("rsi", 14, "rsi_14"),
+            ("ema", 12, "ema_12"),
+            ("atr", 2, "atr_2"),
+            # Pattern-matched rolling-VP (delegate to legacy):
+            ("vp_poc_10d", None, "vp_poc_10d"),
+            ("rvp_vah_48", None, "rvp_vah_48"),
+            ("cvp_val_20d", None, "cvp_val_20d"),
+        ],
+    )
+    def test_period_parameterised_names_resolve(self, catalog, name, period, expected):
+        assert catalog.resolve(name, period) == expected
+
+    # --- Scenario 6: all parser-side methods derive from UsableMetricSet ---
+
+    def test_resolve_and_supports_concrete_agree_for_every_registry_name(self, catalog):
+        """resolve() and supports_concrete() must agree for every registry name
+        (INV-3). They both derive from the single UsableMetricSet instance."""
+        from finbar_strategy_runtime.parser._metric_registry import (
+            CONCEPTUAL_METRICS,
+            METRICS,
+        )
+
+        for name in (m.name for m in METRICS + CONCEPTUAL_METRICS):
+            resolved = catalog.resolve(name, None)
+            supported = catalog.supports_concrete(name)
+            assert (
+                resolved is not None
+            ) == supported, (
+                f"{name!r}: resolve={resolved!r} but supports_concrete={supported}"
+            )
+
+    def test_catalog_delegates_registry_resolution_to_usable_set(self, catalog):
+        """For every registry name, resolve()/supports_concrete() must equal
+        the _usable collaborator's answer (no re-encoded rule)."""
+        from finbar_strategy_runtime.parser._metric_registry import (
+            CONCEPTUAL_METRICS,
+            METRICS,
+        )
+
+        usable = catalog._usable
+        for name in (m.name for m in METRICS + CONCEPTUAL_METRICS):
+            assert catalog.resolve(name, None) == usable.resolve(name), name
+            assert catalog.supports_concrete(name) == usable.contains(name), name
+
+    def test_every_handler_accepted_by_resolve(self, catalog):
+        """Every registered handler that is also catalogued must resolve.
+
+        This is the strengthened name-sync invariant: the original bug escaped
+        because the test asserted on supports_concrete() (which worked) instead
+        of resolve() (the actual parser gate, which was broken)."""
+        from finbar_strategy_runtime.indicators._handler_registry import (
+            _INDICATOR_HANDLERS,
+        )
+        from finbar_strategy_runtime.parser._metric_registry import (
+            CONCEPTUAL_METRICS,
+            METRICS,
+        )
+
+        registry_names = {m.name for m in METRICS + CONCEPTUAL_METRICS}
+        for name in set(_INDICATOR_HANDLERS) & registry_names:
+            assert catalog.resolve(name, None) == name, name
+
+    # --- Scenario 7: construction-time consistency (fail-loud, INV-6) ---
+
+    def test_fresh_catalog_constructs_without_error(self):
+        """A correctly-wired catalog does NOT raise on construction."""
+        from finbar_strategy_runtime.parser.unified_metric_catalog import (
+            UnifiedMetricCatalog,
+        )
+
+        catalog = UnifiedMetricCatalog()  # must not raise
+        assert catalog.resolve("bag_holding", None) == "bag_holding"
+
+    def test_validate_consistency_raises_on_resolve_drift(self, catalog):
+        """If _usable disagrees with ground truth, _validate_consistency raises.
+
+        Sabotage: rebuild _usable with the real ``by_name`` but an empty
+        handler set. Every catalogued+handled metric now appears unusable to
+        ``_usable`` while ground truth (``_handled_names``) says it is usable.
+        The validator must catch this disagreement and name a divergent metric.
+        """
+        from finbar_strategy_runtime.parser.usable_metric_set import UsableMetricSet
+
+        catalog._usable = UsableMetricSet(by_name=catalog._by_name, handled_names=set())
+        with pytest.raises(RuntimeError) as exc:
+            catalog._validate_consistency()
+        msg = str(exc.value).lower()
+        # The validator must flag the inconsistency and name some divergent
+        # metric (which one fires first is insertion-order dependent).
+        assert "inconsistent" in msg, exc.value
+        known_handled = [n for n in ("bag_holding", "corwin_schultz_spread", "bos")]
+        assert any(n in str(exc.value) for n in known_handled), exc.value
+
+    def test_validate_consistency_raises_when_supports_concrete_drifts(
+        self, catalog, monkeypatch
+    ):
+        """The validator also catches supports_concrete() disagreeing with
+        _usable (the reverse disagreement)."""
+        # Make supports_concrete lie for one usable name while resolve stays true.
+        usable_names = catalog._usable.names()
+        victim = next(iter(usable_names))
+
+        original_supports = catalog.supports_concrete
+
+        def lying_supports(name: str) -> bool:
+            if name == victim:
+                return False
+            return original_supports(name)
+
+        monkeypatch.setattr(catalog, "supports_concrete", lying_supports)
+        with pytest.raises(RuntimeError) as exc:
+            catalog._validate_consistency()
+        assert "supports_concrete" in str(exc.value).lower(), exc.value
+
+    # --- Scenario 8: adding a metric needs zero catalog-code edits ---
+
+    def test_new_metric_auto_wires_without_catalog_edits(self, catalog):
+        """A metric known to both by_name and handled_names is usable across
+        all four parser-side methods with no per-method wiring.
+
+        Simulates a developer adding a ``MarketMetricDefinition`` to
+        ``_metric_registry`` (→ ``_by_name``) and registering a handler
+        (→ ``_handled_names``). No catalog method is edited per-metric.
+        """
+        from finbar_strategy_runtime.domain.entities.market_metric_definition import (
+            MarketMetricDefinition,
+        )
+        from finbar_strategy_runtime.domain.entities.metric_family import (
+            MetricFamily,
+        )
+        from finbar_strategy_runtime.parser.usable_metric_set import UsableMetricSet
+
+        new_def = MarketMetricDefinition(
+            name="brand_new_metric", family=MetricFamily.PRICE_ACTION
+        )
+        # Mirror exactly what construction would do: add to _by_name and the
+        # handler set, then rebuild the single usable-set collaborator.
+        catalog._by_name["brand_new_metric"] = new_def
+        catalog._handled_names.add("brand_new_metric")
+        catalog._usable = UsableMetricSet(
+            by_name=catalog._by_name,
+            handled_names=catalog._handled_names,
+        )
+
+        assert catalog.resolve("brand_new_metric", None) == "brand_new_metric"
+        assert catalog.supports_concrete("brand_new_metric") is True
+        assert "brand_new_metric" in catalog.supported_concrete_names()
+        assert "brand_new_metric" in catalog.as_dict()["fixed_indicators"]

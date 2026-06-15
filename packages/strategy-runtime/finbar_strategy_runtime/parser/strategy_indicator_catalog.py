@@ -169,7 +169,35 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
             if isinstance(period, int) and min_p <= period <= max_p:
                 return f"{name}_{period}"
             return None
+        # Rolling-VP pattern names (vp_poc_10d, rvp_vah_100, cvp_poc_50d, ...).
+        # Mirrors supports_concrete(): any positive-integer window resolves,
+        # not just the windows hardcoded in _FIXED.
+        matched = self._match_rolling_vp(name)
+        if matched is not None:
+            return matched
         return self._FIXED.get(name)
+
+    def _match_rolling_vp(self, name: str) -> str | None:
+        """Return ``name`` if it is a valid rolling-VP pattern, else None.
+
+        Recognises the three rolling-VP families with a positive-integer
+        window (``>= 1``), exactly as ``supports_concrete()`` does:
+        ``vp_*_Nd``, ``rvp_*_N``, ``cvp_*_Nd``.
+        """
+        # vp_*_Nd and cvp_*_Nd end in 'd'; rvp_*_N is bare digits.
+        for base in self._ROLLING_VP_BASE | self._CVP_BASE:
+            prefix = f"{base}_"
+            if name.startswith(prefix) and name.endswith("d"):
+                inner = name[len(prefix) : -1]
+                if inner.isdigit() and int(inner) >= 1:
+                    return name
+        for base in self._RVP_BASE:
+            prefix = f"{base}_"
+            if name.startswith(prefix):
+                inner = name[len(prefix) :]
+                if inner.isdigit() and int(inner) >= 1:
+                    return name
+        return None
 
     def requires_period(self, indicator_type: str) -> bool:
         """Return True when the indicator type requires a period."""

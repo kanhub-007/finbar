@@ -37,7 +37,7 @@ from finbar_strategy_runtime.parser._metric_registry import (
 from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
-
+from finbar_strategy_runtime.parser.usable_metric_set import UsableMetricSet
 
 # ---------------------------------------------------------------------------
 # UnifiedMetricCatalog
@@ -67,14 +67,39 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
             _INDICATOR_HANDLERS,
         )
 
+        # The parser-side usable-set rule lives in ONE place: this value
+        # object. Parser methods (resolve / supports_concrete /
+        # supported_concrete_names / as_dict) MUST go through ``_usable``
+        # and never read ``_by_name`` / handler keys directly — that
+        # duplication was the drift cause of the original resolve() bug.
+        # ``_by_name`` and ``_handled_names`` are retained ONLY for the
+        # capability-side methods (get / list / check, which answer
+        # metadata) and the construction-time consistency check (ground
+        # truth). They are NOT consulted by parser-side resolution.
         self._handled_names: set[str] = set(_INDICATOR_HANDLERS.keys())
+        self._usable = UsableMetricSet(
+            by_name=self._by_name,
+            handled_names=self._handled_names,
+        )
+        self._validate_consistency()
 
     # ====================================================================
     # Parser-side: IndicatorCapabilityProvider
     # ====================================================================
 
     def resolve(self, indicator_type: str, period: int | None) -> str | None:
-        """Resolve an indicator type/period to a concrete column name."""
+        """Resolve an indicator type/period to a concrete column name.
+
+        Registry (catalogued) metrics take no period: when ``period`` is
+        None, the usable set is the single source of truth (INV-1). Names
+        the registry does not know — period-parameterised indicators and
+        rolling-VP patterns — fall through to the legacy catalog (INV-4).
+        """
+        name = indicator_type.lower()
+        if period is None:
+            usable = self._usable.resolve(name)
+            if usable is not None:
+                return usable
         return self._strategy_catalog.resolve(indicator_type, period)
 
     def requires_period(self, indicator_type: str) -> bool:
@@ -88,33 +113,40 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
     def supports_concrete(self, name: str) -> bool:
         """Return True when a concrete column is usable in a strategy.
 
-        A catalogued metric is only accepted when it has a registered
-        handler (can actually compute a column). Catalogued-but-
-        unimplemented metrics (Elliott Wave, turnover, VIX, etc.) are
-        discoverable via ``list_market_metrics`` / ``check_metric`` but
-        are rejected by the parser so users can't silently reference
-        a metric that produces no column.
-
-        Parameterized/dynamic names (sma_50, vp_poc_10d, etc.) are
-        delegated to the legacy strategy catalog.
+        For registry (catalogued) names the usable set is the single
+        source of truth (INV-1, INV-2): a catalogued metric is accepted
+        iff it has a registered handler. Catalogued-but-unimplemented
+        metrics (Elliott Wave, turnover, VIX, etc.) are discoverable via
+        ``list_market_metrics`` / ``check_metric`` but rejected by the
+        parser. Parameterised/dynamic names (sma_50, vp_poc_10d, etc.)
+        are delegated to the legacy strategy catalog.
         """
         if name in self._by_name:
-            return name in self._handled_names
+            return self._usable.contains(name)
         return self._strategy_catalog.supports_concrete(name)
 
     def supported_concrete_names(self) -> list[str]:
         """Return all concrete indicator columns currently supported.
 
-        Only includes catalogued metrics that have registered handlers
-        (usable in strategies).
+        Combines the legacy fixed/period/pattern names with the registry
+        usable set (catalogued metrics that have registered handlers).
         """
         names = set(self._strategy_catalog.supported_concrete_names())
-        names.update(n for n in self._by_name if n in self._handled_names)
+        names.update(self._usable.names())
         return sorted(names)
 
     def as_dict(self) -> dict:
-        """Return a JSON-serializable capabilities payload."""
-        return self._strategy_catalog.as_dict()
+        """Return a JSON-serializable capabilities payload.
+
+        The ``fixed_indicators`` list surfaces every catalogued metric
+        that has a registered handler (the usable set), in addition to
+        the legacy fixed indicators.
+        """
+        payload = self._strategy_catalog.as_dict()
+        payload["fixed_indicators"] = sorted(
+            set(payload.get("fixed_indicators", [])) | self._usable.names()
+        )
+        return payload
 
     # ====================================================================
     # Capability-side: MarketMetricCatalog
@@ -195,6 +227,47 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         return names
 
     # ====================================================================
+    # Construction-time consistency check (Design by Contract, INV-6)
+    # ====================================================================
+
+    def _validate_consistency(self) -> None:
+        """Fail loud if any parser-side method diverges from ground truth.
+
+        Ground truth is recomputed independently from ``_by_name`` ∩
+        ``_handled_names``. For every catalogued name, the validator asserts:
+          * ``_usable.contains(name)`` agrees with ground truth (catches a
+            stale/mis-built usable set), AND
+          * ``resolve(name, None)`` returns ``name`` iff usable (catches a
+            future edit that bypasses ``_usable``), AND
+          * ``supports_concrete(name)`` agrees with ground truth.
+
+        Raises ``RuntimeError`` (NOT ``assert``) so it survives
+        ``python -O``. This is the backstop that catches drift if a future
+        edit bypasses ``UsableMetricSet`` — the exact bug class this catalog
+        eradicates.
+        """
+        for name in self._by_name:
+            ground_truth = name in self._handled_names
+            if self._usable.contains(name) != ground_truth:
+                raise RuntimeError(
+                    f"UnifiedMetricCatalog: UsableMetricSet.contains({name!r}) "
+                    f"disagrees with ground truth (handler presence); parser "
+                    f"gate is inconsistent."
+                )
+            resolved = self.resolve(name, None)
+            if (resolved is not None) != ground_truth:
+                raise RuntimeError(
+                    f"UnifiedMetricCatalog.resolve({name!r}) disagrees with "
+                    f"UsableMetricSet; parser gate is inconsistent."
+                )
+            if self.supports_concrete(name) != ground_truth:
+                raise RuntimeError(
+                    f"UnifiedMetricCatalog.supports_concrete({name!r}) "
+                    f"disagrees with UsableMetricSet; parser gate is "
+                    f"inconsistent."
+                )
+
+    # ====================================================================
     # Private helpers
     # ====================================================================
 
@@ -213,8 +286,9 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
                 warnings=("Metric catalogued but not yet implemented.",),
             )
 
-        # Confidence honesty: no handler → not computable
-        if definition.name not in self._handled_names:
+        # Confidence honesty: no handler → not computable. The usable set
+        # is the authority for handler presence (INV-1).
+        if not self._usable.contains(definition.name):
             return MetricCapabilityResult(
                 metric=definition.name,
                 supported=True,
@@ -269,7 +343,10 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
             )
 
         if name in self._handled_names:
-            # proxy_-prefixed indicators are approximations, not actual data
+            # proxy_-prefixed indicators are approximations, not actual data.
+            # This is capability-side (check): legacy parser indicators are
+            # checked against the full handler set, not the registry usable
+            # set (which only tracks MarketMetricDefinition entries).
             confidence = (
                 MetricConfidence.PROXY
                 if name.startswith("proxy_")
@@ -335,7 +412,5 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
             computable=False,
             confidence=MetricConfidence.UNAVAILABLE,
             available_paths=definition.resolution_paths,
-            missing_data_classes=tuple(
-                p.required_data_class.value for p in paths
-            ),
+            missing_data_classes=tuple(p.required_data_class.value for p in paths),
         )
