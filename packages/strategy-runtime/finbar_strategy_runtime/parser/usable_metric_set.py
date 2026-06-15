@@ -41,8 +41,11 @@ class UsableMetricSet:
         self._by_name: Mapping[str, object] = dict(by_name)
         self._handled: frozenset[str] = frozenset(n.lower() for n in handled_names)
         # Compute the usable intersection once (INV-1); cache it (INV-2).
+        # Keys are normalised to lowercase so resolve()/contains() — which
+        # lowercase their input — can always find a mixed-case registry
+        # name (e.g. ``MarketMetricDefinition(name="RSI_Divergence")``).
         self._usable: frozenset[str] = frozenset(
-            n for n in self._by_name if n.lower() in self._handled
+            n.lower() for n in self._by_name if n.lower() in self._handled
         )
 
     def resolve(self, name: str) -> str | None:

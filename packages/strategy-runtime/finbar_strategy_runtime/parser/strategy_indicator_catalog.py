@@ -212,30 +212,18 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         """Return True when a concrete indicator column is known."""
         if name in self._FIXED or name in self._FIXED.values():
             return True
+        # Rolling-VP patterns BEFORE the timeframe-suffix strip: the window
+        # suffix ``_Nd`` (e.g. ``cvp_poc_1d``) collides with the ``_1d``
+        # timeframe suffix, and the bare base (``cvp_poc``) is NOT in _FIXED.
+        # Checking patterns first keeps ``resolve()`` and
+        # ``supports_concrete()`` symmetric (INV-3). Shares the single
+        # ``_match_rolling_vp()`` rule with ``resolve()`` so the two cannot
+        # drift (the original bug class).
+        if self._match_rolling_vp(name) is not None:
+            return True
         for suffix in ("_1d", "_1h", "_30min", "_5min", "_1w"):
             if name.endswith(suffix):
                 return self.supports_concrete(name[: -len(suffix)])
-        # Parameterized rolling VP: vp_poc_Nd, vp_vah_Nd, vp_val_Nd
-        for base in self._ROLLING_VP_BASE:
-            prefix = f"{base}_"
-            if name.startswith(prefix) and name.endswith("d"):
-                inner = name[len(prefix) : -1]
-                if inner.isdigit() and int(inner) >= 1:
-                    return True
-        # Parameterized rolling-window VP: rvp_poc_N, rvp_vah_N, rvp_val_N
-        for base in self._RVP_BASE:
-            prefix = f"{base}_"
-            if name.startswith(prefix):
-                inner = name[len(prefix) :]
-                if inner.isdigit() and int(inner) >= 1:
-                    return True
-        # Parameterized composite VP: cvp_poc_Nd, cvp_vah_Nd, cvp_val_Nd
-        for base in self._CVP_BASE:
-            prefix = f"{base}_"
-            if name.startswith(prefix) and name.endswith("d"):
-                inner = name[len(prefix) : -1]
-                if inner.isdigit() and int(inner) >= 1:
-                    return True
         for prefix in self._PERIOD_RANGES:
             if name.startswith(f"{prefix}_"):
                 rest = name[len(prefix) + 1 :]

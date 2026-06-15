@@ -139,3 +139,51 @@ class TestUsableMetricSetImmutabilityAndEdgeCases:
             handled_names={"a", "b"},
         )
         assert len(s) == 2
+
+
+class TestUsableMetricSetMixedCaseRegistryKey:
+    """A registry name with uppercase letters (e.g. a future
+    ``MarketMetricDefinition(name="RSI_Divergence")``) must be resolvable.
+
+    Regression for the asymmetric case-handling bug: _usable was built
+    from raw _by_name keys (mixed-case) while resolve()/contains()
+    lowercased only the input — so a mixed-case key appeared in names()
+    but could never be resolved. All current registry names are lowercase,
+    so this is defensive against future additions.
+    """
+
+    def test_mixed_case_registry_key_resolves(self):
+        s = UsableMetricSet(
+            by_name={"Bag_Holding": _def("Bag_Holding")},
+            handled_names={"bag_holding"},
+        )
+        assert s.resolve("Bag_Holding") == "bag_holding"
+        assert s.resolve("bag_holding") == "bag_holding"
+        assert s.resolve("BAG_HOLDING") == "bag_holding"
+
+    def test_mixed_case_registry_key_contained(self):
+        s = UsableMetricSet(
+            by_name={"Bag_Holding": _def("Bag_Holding")},
+            handled_names={"bag_holding"},
+        )
+        assert s.contains("Bag_Holding") is True
+        assert s.contains("bag_holding") is True
+
+    def test_mixed_case_registry_key_in_names(self):
+        s = UsableMetricSet(
+            by_name={"Bag_Holding": _def("Bag_Holding")},
+            handled_names={"bag_holding"},
+        )
+        # names() returns the canonical lowercased form
+        assert "bag_holding" in s.names()
+        assert "Bag_Holding" not in s.names()
+
+    def test_mixed_case_in_both_inputs_agrees_with_lowercase(self):
+        """Case differences between by_name key and handled_name must not
+        block usability — the value object normalises both to lowercase."""
+        s = UsableMetricSet(
+            by_name={"MyMetric": _def("MyMetric")},
+            handled_names={"MYMETRIC"},
+        )
+        assert s.resolve("mymetric") == "mymetric"
+        assert s.contains("MyMetric") is True

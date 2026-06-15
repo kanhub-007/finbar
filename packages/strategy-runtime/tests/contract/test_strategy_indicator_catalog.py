@@ -64,6 +64,12 @@ class TestRollingVpPatternResolution:
             "vp_vah_5d",
             "rvp_vah_48",
             "cvp_vah_20d",
+            # Window=1: the ``_Nd`` window suffix collides with the ``_1d``
+            # timeframe suffix that supports_concrete() strips first.
+            # Regression for the cvp_*_1d asymmetry bug.
+            "cvp_poc_1d",
+            "cvp_vah_1d",
+            "cvp_val_1d",
         ],
     )
     def test_resolve_and_supports_concrete_agree(self, catalog, name):

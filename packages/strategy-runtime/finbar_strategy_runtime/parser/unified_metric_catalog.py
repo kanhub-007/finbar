@@ -234,7 +234,8 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         """Fail loud if any parser-side method diverges from ground truth.
 
         Ground truth is recomputed independently from ``_by_name`` ∩
-        ``_handled_names``. For every catalogued name, the validator asserts:
+        ``_handled_names`` (case-insensitively, matching the value object's
+        lowercasing). For every catalogued name, the validator asserts:
           * ``_usable.contains(name)`` agrees with ground truth (catches a
             stale/mis-built usable set), AND
           * ``resolve(name, None)`` returns ``name`` iff usable (catches a
@@ -246,8 +247,9 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         edit bypasses ``UsableMetricSet`` — the exact bug class this catalog
         eradicates.
         """
+        handled_lower = {h.lower() for h in self._handled_names}
         for name in self._by_name:
-            ground_truth = name in self._handled_names
+            ground_truth = name.lower() in handled_lower
             if self._usable.contains(name) != ground_truth:
                 raise RuntimeError(
                     f"UnifiedMetricCatalog: UsableMetricSet.contains({name!r}) "
