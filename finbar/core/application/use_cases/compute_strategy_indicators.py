@@ -12,6 +12,27 @@ from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import
     StrategyDefinitionParser,
 )
 
+_BASE_COLUMNS = {"open", "high", "low", "close", "volume", "timestamp"}
+
+
+def _merge_informative_indicators(
+    declared: dict[str, list[str]], extras: dict[str, list[str]]
+) -> dict[str, list[str]]:
+    """Merge declared informative indicators with condition-referenced extras.
+
+    Each alias's declared indicators come first; condition-referenced columns
+    that are not already declared are appended. Aliases present only in extras
+    (no declared indicators) are also included.
+    """
+    merged: dict[str, list[str]] = {}
+    for alias, indicators in declared.items():
+        merged[alias] = list(indicators)
+    for alias, extras_list in extras.items():
+        for extra in extras_list:
+            if extra not in merged.setdefault(alias, []):
+                merged[alias].append(extra)
+    return merged
+
 
 @dataclass(frozen=True)
 class _IndicatorInput:
@@ -59,14 +80,20 @@ class ComputeStrategyIndicatorsUseCase:
         definition = validation.definition
         timeframes = definition.timeframes
         primary_interval = timeframes.primary if timeframes else "1d"
-        _BASE_COLUMNS = {"open", "high", "low", "close", "volume", "timestamp"}
+        # Condition columns that always belong to the primary timeframe.
 
-        # Build a map from interval suffix to timeframe alias for MTF strategies.
+        # Build per-timeframe lookups for MTF strategies in one pass.
+        # _informative_map: column interval suffix -> alias, used to route
+        # condition-referenced columns to the right job.
+        # _alias_to_interval: alias -> declared interval, used to start each
+        # informative job on its declared timeframe rather than a fallback.
         _informative_map: dict[str, str] = {}
+        _alias_to_interval: dict[str, str] = {}
         if timeframes and timeframes.informative:
             for info in timeframes.informative:
                 suffix = f"_{info.interval}"
                 _informative_map[suffix] = info.alias
+                _alias_to_interval[info.alias] = info.interval
 
         primary_indicators = list(validation.primary_required_indicators)
         # Collect condition-referenced columns per timeframe.
@@ -96,36 +123,9 @@ class ComputeStrategyIndicatorsUseCase:
                 indicators=primary_indicators,
             )
         ]
-        # Build interval lookup for timeframes not covered by declared indicators.
-        _alias_to_interval: dict[str, str] = {}
-        if timeframes and timeframes.informative:
-            for info in timeframes.informative:
-                _alias_to_interval[info.alias] = info.interval
-
-        for timeframe in validation.informative_required_indicators:
-            indicators = list(validation.informative_required_indicators[timeframe])
-            for extra in _info_extras.get(timeframe, []):
-                if extra not in indicators:
-                    indicators.append(extra)
-            inputs.append(
-                _IndicatorInput(
-                    symbol=symbol.upper(),
-                    source=source,
-                    interval=(
-                        timeframe.interval if hasattr(timeframe, "interval") else "1h"
-                    ),
-                    timeframe_alias=(
-                        timeframe.alias
-                        if hasattr(timeframe, "alias")
-                        else str(timeframe)
-                    ),
-                    indicators=indicators,
-                )
-            )
-        # Add timeframes that only have condition-referenced indicators.
-        for alias, indicators in _info_extras.items():
-            if alias in validation.informative_required_indicators:
-                continue
+        for alias, indicators in _merge_informative_indicators(
+            validation.informative_required_indicators, _info_extras
+        ).items():
             inputs.append(
                 _IndicatorInput(
                     symbol=symbol.upper(),
