@@ -18,6 +18,18 @@ from finbar.core.domain.entities.walk_forward_fold import WalkForwardFold
 from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
 )
+from finbar.core.domain.services.correlation import resolve_metric, sort_ascending
+from finbar.infrastructure.services.grid_search_optimizer import (
+    _execution_params,
+    _generate_combinations,
+    _generate_random_combinations,
+    _merge_informative,
+    _metrics_from_raw,
+    _missing_frame_columns,
+    _parse_ranges,
+    _warmup_check,
+    _warmup_error,
+)
 from finbar.infrastructure.services.walk_forward_fold_helpers import (
     aggregate_folds,
     compute_fold_indices,
@@ -210,7 +222,10 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             is_return = float(grid_result.total_return)
 
             oos_result = self._run_oos(
-                definition, best_params, test_bars, metadata,
+                definition,
+                best_params,
+                test_bars,
+                metadata,
                 test_frame=test_frame,
             )
             if oos_result.error:
@@ -273,12 +288,6 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         param name to a normalized importance score (sums to 1.0). The
         best_result is None when no combinations are available.
         """
-        from finbar.infrastructure.services.grid_search_optimizer import (
-            _generate_combinations,
-            _generate_random_combinations,
-            _parse_ranges,
-        )
-
         ranges = _parse_ranges(metadata.get("param_ranges", {}))
         method = metadata.get("search_method", "grid")
         if method == "random":
@@ -305,11 +314,6 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             )
             results.append(result)
 
-        from finbar.core.domain.services.correlation import (
-            resolve_metric,
-            sort_ascending,
-        )
-
         m = resolve_metric(metric)
         results.sort(
             key=lambda r: (getattr(r, m, 0) or 0),
@@ -329,10 +333,6 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         base_frame=None,
     ) -> OptimizationResult:
         """Run a single backtest against the given bars slice."""
-        from finbar.infrastructure.services.grid_search_optimizer import (
-            _metrics_from_raw,
-        )
-
         try:
             validation = self._parser.parse(definition, params)
             if not validation.valid or validation.definition is None:
@@ -349,12 +349,6 @@ class WalkForwardOptimizer(OptimizationJobRunner):
                 frame = self._feature_calculator.calculate(
                     frame, validation.definition.features
                 )
-
-            from finbar.infrastructure.services.grid_search_optimizer import (
-                _missing_frame_columns,
-                _warmup_check,
-                _warmup_error,
-            )
 
             missing = _missing_frame_columns(frame, validation.required_columns)
             if missing:
@@ -395,13 +389,6 @@ class WalkForwardOptimizer(OptimizationJobRunner):
         test_frame=None,
     ) -> OptimizationResult:
         """Backtest the best params on the OOS test window."""
-        from finbar.infrastructure.services.grid_search_optimizer import (
-            _merge_informative,
-            _missing_frame_columns,
-            _warmup_check,
-            _warmup_error,
-        )
-
         validation = self._parser.parse(definition, params)
         if not validation.valid or validation.definition is None:
             return OptimizationResult(
@@ -463,18 +450,10 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             **self._exec_params(metadata),
         )
 
-        from finbar.infrastructure.services.grid_search_optimizer import (
-            _metrics_from_raw,
-        )
-
         return _metrics_from_raw(params, raw)
 
     @staticmethod
     def _exec_params(metadata: dict) -> dict:
-        from finbar.infrastructure.services.grid_search_optimizer import (
-            _execution_params,
-        )
-
         return _execution_params(metadata)
 
 

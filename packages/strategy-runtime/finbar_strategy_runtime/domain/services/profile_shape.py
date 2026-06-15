@@ -1,4 +1,6 @@
-"""Profile Shape Classifier — classifies daily profile shapes from Market Profile literature.
+"""Profile Shape Classifier — classifies daily profile shapes.
+
+Based on Market Profile literature.
 
 Given a session's OHLCV bars, computes the Volume Profile histogram and
 classifies the shape into one of five categories:
@@ -20,7 +22,6 @@ import pandas as pd
 from finbar_strategy_runtime.domain.services.volume_profile import (
     compute_session_volume_profile,
 )
-
 
 # ---------------------------------------------------------------------------
 # Single-session shape classification from profile data
@@ -59,10 +60,7 @@ def classify_profile_shape_from_array(
     for i in range(num_buckets):
         if i == poc_idx or volume_profile[i] <= 0:
             continue
-        if (
-            abs(i - poc_idx) >= min_distance
-            and volume_profile[i] > poc_volume * 0.5
-        ):
+        if abs(i - poc_idx) >= min_distance and volume_profile[i] > poc_volume * 0.5:
             return "B_SHAPE"
 
     # Unimodal: check POC position
@@ -101,21 +99,23 @@ def classify_all_profile_shapes(
     result = df.copy()
     result["profile_shape"] = "NEUTRAL"
 
-    date_series = pd.Series(
-        result.index.date, index=result.index
-    )
+    date_series = pd.Series(result.index.date, index=result.index)
     ordered_dates = sorted(date_series.unique())
 
     if len(ordered_dates) < 5:
         return result
 
-    # Pre-compute volume per session
+    # Pre-compute volume per session AND the session->index mapping in a
+    # single groupby pass. The previous implementation called
+    # ``date_series[date_series == date].index`` inside the loop, which is a
+    # full O(n) boolean scan per session (O(n_sessions * n) overall).
+    session_groups = date_series.groupby(date_series).groups
     session_volumes: dict[str, float] = {}
-    for date, idx in date_series.groupby(date_series).groups.items():
+    for date, idx in session_groups.items():
         session_volumes[date] = float(df["volume"].loc[idx].sum())
 
     for i, date in enumerate(ordered_dates):
-        idx = date_series[date_series == date].index
+        idx = session_groups[date]
         session = df.loc[idx]
 
         # Average volume over recent sessions

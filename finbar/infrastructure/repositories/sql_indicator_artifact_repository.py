@@ -289,17 +289,25 @@ def _page_bars(
     page: int,
     page_size: int,
 ) -> tuple[list[dict], int, int, int, int, list[str]]:
-    """Filter, project, and paginate artifact bars."""
+    """Filter, project, and paginate artifact bars.
+
+    Projects ONLY the requested page window, not the full filtered set —
+    building a dict per bar for the whole artifact on every page request was
+    O(n*cols) allocation discarded to return at most page_size rows.
+    """
     filtered = _filter_bars(bars, start_date, end_date)
+    total = len(filtered)
+    # Column discovery needs the full filtered set (column order is stable
+    # across the page), but projection is deferred to the page window below.
     selected_columns = columns or _columns_from_bars(filtered)
-    projected = [_project_bar(bar, selected_columns) for bar in filtered]
-    total = len(projected)
     page_size = max(1, min(page_size, 1000))
     total_pages = (total + page_size - 1) // page_size if total else 0
     page = max(0, min(page, total_pages - 1)) if total_pages else 0
     start = page * page_size
     end = min(start + page_size, total)
-    return projected[start:end], page, page_size, total_pages, total, selected_columns
+    page_slice = filtered[start:end]
+    projected = [_project_bar(bar, selected_columns) for bar in page_slice]
+    return projected, page, page_size, total_pages, total, selected_columns
 
 
 def _filter_bars(

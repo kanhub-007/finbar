@@ -1,6 +1,6 @@
 """SQLAlchemy ORM table for indicator artifacts."""
 
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Column, Index, Integer, String, Text
 
 from finbar.infrastructure.data.connection import Base
 
@@ -33,3 +33,14 @@ class IndicatorArtifact(Base):
     end_date = Column(String, default="")
     content_hash = Column(String, default="", index=True)
     created_at = Column(String, nullable=False)
+
+    __table_args__ = (
+        # Supports list_metadata() filters on (symbol, source, interval)
+        # without a full table scan.
+        Index(
+            "ix_indicator_artifacts_symbol_source_interval",
+            "symbol",
+            "source",
+            "interval",
+        ),
+    )

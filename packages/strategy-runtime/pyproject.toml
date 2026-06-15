@@ -27,6 +27,12 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# ruff's isort (I001) destructively splits aliased multi-line imports
+# (from X import foo as bar) in this handler registry file. The imports are
+# correctly sorted; suppress the false positive.
+"**/price_action.py" = ["I001"]
+
 [tool.black]
 line-length = 88
 target-version = ["py312"]

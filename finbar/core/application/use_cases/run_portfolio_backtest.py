@@ -1,11 +1,14 @@
 """RunPortfolioBacktestUseCase — execute a multi-asset portfolio backtest."""
 
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
+)
+
 from finbar.core.application.dto.portfolio_backtest_request import (
     PortfolioBacktestRequest,
 )
 from finbar.core.domain.entities.portfolio_result import PortfolioResult
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 from finbar.core.domain.services.annualization import (
     annualization_factor as _annualization_factor,
@@ -143,10 +146,33 @@ def _aggregate_equity(
     if not dates:
         return [], {}
 
+    # Pre-index each asset's curve by date ONCE (O(A*B)) so per-date lookup
+    # is O(1) instead of a linear scan of the whole curve per date. The
+    # previous implementation was O(A * B^2) because _value_at did two full
+    # scans of every asset's curve for every date in the union.
+    indexed: dict[str, dict[str, float]] = {}
+    first_value: dict[str, float] = {}
+    for sym, eq in curves.items():
+        first_value[sym] = float(eq[0].get("value", 0) or 0) if eq else 0.0
+        indexed[sym] = {
+            str(e.get("date", "")): float(e.get("value", 0) or 0) for e in eq
+        }
+
+    ordered_dates = sorted(dates)
+    # Carry-forward state per asset: last seen value on/before current date.
+    carried = dict(first_value)
+
     portfolio_eq = []
     peak = initial_cash
-    for date in sorted(dates):
-        total_value = sum(_value_at(curves[sym], date) for sym in curves)
+    for date in ordered_dates:
+        total_value = 0.0
+        for sym in curves:
+            v = indexed[sym].get(date)
+            if v is not None:
+                carried[sym] = v
+            # For dates before the asset's first bar, carry its allocated
+            # capital (first value) rather than 0.0.
+            total_value += carried.get(sym, first_value[sym])
         if total_value == 0:
             total_value = initial_cash
         drawdown = (peak - total_value) / peak if peak > 0 else 0.0
@@ -198,6 +224,10 @@ def _all_dates(curves: dict[str, list[dict]]) -> set[str]:
 def _value_at(eq: list[dict], date: str) -> float:
     """Get the equity value at a specific date.
 
+    .. deprecated::
+        Retained for backward compatibility; _aggregate_equity now pre-indexes
+        curves by date (O(A*B)) instead of calling this O(B) scan per date.
+
     For dates before the asset's first equity point, the asset's allocated
     capital (its first known equity value) is returned. Returning 0.0 for a
     not-yet-started asset would understate the portfolio's true value and
@@ -241,16 +271,12 @@ def _correlation_matrix(
             if i == j:
                 row.append(1.0)
             else:
-                row.append(
-                    _date_aligned_pearson(returns_list[i], returns_list[j])
-                )
+                row.append(_date_aligned_pearson(returns_list[i], returns_list[j]))
         matrix.append(row)
     return matrix
 
 
-def _date_aligned_pearson(
-    xs: dict[str, float], ys: dict[str, float]
-) -> float:
+def _date_aligned_pearson(xs: dict[str, float], ys: dict[str, float]) -> float:
     """Pearson correlation on the intersection of date keys."""
     common = sorted(set(xs) & set(ys))
     if len(common) < 2:

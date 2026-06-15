@@ -73,6 +73,7 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
             end_date=params.get("end_date"),
             metadata=dict(params),
         )
+
         # Wrap the runner with the concurrency semaphore so at most
         # _MAX_CONCURRENT_JOBS run in parallel.
         async def _gated_runner(j: IndicatorJob) -> None:
@@ -312,9 +313,7 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
         """
         with self._lock:
             jobs = list(self._jobs.values())
-            meta_snapshot = {
-                jid: dict(m) for jid, m in self._meta_cache.items()
-            }
+            meta_snapshot = {jid: dict(m) for jid, m in self._meta_cache.items()}
         items = []
         for job in jobs:
             if not _matches(job, symbol, source, interval):
@@ -325,13 +324,9 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
                 bars = self.get_artifact_bars(job.job_id)
                 if bars is None:
                     continue
-                items.append(
-                    _metadata_from_job(job, bars, include_null_counts=False)
-                )
+                items.append(_metadata_from_job(job, bars, include_null_counts=False))
             else:
-                items.append(
-                    _metadata_from_cache(job, meta, include_null_counts=False)
-                )
+                items.append(_metadata_from_cache(job, meta, include_null_counts=False))
         return items
 
     def _with_repo(self, callback):
@@ -464,17 +459,23 @@ def _page_bars(
     page: int,
     page_size: int,
 ) -> tuple[list[dict], int, int, int, int, list[str]]:
-    """Filter, project, and paginate artifact bars."""
+    """Filter, project, and paginate artifact bars.
+
+    Projects ONLY the requested page window, not the full filtered set —
+    building a dict per bar for the whole artifact on every page request was
+    O(n*cols) allocation discarded to return at most page_size rows.
+    """
     filtered = _filter_bars(bars, start_date, end_date)
+    total = len(filtered)
     selected_columns = columns or _columns_from_bars(filtered)
-    projected = [_project_bar(bar, selected_columns) for bar in filtered]
-    total = len(projected)
     page_size = max(1, min(page_size, 1000))
     total_pages = (total + page_size - 1) // page_size if total else 0
     page = max(0, min(page, total_pages - 1)) if total_pages else 0
     start = page * page_size
     end = min(start + page_size, total)
-    return projected[start:end], page, page_size, total_pages, total, selected_columns
+    page_slice = filtered[start:end]
+    projected = [_project_bar(bar, selected_columns) for bar in page_slice]
+    return projected, page, page_size, total_pages, total, selected_columns
 
 
 def _filter_bars(

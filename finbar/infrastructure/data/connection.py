@@ -11,10 +11,13 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
+# NOTE: pool_pre_ping is intentionally disabled. SQLite is a local file
+# with no server that can drop a connection, so a pre-ping (SELECT 1)
+# before every checkout is pure per-session latency with no benefit.
+# Re-enable only if migrating to a network DB (e.g. Postgres).
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False, "timeout": 30},
-    pool_pre_ping=True,
 )
 
 

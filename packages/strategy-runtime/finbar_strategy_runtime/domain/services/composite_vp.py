@@ -55,9 +55,7 @@ def compute_composite_vp(
     result[val_col] = np.nan
 
     # Group by calendar date
-    date_series = pd.Series(
-        result.index.date, index=result.index
-    )
+    date_series = pd.Series(result.index.date, index=result.index)
 
     # Get ordered list of session dates
     ordered_dates = sorted(date_series.unique())
@@ -65,21 +63,27 @@ def compute_composite_vp(
     if len(ordered_dates) < window:
         return result
 
+    # Map each session date to its bar indices ONCE via groupby, so the loop
+    # avoids a full O(n) ``date_series.isin(w_dates)`` / ``date_series == d``
+    # boolean scan per session window (O(n_sessions * n) -> O(n)).
+    session_groups = date_series.groupby(date_series).groups
+
     for i in range(window - 1, len(ordered_dates)):
         # Collect all bars from the last ``window`` sessions
         w_dates = ordered_dates[i - window + 1 : i + 1]
-        combined_bars = df.loc[date_series.isin(w_dates)]
+        combined_idx = [d for dd in w_dates for d in session_groups[dd]]
+        if not combined_idx:
+            continue
+        combined_bars = df.loc[combined_idx]
 
         if combined_bars.empty:
             continue
 
-        profile = compute_session_volume_profile(
-            combined_bars, num_buckets=num_buckets
-        )
+        profile = compute_session_volume_profile(combined_bars, num_buckets=num_buckets)
 
         # Broadcast to current session's bars
         current_date = ordered_dates[i]
-        idx = date_series[date_series == current_date].index
+        idx = session_groups[current_date]
         result.loc[idx, poc_col] = profile.poc
         result.loc[idx, vah_col] = profile.vah
         result.loc[idx, val_col] = profile.val

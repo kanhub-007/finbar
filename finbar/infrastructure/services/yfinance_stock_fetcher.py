@@ -165,16 +165,29 @@ class YFinanceStockFetcher(StockDataFetcher):
         timestamps = pd.to_datetime(df[timestamp_col])
         if timestamps.dt.tz is not None:
             timestamps = timestamps.dt.tz_convert("UTC")
-        df["timestamp_utc"] = timestamps.dt.strftime("%Y-%m-%dT%H:%M:%S.%f")
+        timestamp_utc = timestamps.dt.strftime("%Y-%m-%dT%H:%M:%S.%f")
+
+        # Vectorised extraction: pull all columns into numpy arrays ONCE and
+        # iterate by index, instead of df.iterrows() which allocates a
+        # pd.Series (and boxes every value) per row.
+        opens = df["open"].to_numpy()
+        highs = df["high"].to_numpy()
+        lows = df["low"].to_numpy()
+        closes = df["close"].to_numpy()
+        has_volume = "volume" in df.columns
+        volumes = df["volume"].to_numpy() if has_volume else None
+        ts_arr = timestamp_utc.to_numpy()
+        symbol_upper = symbol.upper()
 
         bars: list[PriceBar] = []
-        for _, row in df.iterrows():
-            o = float(row["open"])
-            h = float(row["high"])
-            lo = float(row["low"])
-            c = float(row["close"])
-            v = int(row["volume"]) if pd.notna(row.get("volume")) else None
-            ts = str(row["timestamp_utc"])
+        for i in range(len(df)):
+            o = float(opens[i])
+            h = float(highs[i])
+            lo = float(lows[i])
+            c = float(closes[i])
+            raw_v = volumes[i] if has_volume else None
+            v = int(raw_v) if pd.notna(raw_v) else None
+            ts = str(ts_arr[i])
 
             # Validate bar
             if not validate_bar(symbol, ts, o, h, lo, c, v):
@@ -182,7 +195,7 @@ class YFinanceStockFetcher(StockDataFetcher):
 
             bars.append(
                 PriceBar(
-                    symbol=symbol.upper(),
+                    symbol=symbol_upper,
                     source=source,
                     interval=interval,
                     timestamp=ts,
