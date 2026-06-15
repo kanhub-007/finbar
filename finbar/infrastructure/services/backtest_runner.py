@@ -121,6 +121,9 @@ def _execution_config_from_params(
         risk_price_basis=str(
             params.pop("risk_price_basis", "signal_close") or "signal_close"
         ),
+        borrow_time_basis=str(
+            params.pop("borrow_time_basis", "calendar_day") or "calendar_day"
+        ),
     )
 
 

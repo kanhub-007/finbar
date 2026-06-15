@@ -223,6 +223,8 @@ class BacktestResultBuilder:
             "maintenance_margin_pct": config.maintenance_margin_pct,
             "market_calendar": config.market_calendar,
             "risk_price_basis": config.risk_price_basis,
+            "borrow_time_basis": config.borrow_time_basis,
+            "funding_schedule": ("per_bar" if config.enable_funding else "disabled"),
             "annualization_factor": annualization_factor,
             "annualization_warning": annualization_warning,
             "diagnostics": _diagnostics_to_dicts(state.diagnostics),

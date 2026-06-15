@@ -65,7 +65,13 @@ class PositionCloser:
         entry_date: str,
         exit_date: str,
     ) -> float:
-        """Compute borrow cost for short positions (simplified)."""
+        """Compute borrow cost for short positions.
+
+        Uses calendar-day granularity by default (``borrow_time_basis ==
+        "calendar_day"``). When ``borrow_time_basis == "timestamp_delta"``,
+        the full ISO timestamp is used so intraday holds accrue proportional
+        borrow cost.
+        """
         if (
             direction != "short"
             or self._config.borrow_fee_annual_pct <= 0
@@ -73,7 +79,7 @@ class PositionCloser:
             or entry_price <= 0
         ):
             return 0.0
-        days = _days_held(entry_date, exit_date)
+        days = _time_held(entry_date, exit_date, self._config.borrow_time_basis)
         notional = abs_size * entry_price
         return notional * self._config.borrow_fee_annual_pct * (days / 365.0)
 
@@ -144,19 +150,30 @@ class PositionCloser:
 # -- Module-level helpers -----------------------------------------------
 
 
-def _days_held(entry_date: str, exit_date: str) -> float:
-    """Return the number of calendar days between two ISO date strings."""
+def _time_held(entry_date: str, exit_date: str, time_basis: str) -> float:
+    """Return the holding period in days (365-day year).
+
+    ``calendar_day`` truncates ISO timestamps to their date component, so
+    intraday same-day positions report zero days. ``timestamp_delta`` uses
+    the full timestamp, so hourly positions accrue proportional borrow.
+    """
     try:
-        entry = _parse_date(entry_date)
-        exit_ = _parse_date(exit_date)
+        entry = _parse_timestamp(entry_date, time_basis)
+        exit_ = _parse_timestamp(exit_date, time_basis)
         return max(0.0, (exit_ - entry).total_seconds() / 86400.0)
     except (ValueError, TypeError, OSError):
         return 0.0
 
 
-def _parse_date(raw: str):
-    """Parse a YYYY-MM-DD or ISO datetime string to a naive date."""
+def _parse_timestamp(raw: str, time_basis: str):
+    """Parse an ISO date or datetime string.
+
+    ``calendar_day`` truncates to the first 10 characters (YYYY-MM-DD).
+    ``timestamp_delta`` uses the full string.
+    """
     from datetime import datetime
 
-    raw = raw.strip()[:10]
-    return datetime.strptime(raw, "%Y-%m-%d")
+    raw = raw.strip()
+    if time_basis == "calendar_day":
+        raw = raw[:10]
+    return datetime.fromisoformat(raw)

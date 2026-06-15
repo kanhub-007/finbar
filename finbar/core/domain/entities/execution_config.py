@@ -49,6 +49,9 @@ class ExecutionConfig:
     risk_price_basis: str = "signal_close"
     """Anchor for stop/target prices: signal_close or entry_fill."""
 
+    borrow_time_basis: str = "calendar_day"
+    """Borrow cost time basis: calendar_day or timestamp_delta."""
+
     def risk_budget_multiplier(self) -> float:
         """Return the multiplier applied to the equity risk budget."""
         if self.risk_mode == "leverage_scaled_risk":
