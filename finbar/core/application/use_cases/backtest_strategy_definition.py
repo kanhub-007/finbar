@@ -4,26 +4,14 @@ import logging
 from dataclasses import replace
 from typing import Any
 
-from finbar.core.application.backtest_result_mapper import result_dto_from_raw
-from finbar.core.application.dto.backtest_result import BacktestResultDTO
-from finbar.core.application.dto.backtest_strategy_definition_request import (
-    BacktestStrategyDefinitionRequest,
-)
-from finbar.core.application.dto.backtest_strategy_definition_result import (
-    BacktestStrategyDefinitionResult,
-)
 from finbar_strategy_runtime.domain.entities.informative_timeframe import (
     InformativeTimeframe,
 )
 from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
-from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
     BarFrameConverter,
-)
-from finbar.core.domain.interfaces.indicator_artifact_provider import (
-    IndicatorArtifactProvider,
 )
 from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
@@ -36,6 +24,19 @@ from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator impor
 )
 from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import (
     TimeframeBarMerger,
+)
+
+from finbar.core.application.backtest_result_mapper import result_dto_from_raw
+from finbar.core.application.dto.backtest_result import BacktestResultDTO
+from finbar.core.application.dto.backtest_strategy_definition_request import (
+    BacktestStrategyDefinitionRequest,
+)
+from finbar.core.application.dto.backtest_strategy_definition_result import (
+    BacktestStrategyDefinitionResult,
+)
+from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
+from finbar.core.domain.interfaces.indicator_artifact_provider import (
+    IndicatorArtifactProvider,
 )
 from finbar.infrastructure.services.backtest_data_validator import (
     validate_required_data,
@@ -262,12 +263,9 @@ def _run_backtest(
     warmup: dict | None = None,
 ) -> BacktestStrategyDefinitionResult:
     strategy = strategy_factory.create(validation.definition)
-    executable_frame = frame
-    if warmup and warmup.get("warmup_bars", 0) > 0:
-        executable_frame = frame.iloc[int(warmup["warmup_bars"]) :]
     try:
         raw_result = engine.run(
-            df=executable_frame,
+            df=frame,
             strategy=strategy,
             initial_cash=request.initial_cash,
             risk_per_trade=request.risk_per_trade,

@@ -9,12 +9,12 @@ from __future__ import annotations
 import logging
 
 import pandas as pd
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 
 from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.core.domain.entities.pending_exit import PendingExit
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.infrastructure.services.backtest_data_validator import (
     validate_backtest_frame,
 )
@@ -46,7 +46,13 @@ class BacktestRunner(BacktestEngine):
         initial_cash: float = 10000.0,
         **params,
     ) -> dict:
-        """Execute a backtest and return structured results as a dict."""
+        """Execute a backtest and return structured results as a dict.
+
+        Warmup bars (before ``first_tradable_index``) are fed to
+        ``strategy.on_bar()`` so crossover and other stateful conditions can
+        build their baseline, but no trades are executed or queued during
+        warmup.
+        """
         if df.empty:
             return _error_result("No bars provided")
 
@@ -69,7 +75,9 @@ class BacktestRunner(BacktestEngine):
         )
 
         executor = PositionExecutor(execution_config)
-        state = _run_loop(df, strategy, initial_cash, risk_per_trade, executor)
+        state = _run_loop(
+            df, strategy, initial_cash, risk_per_trade, executor, warmup_bars
+        )
 
         return BacktestResultBuilder().build(
             strategy,
@@ -133,8 +141,14 @@ def _run_loop(
     initial_cash: float,
     risk_per_trade: float,
     executor: PositionExecutor,
+    first_tradable_index: int = 0,
 ) -> BacktestLoopState:
-    """Iterate bars, call strategy, execute signals, track positions."""
+    """Iterate bars, call strategy, execute signals, track positions.
+
+    Bars before ``first_tradable_index`` are warmup: ``strategy.on_bar()``
+    is called so stateful conditions (crossovers) build their baseline, but
+    no pending orders are executed and no new signals are queued.
+    """
     state = BacktestLoopState(initial_cash)
     executor.setup_full_margin(initial_cash)
     final_close = 0.0
@@ -150,7 +164,8 @@ def _run_loop(
     dates = _precompute_dates(df.index)
     # Pre-extract indicator/feature columns as numpy arrays for the bar dict.
     extra_cols = {
-        col: df[col].to_numpy() for col in df.columns
+        col: df[col].to_numpy()
+        for col in df.columns
         if col not in ("open", "high", "low", "close")
     }
     column_names = list(extra_cols.keys())
@@ -169,6 +184,10 @@ def _run_loop(
             bar_dict[col_name] = extra_cols[col_name][i]
         final_close = close
         final_date = bar_date
+
+        if i < first_tradable_index:
+            _update_warmup_state(state, strategy, bar_dict)
+            continue
 
         _execute_pending(state, open_price, bar_date, executor)
         executor.check_exit_conditions(state, open_price, high, low, bar_date)
@@ -189,6 +208,19 @@ def _run_loop(
     executor.liquidate_open(state, final_close, final_date)
     _log_run_summary(state)
     return state
+
+
+def _update_warmup_state(
+    state: BacktestLoopState,
+    strategy: TradingStrategy,
+    bar: dict,
+) -> None:
+    """Feed a warmup bar to the strategy for state updates only.
+
+    No trades are executed or queued. The position is always flat during
+    warmup so the strategy receives an empty position dict.
+    """
+    strategy.on_bar(bar, state.position.to_dict())
 
 
 def _execute_pending(
