@@ -210,6 +210,16 @@ class TestHelperFunctions:
         eq, metrics = _aggregate_equity({}, 10000, "1d", "equity_regular_hours")
         assert eq == []
 
+    def test_aggregate_drawdown_is_not_negative_on_new_highs(self):
+        curves = {
+            "A": [
+                {"date": "2024-01-01", "value": 10000},
+                {"date": "2024-01-02", "value": 11000},
+            ]
+        }
+        eq, _metrics = _aggregate_equity(curves, 10000, "1d", "equity_regular_hours")
+        assert eq[1]["drawdown"] == 0.0
+
     def test_value_at_returns_first_value_for_preceding_date(self):
         """Regression: a date before an asset's first bar must not return 0.0.
 
@@ -243,9 +253,7 @@ class TestHelperFunctions:
             # Asset B only has a bar on the second date.
             "B": [{"date": "2024-01-02", "value": 10000}],
         }
-        eq, metrics = _aggregate_equity(
-            curves, 20000, "1d", "equity_regular_hours"
-        )
+        eq, metrics = _aggregate_equity(curves, 20000, "1d", "equity_regular_hours")
         first = next(e for e in eq if e["date"] == "2024-01-01")
         # B's allocated capital (10000) must be carried in, so the portfolio
         # total on 2024-01-01 is 20000, not 10000.

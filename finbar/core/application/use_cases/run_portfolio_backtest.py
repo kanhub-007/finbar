@@ -85,6 +85,9 @@ class RunPortfolioBacktestUseCase:
                     market_calendar=request.execution.market_calendar,
                     borrow_fee_annual_pct=(request.execution.borrow_fee_annual_pct),
                     margin_mode=request.execution.margin_mode,
+                    maintenance_margin_pct=request.execution.maintenance_margin_pct,
+                    enable_funding=request.execution.enable_funding,
+                    funding_rate=request.execution.funding_rate,
                 )
                 per_asset[asset.symbol] = raw
                 eq = raw.get("equity_curve", [])
@@ -175,8 +178,8 @@ def _aggregate_equity(
             total_value += carried.get(sym, first_value[sym])
         if total_value == 0:
             total_value = initial_cash
-        drawdown = (peak - total_value) / peak if peak > 0 else 0.0
         peak = max(peak, total_value)
+        drawdown = (peak - total_value) / peak if peak > 0 else 0.0
         portfolio_eq.append(
             {
                 "date": date,

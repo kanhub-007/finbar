@@ -150,8 +150,13 @@ class HyperliquidFetcher(StockDataFetcher):
             List of PriceBar domain entities.
         """
         try:
-            if start_date and end_date:
-                return self._fetch_date_range(symbol, interval, start_date, end_date)
+            if start_date or end_date:
+                resolved_start, resolved_end = _resolve_date_range(
+                    interval, start_date, end_date
+                )
+                return self._fetch_date_range(
+                    symbol, interval, resolved_start, resolved_end
+                )
             return self._fetch_max_history(symbol, interval)
         except Exception:
             logger.exception(
@@ -472,7 +477,7 @@ class HyperliquidFetcher(StockDataFetcher):
         if not universe:
             return []
 
-        asset_contexts = asset_ctxs[0] if isinstance(asset_ctxs[0], list) else []
+        asset_contexts = _normalize_asset_contexts(asset_ctxs)
         tokens = meta.get("tokens", [])
 
         tickers: list[dict] = []
@@ -514,7 +519,7 @@ class HyperliquidFetcher(StockDataFetcher):
         if not universe:
             return []
 
-        asset_contexts = asset_ctxs[0] if isinstance(asset_ctxs[0], list) else []
+        asset_contexts = _normalize_asset_contexts(asset_ctxs)
 
         tickers: list[dict] = []
         for i, item in enumerate(universe):
@@ -591,7 +596,7 @@ class HyperliquidFetcher(StockDataFetcher):
         if not universe:
             return []
 
-        asset_contexts = asset_ctxs[0] if isinstance(asset_ctxs[0], list) else []
+        asset_contexts = _normalize_asset_contexts(asset_ctxs)
 
         tickers: list[dict] = []
         for i, item in enumerate(universe):
@@ -619,6 +624,41 @@ class HyperliquidFetcher(StockDataFetcher):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
+
+
+def _resolve_date_range(
+    interval: str,
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[str, str]:
+    """Resolve partial date filters into a bounded UTC range."""
+    if end_date:
+        end_dt = _to_utc(end_date)
+    else:
+        end_dt = datetime.now(UTC)
+
+    if start_date:
+        start_dt = _to_utc(start_date)
+    else:
+        lookback_days = API_LIMIT_DAYS.get(interval, 30)
+        start_dt = end_dt - timedelta(days=lookback_days)
+
+    return start_dt.isoformat(), end_dt.isoformat()
+
+
+def _normalize_asset_contexts(raw: object) -> list[dict]:
+    """Normalize Hyperliquid asset context payloads to ``list[dict]``.
+
+    Some SDK methods return contexts as ``list[dict]`` while others may nest
+    them as ``[list[dict]]``. Treat both shapes as valid and return an empty
+    list for malformed/empty payloads.
+    """
+    if not isinstance(raw, list) or not raw:
+        return []
+    first = raw[0]
+    if isinstance(first, list):
+        return [item for item in first if isinstance(item, dict)]
+    return [item for item in raw if isinstance(item, dict)]
 
 
 def _deduplicate_bars(bars: list[PriceBar]) -> list[PriceBar]:

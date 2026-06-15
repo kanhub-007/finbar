@@ -40,16 +40,24 @@ class TestRollingVpConstantPrice:
 
 class TestBarValidator:
     def test_high_below_open_rejected(self):
-        assert not validate_bar("X", "t", open_price=100, high=90, low=80, close=95, volume=1)
+        assert not validate_bar(
+            "X", "t", open_price=100, high=90, low=80, close=95, volume=1
+        )
 
     def test_low_above_close_rejected(self):
-        assert not validate_bar("X", "t", open_price=50, high=100, low=60, close=55, volume=1)
+        assert not validate_bar(
+            "X", "t", open_price=50, high=100, low=60, close=55, volume=1
+        )
 
     def test_negative_high_rejected(self):
-        assert not validate_bar("X", "t", open_price=80, high=-10, low=70, close=85, volume=1)
+        assert not validate_bar(
+            "X", "t", open_price=80, high=-10, low=70, close=85, volume=1
+        )
 
     def test_valid_bar_accepted(self):
-        assert validate_bar("X", "t", open_price=80, high=100, low=70, close=85, volume=1)
+        assert validate_bar(
+            "X", "t", open_price=80, high=100, low=70, close=85, volume=1
+        )
 
 
 class TestCoinGlassZeroMetrics:
@@ -58,7 +66,10 @@ class TestCoinGlassZeroMetrics:
         assert _first_not_none({"close": 0.0}, "close", "fundingRate") == 0.0
 
     def test_first_not_none_falls_back(self):
-        assert _first_not_none({"close": None, "fundingRate": 5}, "close", "fundingRate") == 5
+        assert (
+            _first_not_none({"close": None, "fundingRate": 5}, "close", "fundingRate")
+            == 5
+        )
 
     def test_parse_funding_with_zero_close(self):
         """Regression: zero funding rate was converted to None."""
@@ -126,6 +137,10 @@ class TestParamRangeSafety:
     def test_random_values_invalid_range_returns_empty(self):
         r = ParamRange(min=20, max=10, step=2)
         assert r.random_values(5) == []
+
+    def test_random_values_never_exceed_max_when_step_does_not_divide_range(self):
+        r = ParamRange(min=0.0, max=1.0, step=0.6)
+        assert all(0.0 <= value <= 1.0 for value in r.random_values(200))
 
     def test_random_values_zero_step_returns_min(self):
         r = ParamRange(min=10, max=20, step=0)

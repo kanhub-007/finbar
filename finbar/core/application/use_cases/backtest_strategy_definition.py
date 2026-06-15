@@ -12,12 +12,16 @@ from finbar.core.application.dto.backtest_strategy_definition_request import (
 from finbar.core.application.dto.backtest_strategy_definition_result import (
     BacktestStrategyDefinitionResult,
 )
-from finbar_strategy_runtime.domain.entities.informative_timeframe import InformativeTimeframe
+from finbar_strategy_runtime.domain.entities.informative_timeframe import (
+    InformativeTimeframe,
+)
 from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
+)
 from finbar.core.domain.interfaces.indicator_artifact_provider import (
     IndicatorArtifactProvider,
 )
@@ -30,7 +34,9 @@ from finbar_strategy_runtime.domain.interfaces.strategy_definition_strategy_fact
 from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
-from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
+from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import (
+    TimeframeBarMerger,
+)
 from finbar.infrastructure.services.backtest_data_validator import (
     validate_required_data,
 )
@@ -119,10 +125,7 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         frame = self._resolve_and_compute_signals(frame, validation.definition)
-        missing = [
-            c for c in validation.required_columns
-            if c not in frame.columns
-        ]
+        missing = [c for c in validation.required_columns if c not in frame.columns]
         if missing:
             return BacktestStrategyDefinitionResult(
                 valid=False,
@@ -280,6 +283,9 @@ def _run_backtest(
             market_calendar=request.execution.market_calendar,
             borrow_fee_annual_pct=request.execution.borrow_fee_annual_pct,
             margin_mode=request.execution.margin_mode,
+            maintenance_margin_pct=request.execution.maintenance_margin_pct,
+            enable_funding=request.execution.enable_funding,
+            funding_rate=request.execution.funding_rate,
             interval=request.interval,
             warmup_bars=warmup.get("warmup_bars", 0) if warmup else 0,
             first_tradable=warmup.get("first_tradable", "") if warmup else "",

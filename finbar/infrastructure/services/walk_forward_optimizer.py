@@ -341,8 +341,21 @@ class WalkForwardOptimizer(OptimizationJobRunner):
                     params=params,
                     error="Strategy validation failed with these params",
                 )
-            if base_frame is not None:
+            has_informative = (
+                validation.definition.timeframes
+                and validation.definition.timeframes.has_informative()
+            )
+            if base_frame is not None and not has_informative:
                 frame = base_frame
+            elif has_informative:
+                frame = _merge_informative(
+                    bars,
+                    metadata,
+                    validation,
+                    self._artifact_provider,
+                    self._converter,
+                    self._timeframe_merger,
+                )
             else:
                 frame = self._converter.bars_to_frame(bars)
             if self._feature_calculator is not None and validation.definition.features:

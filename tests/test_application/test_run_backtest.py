@@ -196,6 +196,9 @@ class TestRunBacktestUseCase:
                     reject_oversized_explicit_orders=True,
                     allow_negative_cash=True,
                     market_calendar="crypto_24_7",
+                    maintenance_margin_pct=0.01,
+                    enable_funding=True,
+                    funding_rate=0.002,
                 ),
             )
         )
@@ -209,6 +212,9 @@ class TestRunBacktestUseCase:
         assert self.engine.params_seen["reject_oversized_explicit_orders"] is True
         assert self.engine.params_seen["allow_negative_cash"] is True
         assert self.engine.params_seen["market_calendar"] == "crypto_24_7"
+        assert self.engine.params_seen["maintenance_margin_pct"] == 0.01
+        assert self.engine.params_seen["enable_funding"] is True
+        assert self.engine.params_seen["funding_rate"] == 0.002
 
     def test_symbol_interval_passthrough(self):
         bars = [

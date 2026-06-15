@@ -8,6 +8,8 @@ from finbar.core.domain.entities.price_bar import PriceBar
 from finbar.infrastructure.services.hyperliquid_fetcher import (
     HyperliquidFetcher,
     _deduplicate_bars,
+    _normalize_asset_contexts,
+    _resolve_date_range,
 )
 
 
@@ -76,6 +78,25 @@ def _bar(timestamp: str, close: float) -> PriceBar:
         close=close,
         volume=1,
     )
+
+
+def test_resolve_date_range_defaults_missing_end_to_now():
+    start, end = _resolve_date_range("1d", "2024-01-01T00:00:00+00:00", None)
+
+    assert start == "2024-01-01T00:00:00+00:00"
+    assert datetime.fromisoformat(end).tzinfo is not None
+
+
+def test_normalize_asset_contexts_accepts_flat_sdk_shape():
+    contexts = [{"markPx": "100"}, {"markPx": "101"}]
+
+    assert _normalize_asset_contexts(contexts) == contexts
+
+
+def test_normalize_asset_contexts_accepts_nested_sdk_shape():
+    contexts = [{"markPx": "100"}]
+
+    assert _normalize_asset_contexts([contexts]) == contexts
 
 
 def test_deduplicate_bars_drops_duplicate_timestamps():

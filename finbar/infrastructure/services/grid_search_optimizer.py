@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+import math
 from typing import Any
 
 from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
@@ -310,16 +311,27 @@ def _generate_random_combinations(
     """Generate random parameter combinations."""
     if not ranges:
         return [{}]
-    count = min(count, _MAX_COMBINATIONS)
+    max_unique = 1
+    for rng in ranges.values():
+        max_unique *= max(0, _range_count(rng))
+    if max_unique <= 0:
+        return []
+
+    target = min(count, _MAX_COMBINATIONS, max_unique)
     names = list(ranges)
     combinations: list[dict[str, float]] = []
     seen: set[tuple] = set()
-    while len(combinations) < count and len(seen) < count * 10:
+    attempts = 0
+    max_attempts = max(100, target * 20)
+    while len(combinations) < target and attempts < max_attempts:
+        attempts += 1
         params = {}
         key_parts = []
         for name in names:
             rng = ranges[name]
             vals = rng.random_values(1)
+            if not vals:
+                return combinations
             value = vals[0]
             if rng.step == int(rng.step) and value == int(value):
                 value = int(value)
@@ -329,7 +341,26 @@ def _generate_random_combinations(
         if key not in seen:
             seen.add(key)
             combinations.append(params)
+
+    if len(combinations) < target and max_unique <= _MAX_COMBINATIONS:
+        for params in _generate_combinations(ranges):
+            key = tuple(params[name] for name in names)
+            if key in seen:
+                continue
+            seen.add(key)
+            combinations.append(params)
+            if len(combinations) >= target:
+                break
     return combinations
+
+
+def _range_count(rng: ParamRange) -> int:
+    """Return the number of reachable grid points without materialising them."""
+    if rng.step <= 0:
+        return 1 if rng.min <= rng.max else 0
+    if rng.min > rng.max:
+        return 0
+    return int(math.floor((rng.max - rng.min) / rng.step)) + 1
 
 
 def _resolve_artifact(

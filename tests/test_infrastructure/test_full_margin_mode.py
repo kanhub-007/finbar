@@ -44,6 +44,32 @@ class _OneShotLong(TradingStrategy):
         self._emitted = False
 
 
+class _EnterThenExitLong(TradingStrategy):
+    """Enter long once, then emit an exit signal while the backtest continues."""
+
+    def __init__(self) -> None:
+        self._bars_seen = 0
+
+    def meta(self) -> StrategyMeta:
+        return StrategyMeta(
+            name="full_margin_enter_then_exit",
+            variant=DataMode.REAL,
+            description="Enter and exit a long position mid-backtest.",
+            required_indicators=[],
+        )
+
+    def on_bar(self, bar: dict, position: dict) -> SignalResult:
+        self._bars_seen += 1
+        if self._bars_seen == 1 and float(position.get("size", 0) or 0) == 0:
+            return SignalResult(action="buy", direction="long", confidence=1.0)
+        if self._bars_seen == 3 and float(position.get("size", 0) or 0) != 0:
+            return SignalResult(action="sell", direction="exit", confidence=1.0)
+        return SignalResult(action="hold")
+
+    def on_reset(self) -> None:
+        self._bars_seen = 0
+
+
 def _rising_bars(n: int = 6) -> pd.DataFrame:
     closes = [100 + i * 10 for i in range(n)]
     return pd.DataFrame(
@@ -58,7 +84,35 @@ def _rising_bars(n: int = 6) -> pd.DataFrame:
     )
 
 
+def _flat_bars(n: int = 6) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "open": [100] * n,
+            "high": [101] * n,
+            "low": [99] * n,
+            "close": [100] * n,
+            "volume": [1000] * n,
+        },
+        index=pd.date_range("2024-01-01", periods=n, freq="D"),
+    )
+
+
 class TestFullMarginReconciliation:
+    def test_full_margin_mid_backtest_exit_does_not_double_principal(self):
+        """A flat round trip closed before the final bar must not double equity."""
+        result = BacktestRunner().run(
+            _flat_bars(),
+            _EnterThenExitLong(),
+            initial_cash=10000,
+            interval="1d",
+            margin_mode="full",
+            enable_funding=False,
+        )
+        assert result["total_trades"] == 1
+        assert result["final_value"] == 10000.0
+        assert result["cash"] == 10000.0
+        assert result["reconciliation_error"] == 0.0
+
     def test_full_margin_reconciles_to_zero_without_funding(self):
         """Full-margin mode must keep the accounting identity
         final_value == initial_cash + realized_pnl (reconciliation_error == 0).

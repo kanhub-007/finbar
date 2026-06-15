@@ -12,7 +12,9 @@ from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
 from finbar_strategy_runtime.domain.entities.strategy_meta import StrategyMeta
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
+)
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 
@@ -100,6 +102,9 @@ class RunBacktestUseCase:
                 market_calendar=request.execution.market_calendar,
                 borrow_fee_annual_pct=request.execution.borrow_fee_annual_pct,
                 margin_mode=request.execution.margin_mode,
+                maintenance_margin_pct=request.execution.maintenance_margin_pct,
+                enable_funding=request.execution.enable_funding,
+                funding_rate=request.execution.funding_rate,
                 interval=request.interval,
                 **request.params,
             )

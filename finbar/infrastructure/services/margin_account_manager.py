@@ -37,25 +37,33 @@ class MarginAccountManager:
     def lock_entry_margin(
         self, state: BacktestLoopState, cost: float, commission: float
     ) -> None:
-        """Lock initial margin + commission for an entry.
+        """Mirror a long entry and track its locked margin.
 
-        In full mode: cash -= cost + commission, margin_book += cost/multiplier.
-        Also updates state.cash for the bar loop's equity tracking.
+        ``PositionOpener`` has already applied the entry cash flow to
+        ``state.cash`` before calling this method. The margin account must
+        therefore mirror that state instead of applying the same cash flow a
+        second time; otherwise a later exit releases/settles against an
+        account balance that no longer matches the backtest state.
         """
-        total_deduct = cost + commission
-        self.account.cash -= total_deduct
         margin = (
             cost / self._config.leverage_multiplier
             if self._config.leverage_multiplier > 0
             else cost
         )
         self.account.margin_book += margin
+        if state.cash == self.account.cash:
+            self.account.cash -= cost + commission
+        else:
+            self.account.cash = state.cash
 
     def credit_entry_short(
         self, state: BacktestLoopState, cost: float, commission: float
     ) -> None:
-        """Credit short sale proceeds to account cash."""
-        self.account.cash += cost - commission
+        """Mirror or apply a short entry cash credit."""
+        if state.cash == self.account.cash:
+            self.account.cash += cost - commission
+        else:
+            self.account.cash = state.cash
 
     def settle_exit(
         self,
@@ -80,10 +88,10 @@ class MarginAccountManager:
             else entry_notional
         )
         self.account.release_margin(min(margin_locked, self.account.margin_book))
-        if direction == "long":
-            self.account.cash += fill_cost - commission
-        else:
-            self.account.cash -= fill_cost + commission + borrow_cost
+        # ``PositionExecutor`` has already applied the exit settlement to
+        # ``state.cash``. Mirror that authoritative value after releasing the
+        # margin book so mid-backtest exits do not double-count principal.
+        self.account.cash = state.cash
 
     def sync_state_equity(self, state: BacktestLoopState) -> None:
         """Sync BacktestLoopState.cash to margin account equity."""

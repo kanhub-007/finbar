@@ -43,13 +43,12 @@ class ParamRange:
         the same parameter values as grid search. Integer steps yield
         integer-valued floats; float steps yield float values on the grid.
         """
+        import math
         import random
 
         if self.step <= 0:
             return [self.min] * n if self.min <= self.max else []
-        max_steps = int(round((self.max - self.min) / self.step))
+        max_steps = int(math.floor((self.max - self.min) / self.step))
         if max_steps < 0:
             return []
-        return [
-            self.min + random.randint(0, max_steps) * self.step for _ in range(n)
-        ]
+        return [self.min + random.randint(0, max_steps) * self.step for _ in range(n)]
