@@ -118,6 +118,9 @@ def _execution_config_from_params(
         ),
         enable_funding=_bool_param(params.pop("enable_funding", False)),
         funding_rate=float(params.pop("funding_rate", 0.0001) or 0.0001),
+        risk_price_basis=str(
+            params.pop("risk_price_basis", "signal_close") or "signal_close"
+        ),
     )
 
 
@@ -296,6 +299,7 @@ def _process_signal(
             position_size=requested_size,
             explicit_size=signal.position_size > 0,
             risk_per_trade=risk_per_trade,
+            signal_close=close,
         )
 
 

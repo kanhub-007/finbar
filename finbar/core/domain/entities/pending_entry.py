@@ -27,3 +27,10 @@ class PendingEntry:
 
     risk_per_trade: float = 0.02
     """Fraction of portfolio value to risk when engine computes position size."""
+
+    signal_close: float = 0.0
+    """Close price of the bar that generated this signal.
+
+    Used by ``risk_price_basis == "entry_fill"`` to rebase stop/target
+    prices at the actual entry fill price.
+    """

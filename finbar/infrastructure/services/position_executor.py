@@ -8,6 +8,7 @@ internal mechanics are composed from smaller, independently testable units.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
@@ -111,6 +112,7 @@ class PositionExecutor:
     ) -> None:
         """Enter a new position from a pending entry signal."""
         fill_price = self._apply_slippage(price, entry.direction, "entry")
+        entry = self._rebase_risk_prices(entry, fill_price)
         if not self._opener.stop_valid(entry, fill_price, date):
             return
         portfolio = self._portfolio_value(state, fill_price)
@@ -280,6 +282,34 @@ class PositionExecutor:
             return state.cash - abs(state.position.size) * close
         return state.cash
 
+    def _rebase_risk_prices(
+        self, entry: PendingEntry, fill_price: float
+    ) -> PendingEntry:
+        """Rebase stop/target from signal close to entry fill when configured.
+
+        When ``risk_price_basis == "entry_fill"``, stop and target levels are
+        proportionally scaled so the risk distance moves with the fill price.
+        This keeps the risk/reward ratio consistent regardless of gaps between
+        the signal bar close and the entry fill.
+
+        Returns the original entry unchanged for ``signal_close`` mode or when
+        the signal close is not available.
+        """
+        if self._config.risk_price_basis != "entry_fill":
+            return entry
+        if entry.signal_close <= 0:
+            return entry
+        ratio = fill_price / entry.signal_close
+        return replace(
+            entry,
+            stop_price=_scale_price(
+                entry.stop_price, entry.signal_close, fill_price, ratio
+            ),
+            target_price=_scale_price(
+                entry.target_price, entry.signal_close, fill_price, ratio
+            ),
+        )
+
     def _apply_slippage(self, price: float, direction: str, side: str) -> float:
         if self._slippage_pct <= 0:
             return price
@@ -294,3 +324,20 @@ class PositionExecutor:
         if self._commission_pct <= 0:
             return 0.0
         return abs(gross) * self._commission_pct
+
+
+def _scale_price(
+    old_price: float,
+    signal_close: float,
+    fill_price: float,
+    ratio: float,
+) -> float:
+    """Scale a risk price from signal close to entry fill.
+
+    Uses proportional rebasing: the distance from the signal close is
+    scaled by ``fill_price / signal_close``. Returns the original price
+    unchanged when it is zero (disabled).
+    """
+    if old_price <= 0:
+        return old_price
+    return fill_price + (old_price - signal_close) * ratio

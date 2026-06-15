@@ -222,6 +222,7 @@ class BacktestResultBuilder:
             "margin_mode": config.margin_mode,
             "maintenance_margin_pct": config.maintenance_margin_pct,
             "market_calendar": config.market_calendar,
+            "risk_price_basis": config.risk_price_basis,
             "annualization_factor": annualization_factor,
             "annualization_warning": annualization_warning,
             "diagnostics": _diagnostics_to_dicts(state.diagnostics),

@@ -46,6 +46,9 @@ class ExecutionConfig:
     funding_rate: float = 0.0001
     """Funding rate per interval. Default 0.01%% per bar."""
 
+    risk_price_basis: str = "signal_close"
+    """Anchor for stop/target prices: signal_close or entry_fill."""
+
     def risk_budget_multiplier(self) -> float:
         """Return the multiplier applied to the equity risk budget."""
         if self.risk_mode == "leverage_scaled_risk":
