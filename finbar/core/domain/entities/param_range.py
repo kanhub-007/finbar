@@ -36,11 +36,20 @@ class ParamRange:
         return len(self.values())
 
     def random_values(self, n: int) -> list[float]:
-        """Generate n random values within this range."""
+        """Generate n random values within this range, snapped to the grid.
+
+        Unlike a plain ``uniform(min, max)`` draw, each value lies on the
+        declared ``step`` lattice (``min + k * step``) so random search samples
+        the same parameter values as grid search. Integer steps yield
+        integer-valued floats; float steps yield float values on the grid.
+        """
         import random
 
-        if self.step == int(self.step):
-            return [
-                float(random.randint(int(self.min), int(self.max))) for _ in range(n)
-            ]
-        return [round(random.uniform(self.min, self.max), 2) for _ in range(n)]
+        if self.step <= 0:
+            return [self.min] * n if self.min <= self.max else []
+        max_steps = int(round((self.max - self.min) / self.step))
+        if max_steps < 0:
+            return []
+        return [
+            self.min + random.randint(0, max_steps) * self.step for _ in range(n)
+        ]

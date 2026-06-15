@@ -106,3 +106,27 @@ class TestParamRangeSafety:
     def test_negative_step_returns_min(self):
         r = ParamRange(min=10, max=20, step=-1)
         assert r.values() == [10]
+
+    def test_random_values_snap_to_integer_grid(self):
+        """Random search must sample only declared grid points (respect step)."""
+        r = ParamRange(min=2, max=20, step=2)
+        grid = set(r.values())
+        draws = r.random_values(200)
+        assert all(d in grid for d in draws)
+        # The full even grid 2..20 is reachable.
+        assert set(draws) == grid
+
+    def test_random_values_snap_to_float_grid(self):
+        r = ParamRange(min=0.0, max=1.0, step=0.25)
+        grid = set(r.values())
+        draws = r.random_values(200)
+        assert all(d in grid for d in draws)
+        assert set(draws) == grid
+
+    def test_random_values_invalid_range_returns_empty(self):
+        r = ParamRange(min=20, max=10, step=2)
+        assert r.random_values(5) == []
+
+    def test_random_values_zero_step_returns_min(self):
+        r = ParamRange(min=10, max=20, step=0)
+        assert r.random_values(3) == [10, 10, 10]

@@ -60,6 +60,14 @@ def merge_derivatives_asof(
         result_index = result_index.tz_localize(availability.tz)
     elif availability.tz is None and result_index.tz is not None:
         availability = availability.tz_localize(result_index.tz)
+    elif (
+        availability.tz is not None
+        and result_index.tz is not None
+        and availability.tz != result_index.tz
+    ):
+        # Both aware but in different zones: convert the availability index to
+        # the result frame's timezone so the as-of reindex aligns instants.
+        availability = availability.tz_convert(result_index.tz)
 
     avail_df = _build_availability_frame(
         derivatives_rows, availability, target_cols

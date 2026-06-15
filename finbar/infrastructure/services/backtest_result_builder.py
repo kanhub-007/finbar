@@ -164,15 +164,23 @@ class BacktestResultBuilder:
         equity_values = [e["value"] for e in state.equity_curve]
         final_value = equity_values[-1] if equity_values else initial_cash
         realized_pnl = sum(t["pnl"] for t in state.trades)
+        # Funding is a per-bar cash drain (full-margin mode) that is not part
+        # of any trade's realized PnL, so it is added back here to keep the
+        # reconciliation zero when funding is applied. ``total_funding`` is
+        # signed: positive = paid (longs), negative = received (shorts), and
+        # cash changes by ``-total_funding``.
         return {
             "total_commission": round(state.total_commission, 2),
             "total_borrow_cost": round(state.total_borrow_cost, 2),
+            "total_funding": round(state.total_funding, 2),
             "total_fees": round(state.total_commission, 2),
             "total_slippage": round(state.total_slippage, 2),
             "realized_pnl": round(realized_pnl, 2),
             "cash": round(state.cash, 2),
             "ending_position_size": state.position.size,
-            "reconciliation_error": round(final_value - initial_cash - realized_pnl, 2),
+            "reconciliation_error": round(
+                final_value - initial_cash - realized_pnl + state.total_funding, 2
+            ),
         }
 
     @staticmethod

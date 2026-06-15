@@ -10,6 +10,9 @@ from finbar.core.domain.entities.leverage_config import LeverageConfig
 from finbar.core.domain.entities.pending_entry import PendingEntry
 from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
 from finbar.infrastructure.services.backtest_position import BacktestPosition
+from finbar.infrastructure.services.margin_account_manager import (
+    MarginAccountManager,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +20,35 @@ logger = logging.getLogger(__name__)
 class PositionOpener:
     """Validate entry conditions and create open positions."""
 
-    def __init__(self, config: ExecutionConfig) -> None:
-        """Create an opener for one execution configuration."""
+    def __init__(
+        self,
+        config: ExecutionConfig,
+        margin_manager: MarginAccountManager | None = None,
+    ) -> None:
+        """Create an opener for one execution configuration.
+
+        Args:
+            config: Execution settings for this backtest run.
+            margin_manager: Optional full-margin account manager. When set
+                (margin_mode == "full"), entry cash movements are mirrored into
+                the margin account and the position's initial margin is locked.
+                When None (simplified mode), cash is tracked on ``state.cash``
+                alone.
+        """
         self._config = config
         self._leverage = LeverageConfig(multiplier=config.leverage_multiplier)
+        self._margin = margin_manager
+
+    def bind_margin_manager(
+        self, margin_manager: MarginAccountManager | None
+    ) -> None:
+        """Attach (or detach) the full-margin account manager.
+
+        The margin manager is bound lazily from ``PositionExecutor.setup_full_margin``
+        because it needs the per-run ``initial_cash`` that is only known when
+        ``BacktestRunner.run`` is called.
+        """
+        self._margin = margin_manager
 
     def open(
         self,
@@ -41,11 +69,15 @@ class PositionOpener:
         cash_before = state.cash
         if entry.direction == "long":
             state.cash -= cost + commission
+            if self._margin is not None:
+                self._margin.lock_entry_margin(state, cost, commission)
             state.position = BacktestPosition()
             state.position.size = size
             state.position.direction = "long"
         elif entry.direction == "short":
             state.cash += cost - commission
+            if self._margin is not None:
+                self._margin.credit_entry_short(state, cost, commission)
             state.position = BacktestPosition()
             state.position.size = -size
             state.position.direction = "short"

@@ -56,6 +56,7 @@ class PositionExecutor:
         """
         if self._full_margin:
             self._margin = MarginAccountManager(self._config, initial_cash)
+            self._opener.bind_margin_manager(self._margin)
 
     def sync_margin_equity(self, state: BacktestLoopState) -> None:
         """Sync BacktestLoopState.cash to margin account equity.
@@ -68,10 +69,17 @@ class PositionExecutor:
     def apply_funding(self, state: BacktestLoopState) -> None:
         """Apply per-bar funding payment to open position.
 
-        No-op when funding is disabled or in simplified mode.
+        No-op when funding is disabled or in simplified mode. The signed
+        payment is accumulated on ``state.total_funding`` so the result
+        reconciliation can account for it, and ``state.cash`` is re-synced
+        from the margin account immediately so the equity curve recorded
+        for this bar reflects the funding payment.
         """
         if self._full_margin and self._margin:
-            self._margin.apply_funding(state.position)
+            payment = self._margin.apply_funding(state.position)
+            if payment != 0.0:
+                state.total_funding += payment
+            self._margin.sync_state_equity(state)
 
     def check_margin_call(self, state: BacktestLoopState, close: float) -> None:
         """Check margin call status and liquidate if needed.
@@ -141,6 +149,16 @@ class PositionExecutor:
             state.position.size, fill_cost, commission, borrow
         )
         self._closer.release_margin(state, abs_size, entry_price)
+        if self._margin is not None:
+            self._margin.settle_exit(
+                state,
+                fill_cost,
+                commission,
+                abs_size,
+                entry_price,
+                direction,
+                borrow,
+            )
 
         trade = self._closer.build_trade(
             state=state,

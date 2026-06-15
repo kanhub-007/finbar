@@ -1,5 +1,6 @@
 """GetOptimizationJobResultsUseCase — return ranked optimization results."""
 
+import math
 from dataclasses import asdict
 
 from finbar.core.application.dto.optimization_job_results_result import (
@@ -29,7 +30,7 @@ class GetOptimizationJobResultsUseCase:
                 status=job.status,
                 error=f"Job is not complete (status: {job.status})",
             )
-        results = [asdict(r) for r in job.results]
+        results = [_normalize_result(asdict(r)) for r in job.results]
         wf_result_raw = job.metadata.get("walk_forward_result")
         wf_result_dict = asdict(wf_result_raw) if wf_result_raw else None
         return OptimizationJobResultsResult(
@@ -41,3 +42,17 @@ class GetOptimizationJobResultsUseCase:
             results=results,
             walk_forward_result=wf_result_dict,
         )
+
+
+def _normalize_result(result: dict) -> dict:
+    """Make an optimization result dict JSON-safe.
+
+    A flawless strategy (no losing trades) carries an infinite profit factor
+    internally so it sorts first when ranking by ``profit_factor``. JSON cannot
+    represent infinity, so it is reported as ``None`` here — matching how the
+    backtest engine reports an infinite profit factor in its own output.
+    """
+    profit_factor = result.get("profit_factor")
+    if isinstance(profit_factor, float) and not math.isfinite(profit_factor):
+        result["profit_factor"] = None
+    return result

@@ -1,5 +1,7 @@
 """Tests for backtest performance metrics — pure math, no I/O."""
 
+import pytest
+
 from finbar.core.domain.services.backtest_metrics import (
     calculate_annualised_return,
     calculate_calmar_ratio,
@@ -41,6 +43,33 @@ class TestSortino:
     def test_zero_with_no_downside(self):
         returns = [0.001, 0.002, 0.001]
         assert calculate_sortino(returns) == 0.0
+
+    def test_downside_deviation_averaged_over_all_observations(self):
+        """Downside deviation must be RMS over ALL n returns, not just the
+        downside ones.
+
+        With 1 downside return of -0.01 among 4 total returns, the correct
+        downside deviation is sqrt((0.01^2)/4) = 0.005, giving Sortino =
+        mean/0.005 * sqrt(252). Dividing by len(downside)==1 would instead
+        give sqrt(0.01^2/1)=0.01 and half the Sortino.
+        """
+        import math
+
+        returns = [0.02, -0.01, 0.02, 0.02]  # one downside, three upside
+        n = len(returns)
+        mean_ret = sum(returns) / n
+        expected_dd = math.sqrt(sum(r**2 for r in [-0.01]) / n)
+        expected = mean_ret / expected_dd * math.sqrt(252)
+        assert calculate_sortino(returns) == pytest.approx(expected, rel=1e-9)
+
+    def test_sortino_higher_when_few_downside_periods(self):
+        """A strategy with identical mean but fewer downside periods must have
+        a HIGHER Sortino (the prior /len(downside) bug inverted this)."""
+        mostly_up = [0.02, 0.02, 0.02, -0.01]  # 1 downside
+        more_down = [0.05, -0.01, -0.01, -0.01]  # 3 downside, same-ish count
+        # Both have 4 returns; fewer downside bars -> higher Sortino when
+        # downside deviation is averaged over n.
+        assert calculate_sortino(mostly_up) > calculate_sortino(more_down)
 
 
 class TestMaxDrawdown:

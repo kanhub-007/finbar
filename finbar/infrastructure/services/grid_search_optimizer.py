@@ -411,13 +411,32 @@ def _metrics_from_raw(params: dict, raw: dict) -> OptimizationResult:
         sortino_ratio=float(raw.get("sortino_ratio", 0) or 0),
         total_return=float(raw.get("total_return", 0) or 0),
         max_drawdown=float(raw.get("max_drawdown", 0) or 0),
-        profit_factor=(
-            float(raw.get("profit_factor", 0) or 0) if raw.get("profit_factor") else 0.0
-        ),
+        profit_factor=_parse_profit_factor(raw.get("profit_factor")),
         win_rate=float(raw.get("win_rate", 0) or 0),
         calmar_ratio=float(raw.get("calmar_ratio", 0) or 0),
         total_trades=int(raw.get("total_trades", 0) or 0),
     )
+
+
+def _parse_profit_factor(value) -> float:
+    """Convert a raw profit_factor into a rankable float.
+
+    The backtest engine emits ``None`` for an infinite profit factor (a
+    strategy with no losing trades, ``gross_loss == 0``). Collapsing that to
+    ``0.0`` would rank a flawless strategy *below* every finite-profit-factor
+    strategy when sorting by ``profit_factor`` (descending). Preserve the
+    infinite value so it sorts first, then normalise to ``None`` at the
+    serialization boundary (see GetOptimizationJobResultsUseCase).
+    """
+    import math
+
+    if value is None:
+        return float("inf")
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return result if math.isfinite(result) else float("inf")
 
 
 def _warmup_check(frame, validation) -> dict:

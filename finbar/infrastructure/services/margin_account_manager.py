@@ -89,21 +89,27 @@ class MarginAccountManager:
         """Sync BacktestLoopState.cash to margin account equity."""
         state.cash = self.account.equity
 
-    def apply_funding(self, position: BacktestPosition) -> None:
+    def apply_funding(self, position: BacktestPosition) -> float:
         """Apply one bar's funding payment to the open position.
 
         Only applies when enable_funding is True and position is open.
+
+        Returns:
+            The signed funding payment applied to cash (positive = paid by
+            the position holder, negative = received). Zero when no payment
+            is applied.
         """
         if not self._funding_enabled or position.size == 0:
-            return
+            return 0.0
         abs_size = abs(position.size)
         if abs_size <= 0 or position.entry_price <= 0:
-            return
+            return 0.0
         notional = abs_size * position.entry_price
         payment = notional * self._funding_rate
         if position.size < 0:
             payment = -payment  # shorts receive funding
         self.account.apply_funding(payment)
+        return payment
 
     def check_margin_call(self, position: BacktestPosition, close: float) -> str | None:
         """Check if position is in margin-call territory.

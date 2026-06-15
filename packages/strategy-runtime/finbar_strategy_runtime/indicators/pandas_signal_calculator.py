@@ -135,11 +135,14 @@ class PandasSignalCalculator(SignalCalculator):
 
         scores: list[int] = []
         for i in range(n):
-            # `or default` preserves the prior per-row semantics exactly:
-            # 0.0 is falsy (-> default), NaN is truthy (-> passed through).
-            adx_i = float(adx[i] or 0.0)
-            rsi_i = float(rsi[i] or 50.0)
-            rvol_i = float(rvol[i] or 1.0)
+            # Coalesce only NaN (missing/insufficient data) to the neutral
+            # default; a legitimate 0.0 must be preserved. The previous
+            # `value or default` collapsed 0.0 into the default, which hid an
+            # extreme RSI of 0 (treated as neutral 50) and a genuine zero
+            # relative volume (treated as normal 1.0).
+            adx_i = _coalesce_nan(adx[i], 0.0)
+            rsi_i = _coalesce_nan(rsi[i], 50.0)
+            rvol_i = _coalesce_nan(rvol[i], 1.0)
             risk_factors = self._gather_risk_factors(
                 adx_i,
                 rsi_i,
@@ -212,3 +215,16 @@ class PandasSignalCalculator(SignalCalculator):
         if is_squeeze:
             factors.append(RiskFactor.BB_SQUEEZE)
         return factors
+
+
+def _coalesce_nan(value, default: float) -> float:
+    """Return ``value`` unless it is NaN, in which case return ``default``.
+
+    Unlike ``value or default``, this preserves a legitimate ``0.0`` (which is
+    falsy) and only substitutes the default for missing data.
+    """
+    import numpy as np
+
+    if np.isnan(value):
+        return default
+    return float(value)

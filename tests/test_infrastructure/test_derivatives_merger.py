@@ -148,3 +148,35 @@ class TestNoLookaheadMerge:
         # Bar 1 sees the Jan 1 data
         assert abs(result.loc[result.index[1], "funding_rate"] - 0.0001) < 1e-9
         assert abs(result.loc[result.index[1], "open_interest"] - 1_500_000) < 1
+
+
+class TestTimezoneNormalization:
+    def test_both_aware_different_timezones_aligns_instants(self):
+        """OHLCV index and derivatives rows both tz-aware but in different
+        zones must be reconciled (tz_convert) rather than crashing or
+        silently misaligning. A UTC funding value at midnight must appear on
+        the next UTC-midnight OHLCV bar even when the OHLCV index is, e.g.,
+        US/Eastern-aware."""
+        import zoneinfo
+
+        eastern = zoneinfo.ZoneInfo("America/New_York")
+        # OHLCV bars at US/Eastern midnight: 2024-01-01 00:00 ET == 05:00 UTC.
+        ohlcv = pd.DataFrame(
+            {"close": [100.0] * 3},
+            index=pd.date_range("2024-01-01", periods=3, freq="D").tz_localize(eastern),
+        )
+        # Derivatives row stamped midnight UTC on Jan 1.
+        rows = [
+            DerivativesMetrics(
+                symbol="BTC",
+                timestamp="2024-01-01T00:00:00+00:00",
+                interval="1d",
+                funding_rate=0.0001,
+            ),
+        ]
+        result = merge_derivatives_asof(ohlcv, rows, interval="1d")
+        # The funding value (available at Jan 2 00:00 UTC == Jan 1 19:00 ET)
+        # must have been forward-filled onto at least one later bar.
+        assert result["funding_rate"].notna().any()
+        # And it must NOT leak onto the very first bar (no-lookahead).
+        assert pd.isna(result["funding_rate"].iloc[0])

@@ -24,6 +24,7 @@ class BacktestLoopState:
         "used_margin",
         "diagnostics",
         "total_borrow_cost",
+        "total_funding",
     )
 
     def __init__(self, initial_cash: float) -> None:
@@ -40,3 +41,4 @@ class BacktestLoopState:
         self.used_margin: float = 0.0
         self.diagnostics: list[BacktestDiagnostic] = []
         self.total_borrow_cost: float = 0.0
+        self.total_funding: float = 0.0

@@ -71,7 +71,11 @@ def calculate_sortino(
     if not downside:
         return 0.0
 
-    downside_var = sum(r**2 for r in downside) / len(downside)
+    # Downside deviation is the root-mean-square of downside returns over
+    # ALL observations (n), not just the downside ones. Dividing by
+    # len(downside) inflates the deviation when few periods are downside and
+    # systematically biases the Sortino ratio downward.
+    downside_var = sum(r**2 for r in downside) / n
     downside_std = math.sqrt(downside_var) if downside_var > 0 else 0.0
 
     if downside_std == 0:

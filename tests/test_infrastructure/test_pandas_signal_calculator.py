@@ -38,22 +38,28 @@ class TestConfidenceScoring:
         # With no trend/volume info, score is just the base.
         assert result["confidence_score"].iloc[0] >= 0
 
-    def test_rsi_zero_treated_as_neutral_in_confidence(self):
-        """Regression: in the confidence path rsi_14 == 0.0 is falsy, so the
-        prior `or 50` default treated it as 50 (neutral). That means rsi=0
-        should NOT incur the OVEREXTENDED_DOWN penalty that rsi=10 would.
-        Note: the separate is_extreme_oversold column uses rsi<20 directly
-        and is unaffected by this quirk."""
+    def test_rsi_zero_is_extreme_oversold_in_confidence(self):
+        """A legitimate rsi_14 == 0.0 is an extreme oversold value, not missing
+        data. The confidence path must preserve 0.0 (rather than the old
+        `or 50` default that treated it as neutral) so it incurs the same
+        OVEREXTENDED_DOWN penalty as rsi=10. Only NaN (missing) should fall
+        back to the neutral default. Note: the separate is_extreme_oversold
+        column uses rsi<20 directly and is unaffected."""
         calc = PandasSignalCalculator()
         df_zero = _frame([{"close": 100.0, "rsi_14": 0.0}])
         df_mid = _frame([{"close": 100.0, "rsi_14": 50.0}])
         df_low = _frame([{"close": 100.0, "rsi_14": 10.0}])
+        df_nan = _frame([{"close": 100.0, "rsi_14": float("nan")}])
         score_zero = calc.calculate(df_zero)["confidence_score"].iloc[0]
         score_mid = calc.calculate(df_mid)["confidence_score"].iloc[0]
         score_low = calc.calculate(df_low)["confidence_score"].iloc[0]
-        # rsi=0 is treated like rsi=50 (no penalty); rsi=10 incurs the penalty.
-        assert score_zero == score_mid
-        assert score_low < score_mid
+        score_nan = calc.calculate(df_nan)["confidence_score"].iloc[0]
+        # rsi=0 is an extreme oversold (same penalty bucket as rsi=10); both
+        # score below the neutral rsi=50.
+        assert score_zero == score_low
+        assert score_zero < score_mid
+        # NaN (missing) still falls back to the neutral default.
+        assert score_nan == score_mid
 
     def test_weak_trend_risk_factor_lowers_score(self):
         df_strong = _frame(
