@@ -209,7 +209,11 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         return name in self._PERIOD_RANGES or name in self._OPTIONAL_PERIOD_RANGES
 
     def supports_concrete(self, name: str) -> bool:
-        """Return True when a concrete indicator column is known."""
+        """Return True when a concrete indicator column is known.
+
+        Case-insensitive, mirroring ``resolve()`` (INV-3).
+        """
+        name = name.lower()
         if name in self._FIXED or name in self._FIXED.values():
             return True
         # Rolling-VP patterns BEFORE the timeframe-suffix strip: the window

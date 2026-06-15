@@ -95,3 +95,41 @@ class TestRollingVpPatternRejection:
     )
     def test_non_numeric_window_rejected(self, catalog, name):
         assert catalog.resolve(name, None) is None
+
+
+class TestSupportsConcreteCaseInsensitive:
+    """supports_concrete() must be case-insensitive, mirroring resolve().
+
+    Regression: the operand parser / risk resolver / fallback-source check
+    pass un-lowercased names, so a mixed-case name (e.g. ``VWAP``) had to
+    be accepted iff its lowercased form was known.
+    """
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            # legacy _FIXED indicators
+            "vwap",
+            "VWAP",
+            "Vwap",
+            "atr",
+            "ATR",
+            # rolling-VP patterns
+            "cvp_poc_1d",
+            "CVP_POC_1D",
+            "rvp_poc_100",
+            "RVP_POC_100",
+        ],
+    )
+    def test_supports_concrete_matches_resolve_for_any_case(self, catalog, name):
+        """For every accepted case variant, resolve() and supports_concrete()
+        must agree."""
+        assert (catalog.resolve(name, None) is not None) == (
+            catalog.supports_concrete(name)
+        ), name
+
+    def test_uppercase_fixed_indicator_supported(self, catalog):
+        assert catalog.supports_concrete("VWAP") is True
+        assert catalog.supports_concrete("ABOVE_VALUE") is True
+        # Unknown stays rejected
+        assert catalog.supports_concrete("TOTALLY_MADE_UP") is False

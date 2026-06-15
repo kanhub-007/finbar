@@ -335,6 +335,46 @@ class TestResolveHandlerGate:
                 f"{name!r}: resolve={resolved!r} but supports_concrete={supported}"
             )
 
+    @pytest.mark.parametrize(
+        "variant",
+        ["bag_holding", "BAG_HOLDING", "Bag_Holding", "vwap", "VWAP", "Vwap"],
+    )
+    def test_supports_concrete_is_case_insensitive(self, catalog, variant):
+        """supports_concrete() must match resolve()'s case-insensitivity.
+
+        Regression: resolve() lowercased its input but supports_concrete()
+        routed via a case-sensitive ``if name in self._by_name``, so a
+        mixed-case condition operand (e.g. ``left: Bag_Holding``) was
+        wrongly rejected as unknown_operand even though the metric was
+        usable. Both methods must agree for any case variant.
+        """
+        assert (catalog.resolve(variant, None) is not None) == (
+            catalog.supports_concrete(variant)
+        ), variant
+
+    def test_supports_concrete_accepts_mixed_case_usable_metric(self, catalog):
+        """A usable metric referenced in mixed case is supported."""
+        assert catalog.supports_concrete("BAG_HOLDING") is True
+        assert catalog.supports_concrete("Effort_Result_Divergence") is True
+        # Catalogued-but-unhandled: mixed case still rejected (no over-correction)
+        assert catalog.supports_concrete("VIX") is False
+
+    def test_supports_concrete_agrees_for_every_registry_name_across_case_variants(
+        self, catalog
+    ):
+        """INV-3 holds for UPPER and Title case variants of every registry
+        name — the invariant must not be limited to lowercase inputs."""
+        from finbar_strategy_runtime.parser._metric_registry import (
+            CONCEPTUAL_METRICS,
+            METRICS,
+        )
+
+        for name in (m.name for m in METRICS + CONCEPTUAL_METRICS):
+            for variant in (name.upper(), name.title()):
+                assert (catalog.resolve(variant, None) is not None) == (
+                    catalog.supports_concrete(variant)
+                ), variant
+
     def test_catalog_delegates_registry_resolution_to_usable_set(self, catalog):
         """For every registry name, resolve()/supports_concrete() must equal
         the _usable collaborator's answer (no re-encoded rule)."""

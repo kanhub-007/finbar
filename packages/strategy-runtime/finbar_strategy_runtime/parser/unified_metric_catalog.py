@@ -120,10 +120,17 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         ``list_market_metrics`` / ``check_metric`` but rejected by the
         parser. Parameterised/dynamic names (sma_50, vp_poc_10d, etc.)
         are delegated to the legacy strategy catalog.
+
+        Case-insensitive, mirroring ``resolve()`` (INV-3): a non-lowercase
+        name (e.g. ``"BAG_HOLDING"``) is accepted iff its lowercased form
+        is usable. Without this, ``resolve`` and ``supports_concrete``
+        disagreed for mixed-case inputs (the operand parser passes
+        un-lowercased condition operands).
         """
-        if name in self._by_name:
-            return self._usable.contains(name)
-        return self._strategy_catalog.supports_concrete(name)
+        key = name.lower()
+        if key in self._by_name:
+            return self._usable.contains(key)
+        return self._strategy_catalog.supports_concrete(key)
 
     def supported_concrete_names(self) -> list[str]:
         """Return all concrete indicator columns currently supported.
