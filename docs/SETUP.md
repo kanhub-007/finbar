@@ -70,7 +70,7 @@ The MCP server is at http://127.0.0.1:8003/mcp.
 ### Pi Extension
 
 1. Start the MCP server: `start_mcp.bat`
-2. Pi auto-discovers all 11 tools on session start
+2. Pi auto-discovers all 48 tools on session start
 3. Tools are registered with `finbar_` prefix (e.g., `finbar_get_symbol_info`)
 
 ## Quick Test

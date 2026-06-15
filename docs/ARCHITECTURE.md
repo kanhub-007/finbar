@@ -1,8 +1,9 @@
 # Finbar Architecture
 
 Strict clean architecture per AGENTS.md — four layers plus a composition root.
-Dependencies flow inward. One class per file enforced mechanically (171 classes,
-zero multi-class files in `finbar/`).
+Dependencies flow inward. One class per file enforced mechanically (184 classes
+in `finbar/`; the only intentional co-located pair is `AssetAllocation` +
+`PortfolioConfig` in `entities/portfolio_config.py`).
 
 ## Layer Map
 
@@ -66,7 +67,7 @@ finbar/
 │   │       ├── backtest_metrics.py  # Sharpe, Sortino, drawdown, Calmar, etc.
 │   │       └── proxy_indicator.py   # Proxy indicator calculation
 │   ├── application/
-│   │   ├── dto/             # Data crossing layer boundaries (~25 DTOs)
+│   │   ├── dto/             # Data crossing layer boundaries (40 DTOs)
 │   │   │   ├── backtest_result.py                     # Full backtest output
 │   │   │   ├── backtest_strategy_definition_*.py       # JSON backtest request/result
 │   │   │   ├── save_strategy_definition_*.py           # Save request/result
@@ -141,7 +142,7 @@ finbar/
 │   │   └── sql_indicator_artifact_repository.py
 │   └── services/            # Infrastructure services
 │       ├── backtest_runner.py                 # Bar-by-bar engine
-│       ├── builtin_strategy_provider.py       # Hardcoded strategies
+│       ├── builtin_strategy_provider.py       # Legacy hook — no built-ins (use JSON SDK)
 │       ├── composite_strategy_provider.py     # Chain of providers
 │       ├── database_strategy_provider.py      # Saved JSON strategies
 │       ├── strategy_definition_factory.py     # Compile definition → strategy
@@ -154,7 +155,7 @@ finbar/
 │       ├── pandas_ta_indicator_calculator.py  # Indicators + dynamic period dispatch
 │       ├── pandas_timeframe_bar_merger.py     # Multi-timeframe merge
 │       ├── bar_merger.py                      # Core merge logic
-│       ├── cached_price_indicator_job_runner.py  # Enrichment execution
+│       ├── indicator_job_runner.py              # Enrichment execution
 │       ├── in_memory_indicator_job_manager.py    # Job + artifact store (SQLite-backed)
 │       ├── grid_search_optimizer.py           # Grid/random parameter search
 │       ├── in_memory_optimization_job_manager.py  # Optimization job store
@@ -162,11 +163,6 @@ finbar/
 │       ├── yfinance_stock_fetcher.py          # yfinance API
 │       ├── hyperliquid_fetcher.py             # Hyperliquid API
 │       └── rate_limiter.py / hyperliquid_rate_limiter.py
-│   └── backtest_strategies/  # Built-in strategies
-│       ├── sma_crossover.py
-│       ├── rsi_mean_reversion.py
-│       ├── momentum_breakout.py
-│       └── auction_drive.py
 ├── presentation/
 │   ├── api/                 # FastAPI routes + Pydantic DTOs
 │   └── mcp/                 # FastMCP tools
@@ -198,7 +194,7 @@ finbar/
 
 | Pattern | Where | Why |
 |---------|-------|-----|
-| **Strategy** | `TradingStrategy` ABC → 4 built-ins + `JsonRuleBasedStrategy` | Swappable strategy logic |
+| **Strategy** | `TradingStrategy` ABC → `JsonRuleBasedStrategy` (built-ins removed in favour of JSON SDK) | Swappable strategy logic |
 | **Strategy** | `RiskPriceCalculator`, `StrategyFeatureCalculator`, `FormulaFeatureCalculator` | Pluggable calculation |
 | **Strategy** | `StockDataFetcher` → `YFinanceFetcher`, `HyperliquidFetcher` | Swappable data sources |
 | **Template Method** | `BacktestRunner.run()` | Fixed engine loop, strategy varies |
@@ -221,7 +217,7 @@ finbar/
 | Pattern | Where | Why |
 |---------|-------|-----|
 | **Repository** | `PriceCacheRepository`, `StrategyDocumentRepository`, `EnrichmentArtifactRepository` → SQLite | DB behind interfaces |
-| **DTO** | `core/application/dto/` — ~25 DTOs | Layer boundary |
+| **DTO** | `core/application/dto/` — 40 DTOs | Layer boundary |
 | **Presenter** | `StrategyJsonPresenter` | MCP response formatting |
 | **Facade** | `StrategyDefinitionParser` — single `parse()` | Complex parsing behind one call |
 | **Dependency Injection** | Constructor injection everywhere | Testable, no hidden state |

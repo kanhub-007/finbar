@@ -72,8 +72,8 @@ Requires **Python ≥ 3.12**. The `[pandas]` extra additionally requires
 ```
 finbar_strategy_runtime/
 ├── domain/
-│   ├── entities/          # 25 pure dataclasses/enums — no framework deps
-│   ├── interfaces/        # 12 ABCs — contracts for DI
+│   ├── entities/          # 32 pure dataclasses/enums — no framework deps
+│   ├── interfaces/        # 13 ABCs — contracts for DI
 │   └── services/          # Pure math functions (numpy/pandas, no I/O)
 ├── parser/                # YAML/JSON loader, validators, serializers
 ├── evaluation/            # Condition evaluator, rule-based strategy, risk calc

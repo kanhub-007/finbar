@@ -11,7 +11,7 @@ no escaping hell) or JSON.
 ```bash
 git clone https://github.com/kanhub-007/finbar.git
 cd finbar
-py -3.13 -m venv .venv
+py -3.12 -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
 cp .env.example .env
@@ -35,7 +35,7 @@ python run_mcp.py
 | **[Architecture](docs/ARCHITECTURE.md)** | Clean architecture, layers, patterns, one class per file |
 | **[Execution Model](docs/backtest_execution_model.md)** | Fill accounting, slippage, margin, annualization, crossover determinism |
 
-## MCP Tools (44+)
+## MCP Tools (48)
 
 | Category | Tools |
 |----------|-------|
@@ -45,13 +45,13 @@ python run_mcp.py
 | **Artifacts** | `list_artifacts`, `describe_artifact`, `query_artifact_bars`, `delete_artifact` |
 | **Signals** | `compute_signals` (confidence scores, risk flags) |
 | **Derivatives** | `fetch_derivatives` (funding rates, OI, CVD — crypto) |
+| **Metrics** | `list_market_metrics`, `check_metric`, `resolve_metric` |
 | **Strategy** | `get_strategy_capabilities`, `get_strategy_schema`, `validate_strategy_definition`, `explain_strategy_definition`, `backtest_strategy_definition`, `apply_strategy_features`, `save_strategy_definition`, `delete_strategy_definition` |
 | **Optimization** | `start_optimization_job`, `start_walk_forward_job`, `get_optimization_job_progress`, `get_optimization_job_results`, `cancel_optimization_job` |
 | **Analysis** | `run_backtest`, `list_backtest_strategies`, `run_portfolio_backtest` |
 | **Pipeline** | `compute_strategy_indicators`, `run_strategy_pipeline` |
 | **Results** | `list_backtest_results`, `get_backtest_summary`, `get_backtest_trades`, `get_backtest_equity` |
-
-Call `get_usage_guide` for the full workflow reference.
+| **Guides** | `get_usage_guide` (full workflow reference) |
 
 ## Strategy capabilities (JSON or YAML)
 
@@ -147,7 +147,7 @@ FINBAR_API_PORT=8000
 
 ```bash
 ruff check finbar/ && black finbar/ && pytest tests/
-# 376 tests in ~8s
+# 552 tests in finbar/ (~8s); 359 more in packages/strategy-runtime
 ```
 
 ## Architecture
