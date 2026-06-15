@@ -5,7 +5,10 @@ import pandas as pd
 from finbar.core.domain.entities.signal_result import SignalResult
 from finbar.core.domain.entities.strategy_meta import DataMode, StrategyMeta
 from finbar.core.domain.interfaces.trading_strategy import TradingStrategy
+from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
+from finbar.infrastructure.services.backtest_position import BacktestPosition
 from finbar.infrastructure.services.backtest_runner import BacktestRunner
+from finbar.infrastructure.services.position_executor import PositionExecutor
 
 
 class _StaticSignalStrategy(TradingStrategy):
@@ -497,6 +500,42 @@ class TestExecutionCorrectness:
         assert result["trades"][0]["metadata"]["exit_reason"] == "end_of_backtest"
         assert result["final_value"] == 10200.0
         assert result["equity_curve"][-1]["position"] == 0
+
+    def test_open_position_liquidated_even_when_final_date_is_empty(self):
+        """Regression: liquidate_open guarded on `not final_date`, so an open
+        position was never closed at backtest end when the final bar's date
+        string was empty — the closing trade was dropped and final_value/
+        realized PnL understated the run. Liquidation must not depend on the
+        date string format."""
+        state = BacktestLoopState(initial_cash=10000.0)
+        # Simulate an open long entered at 100 with 10 units, cost 1000.
+        state.cash = 9000.0
+        pos = BacktestPosition()
+        pos.size = 10.0
+        pos.direction = "long"
+        pos.entry_price = 100.0
+        pos.entry_date = "2024-01-01"
+        pos.entry_commission = 0.0
+        state.position = pos
+        state.equity_curve.append(
+            {
+                "date": "",
+                "close": 120.0,
+                "value": 9000.0,
+                "drawdown": 0.0,
+                "position": 10,
+            }
+        )
+
+        PositionExecutor().liquidate_open(state, final_close=120.0, final_date="")
+
+        # The position was closed at the final close (not silently retained).
+        assert len(state.trades) == 1
+        assert state.trades[0]["exit_price"] == 120.0
+        assert state.trades[0]["metadata"]["exit_reason"] == "end_of_backtest"
+        assert state.position.size == 0
+        # Equity curve tail reflects mark-to-market at the close.
+        assert state.equity_curve[-1]["position"] == 0
 
     def test_intraday_timestamps_preserve_time(self):
         sig = SignalResult(action="buy", direction="long", position_size=1)

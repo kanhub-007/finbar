@@ -24,6 +24,16 @@ from finbar.infrastructure.services.position_sizer import PositionSizer
 
 logger = logging.getLogger(__name__)
 
+# Multiplicative sign per (direction, side): entry longens and exit shortens
+# for longs; the reverse for shorts. Module-level constant so the lookup
+# table is built once instead of per fill.
+_SLIPPAGE_SIGN: dict[tuple[str, str], float] = {
+    ("long", "entry"): 1.0,
+    ("long", "exit"): -1.0,
+    ("short", "entry"): -1.0,
+    ("short", "exit"): 1.0,
+}
+
 
 class PositionExecutor:
     """Handle position lifecycle: enter, exit, stop/target, and liquidation.
@@ -228,7 +238,7 @@ class PositionExecutor:
         final_date: str,
     ) -> None:
         """Close any open position at the final bar close."""
-        if state.position.size == 0 or not final_date:
+        if state.position.size == 0:
             return
         self.exit_position(
             state, final_close, final_date, exit_reason="end_of_backtest"
@@ -273,13 +283,12 @@ class PositionExecutor:
     def _apply_slippage(self, price: float, direction: str, side: str) -> float:
         if self._slippage_pct <= 0:
             return price
-        factor = {
-            ("long", "entry"): 1.0 + self._slippage_pct,
-            ("long", "exit"): 1.0 - self._slippage_pct,
-            ("short", "entry"): 1.0 - self._slippage_pct,
-            ("short", "exit"): 1.0 + self._slippage_pct,
-        }.get((direction, side), 1.0)
-        return price * factor
+        # Look up the precomputed multiplicative factor in a module-level
+        # constant instead of allocating a fresh dict literal on every fill.
+        sign = _SLIPPAGE_SIGN.get((direction, side), 0)
+        if sign == 0:
+            return price
+        return price * (1.0 + sign * self._slippage_pct)
 
     def _commission(self, gross: float) -> float:
         if self._commission_pct <= 0:

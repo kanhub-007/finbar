@@ -4,19 +4,25 @@ from __future__ import annotations
 
 import asyncio
 import itertools
+from typing import Any
+
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
+)
+from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import (
+    TimeframeBarMerger,
+)
 
 from finbar.core.domain.entities.optimization_job import OptimizationJob
 from finbar.core.domain.entities.optimization_result import OptimizationResult
 from finbar.core.domain.entities.optimizer_config import OptimizerConfig
 from finbar.core.domain.entities.param_range import ParamRange
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
 from finbar.core.domain.interfaces.indicator_artifact_provider import (
     IndicatorArtifactProvider,
 )
 from finbar.core.domain.interfaces.optimization_job_runner import (
     OptimizationJobRunner,
 )
-from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
 from finbar.core.domain.services.correlation import (
     is_ranking_metric,
     sort_ascending,
@@ -62,6 +68,16 @@ class GridSearchOptimizer(OptimizationJobRunner):
             combinations = _generate_random_combinations(ranges, count)
         else:
             combinations = _generate_combinations(ranges)
+        if not combinations:
+            self._manager.update(
+                job,
+                status="failed",
+                error=(
+                    "No parameter combinations generated — check that "
+                    "min <= max for all declared ranges"
+                ),
+            )
+            return
         if len(combinations) > _MAX_COMBINATIONS:
             self._manager.update(
                 job,
@@ -256,11 +272,14 @@ def _parse_ranges(raw: dict) -> dict[str, ParamRange]:
                 raise ValueError(
                     f"ParamRange step for '{name}' must be positive, got {step}"
                 )
-            ranges[name] = ParamRange(
-                min=float(spec.get("min", 0)),
-                max=float(spec.get("max", 0)),
-                step=step,
-            )
+            minimum = float(spec.get("min", 0))
+            maximum = float(spec.get("max", 0))
+            if minimum > maximum:
+                raise ValueError(
+                    f"ParamRange min for '{name}' must be <= max "
+                    f"(got min={minimum}, max={maximum})"
+                )
+            ranges[name] = ParamRange(min=minimum, max=maximum, step=step)
     return ranges
 
 

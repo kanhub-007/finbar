@@ -33,7 +33,7 @@ def test_coinglass_on_rate_limit_sets_backoff_deadline():
     before = time.time()
     backoff = limiter.on_rate_limit_error(attempt=2)
     after = time.time()
-    assert backoff == 2.0 * (2 ** 2)
+    assert backoff == 2.0 * (2**2)
     assert before + 8.0 <= limiter._backoff_until <= after + 8.0
 
 
@@ -112,3 +112,84 @@ def test_yfinance_reset_clears_backoff():
     assert limiter._backoff_until > 0
     limiter.reset()
     assert limiter._backoff_until == 0.0
+
+
+# ---------------------------------------------------------------------------
+# HyperliquidRateLimiter — token bucket, shared as a singleton across
+# concurrent fetch jobs, so admission control must be serialised under a lock.
+# ---------------------------------------------------------------------------
+
+
+def test_hyperliquid_admission_accounting_is_exact_under_concurrency():
+    """Regression: wait() mutated current_weight / total_weight_used without a
+    lock, so concurrent callers lost increments (read-modify-write races on
+    float +=), under-counting consumed weight and under-enforcing the limit.
+    Under the lock, every admitted request is counted exactly."""
+    from finbar.infrastructure.services.hyperliquid_rate_limiter import (
+        HyperliquidRateLimiter,
+    )
+
+    # Bucket and RPM large enough that no caller ever waits for capacity or
+    # spacing — the test isolates the accounting race, not the throttle.
+    limiter = HyperliquidRateLimiter(
+        requests_per_minute=10_000_000, max_weight=10_000, safety_margin=1.0
+    )
+    per_thread_calls = 10
+    num_threads = 10
+    weight = 5
+
+    def admit_many() -> None:
+        for _ in range(per_thread_calls):
+            limiter.wait(weight=weight)
+
+    threads = [threading.Thread(target=admit_many) for _ in range(num_threads)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    assert not any(t.is_alive() for t in threads), "threads deadlocked"
+    stats = limiter.get_stats()
+    expected = per_thread_calls * num_threads
+    # Every admission is recorded; no lost increments.
+    assert stats["total_requests"] == expected
+    assert stats["total_weight_used"] == expected * weight
+
+
+def test_hyperliquid_on_rate_limit_sets_backoff_deadline(monkeypatch):
+    """on_rate_limit_error records an absolute backoff deadline under the lock."""
+    import time
+
+    from finbar.infrastructure.services.hyperliquid_rate_limiter import (
+        HyperliquidRateLimiter,
+    )
+
+    limiter = HyperliquidRateLimiter()
+    # Make jitter deterministic so the deadline assertion is exact.
+    monkeypatch.setattr(
+        "finbar.infrastructure.services.hyperliquid_rate_limiter.random.uniform",
+        lambda _lo, _hi: 0.0,
+    )
+    before = time.monotonic()
+    limiter.on_rate_limit_error()
+    after = time.monotonic()
+    # 1st error -> 2^1 = 2s base backoff.
+    assert before + 2.0 <= limiter._backoff_until <= after + 2.0
+
+
+def test_hyperliquid_get_stats_reflects_consumption():
+    """get_stats reports consumed weight and request count after waits."""
+    from finbar.infrastructure.services.hyperliquid_rate_limiter import (
+        HyperliquidRateLimiter,
+    )
+
+    limiter = HyperliquidRateLimiter(
+        requests_per_minute=10_000_000, max_weight=1000, safety_margin=1.0
+    )
+    limiter.wait(weight=20)
+    limiter.wait(weight=20)
+
+    stats = limiter.get_stats()
+    assert stats["total_requests"] == 2
+    assert stats["total_weight_used"] == 40
+    assert stats["consecutive_429_errors"] == 0

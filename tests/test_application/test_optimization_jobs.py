@@ -139,6 +139,18 @@ class TestGridSearchCombinatorics:
         assert ranges["fast"].values() == [10.0, 20.0, 30.0]
         assert ranges["slow"].values() == [50.0, 100.0]
 
+    def test_parse_ranges_rejects_inverted_min_max(self):
+        """Regression: an inverted range (min > max) used to slip through,
+        producing zero combinations (grid) or an IndexError (random) downstream.
+        It must now fail fast with a clear message."""
+        with pytest.raises(ValueError, match="must be <= max"):
+            _parse_ranges({"fast": {"min": 30, "max": 10, "step": 5}})
+
+    def test_parse_ranges_allows_single_value_range(self):
+        """min == max is valid (one grid value)."""
+        ranges = _parse_ranges({"p": {"min": 7, "max": 7, "step": 1}})
+        assert ranges["p"].values() == [7.0]
+
     def test_generates_cartesian_product(self):
         """Combinations are the Cartesian product of all range values."""
         ranges = {
@@ -194,6 +206,79 @@ class TestOptimizationPreparation:
         assert params["reject_oversized_explicit_orders"] is True
         assert params["allow_negative_cash"] is True
         assert params["market_calendar"] == "crypto_24_7"
+
+
+class TestBadRangeFailsClearly:
+    """Findings 2 & 3: an inverted param range must fail the job with a clear
+    message, not crash with IndexError (random) or silently complete with no
+    results (grid).
+    """
+
+    @staticmethod
+    def _optimizer():
+        manager = _SyncManager()
+        return GridSearchOptimizer(
+            OptimizerConfig(
+                parser=StrategyDefinitionParser(),
+                engine=BacktestRunner(),
+                converter=PandasBarFrameConverter(),
+                strategy_factory=StrategyDefinitionFactory(),
+                manager=manager,
+                artifact_provider=_ArtifactProvider({"bars": []}),
+            )
+        )
+
+    @pytest.mark.asyncio
+    async def test_random_search_inverted_range_fails_clearly(self):
+        """Regression: random search raised IndexError on an inverted range."""
+        optimizer = self._optimizer()
+        job = OptimizationJob(
+            job_id="opt-bad-random",
+            metric="sharpe_ratio",
+            metadata={
+                "definition": _always_long_strategy(),
+                "bars_artifact_id": "bars",
+                "param_ranges": {"p": {"min": 30, "max": 10, "step": 5}},
+                "metric": "sharpe_ratio",
+                "search_method": "random",
+                "random_count": 5,
+                "interval": "1d",
+                "initial_cash": 10000,
+            },
+        )
+
+        await optimizer.run(job)
+
+        assert job.status == "failed"
+        assert job.error is not None
+        assert "must be <= max" in job.error
+
+    @pytest.mark.asyncio
+    async def test_grid_search_inverted_range_fails_clearly(self):
+        """Regression: grid search silently completed with zero results."""
+        optimizer = self._optimizer()
+        job = OptimizationJob(
+            job_id="opt-bad-grid",
+            metric="sharpe_ratio",
+            metadata={
+                "definition": _always_long_strategy(),
+                "bars_artifact_id": "bars",
+                "param_ranges": {"p": {"min": 30, "max": 10, "step": 5}},
+                "metric": "sharpe_ratio",
+                "search_method": "grid",
+                "interval": "1d",
+                "initial_cash": 10000,
+            },
+        )
+
+        await optimizer.run(job)
+
+        assert job.status == "failed"
+        assert job.error is not None
+        assert "must be <= max" in job.error
+        # Regression: previously this completed silently with an empty result
+        # list. Now it fails and ranks nothing.
+        assert job.results == []
 
 
 class TestOptimizationParity:
