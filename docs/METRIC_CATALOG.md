@@ -306,7 +306,7 @@ Williams' trading system based on fractal geometry and market psychology.
 
 | Indicator | Daily | Intraday | Description |
 |-----------|-------|----------|-------------|
-| `hurst_exponent` | ✅ | ✅ | H<0.5 = mean-reverting, H=0.5 = random, H>0.5 = trending |
+| `hurst_exponent` | ✅ | ✅ | H<0.5 = mean-reverting, H=0.5 = random, H>0.5 = trending. Requires ≥100 bars; returns None otherwise |
 | `fractal_regime` | ✅ | ✅ | Fractal-based market regime classification |
 
 ---
@@ -322,9 +322,9 @@ All are ⚠️ proxy confidence.
 | `corwin_schultz_spread` | ✅ | ✅ | Corwin-Schultz (2012): OHLC-based, overnight-gap-adjusted. Gold standard daily proxy |
 | `abdi_ranaldo_spread` | ✅ | ✅ | Abdi-Ranaldo (2017): mid-price + close covariance |
 | `chung_zhang_spread` | ✅ | ✅ | Chung-Zhang: simplified OHLC-based estimator |
-| `effective_tick_spread` | ✅ | ✅ | Tick-based: close-to-close price clustering |
+| `effective_tick_spread` | ✅ | ✅ | Tick-based: close-to-close price clustering. Requires ≥60 bars for lookback window |
 | `fong_holden_tran_spread` | ✅ | ✅ | FHT: simple OHLC-based estimator |
-| `lot_zero_return_spread` | ✅ | ✅ | LOT: zero-return proportion method |
+| `lot_zero_return_spread` | ✅ | ✅ | LOT: zero-return proportion method. Requires ≥60 bars for lookback window |
 
 ---
 
@@ -460,7 +460,7 @@ Multi-framework regime classification for strategy selection.
 
 | Indicator | Daily | Intraday | Description |
 |-----------|-------|----------|-------------|
-| `market_regime` | ✅ | ✅ | Regime: TRENDING / RANGING / VOLATILE |
+| `market_regime` | ✅ | ✅ | Regime: TRENDING / RANGING / VOLATILE. Requires ≥220 bars for classification |
 | `fractal_regime` | ✅ | ✅ | Fractal-based regime from Hurst exponent |
 | `day_type_classification` | ✅ | ✅ | Day type: TREND_UP / TREND_DOWN / RANGE / NEUTRAL |
 

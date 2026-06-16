@@ -49,3 +49,24 @@ class TestIntradayOnlyDocs:
         """A footnote/description explains why ib_* need session-scoped data."""
         text = CATALOG_PATH.read_text(encoding="utf-8").lower()
         assert "intraday" in text and "session" in text
+
+
+class TestMinimumBarRequirementDocs:
+    """Scenario 13 — min bar requirements documented in METRIC_CATALOG.md."""
+
+    @pytest.mark.parametrize(
+        "metric, min_bars",
+        [
+            ("hurst_exponent", 100),
+            ("market_regime", 220),
+            ("effective_tick_spread", 60),
+            ("lot_zero_return_spread", 60),
+        ],
+    )
+    def test_min_bar_requirement_in_description(self, metric, min_bars):
+        """The row must state the minimum bar requirement."""
+        row_text = " ".join(_row(metric))
+        assert str(min_bars) in row_text, (
+            f"{metric} row should mention >= {min_bars} bars: {row_text!r}"
+        )
+        assert "bar" in row_text.lower() or "lookback" in row_text.lower()
