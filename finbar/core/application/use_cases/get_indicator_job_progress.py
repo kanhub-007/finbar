@@ -39,5 +39,6 @@ def _result(job: IndicatorJob) -> IndicatorJobProgressResult:
         indicators_applied=list(job.indicators_applied),
         features_applied=list(job.features_applied),
         error=job.error,
+        failed_indicators=[tuple(x) for x in job.failed_indicators],
         metadata=dict(job.metadata),
     )

@@ -47,6 +47,12 @@ logger = logging.getLogger(__name__)
 MIN_BARS = 10
 _PROXY_CACHE_KEY = "__proxies_done"
 
+#: pandas DataFrame ``attrs`` key carrying the per-call list of indicators
+#: that failed during ``calculate``. Each entry is a ``(name, error)``
+#: tuple. Surfaced so job runners can report silent failures instead of
+#: swallowing them as NaN (spec 2026-06-16 Scenario 4 / ADR-6).
+FAILED_INDICATORS_ATTR = "failed_indicators"
+
 
 class PandasTaIndicatorCalculator(IndicatorCalculator):
     """pandas_ta-backed technical indicator calculator.
@@ -84,6 +90,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
 
         cache: dict[str, pd.DataFrame] = {}
         present_cols = set(result.columns)
+        failed: list[tuple[str, str]] = []
 
         for name in indicators:
             if name.startswith("proxy_"):
@@ -93,6 +100,13 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
                 handler, requires = _INDICATOR_HANDLERS[name]
                 if requires and requires - present_cols:
                     result[name] = np.nan
+                    missing = sorted(requires - present_cols)
+                    failed.append(
+                        (
+                            name,
+                            f"Missing required columns: {missing}",
+                        )
+                    )
                     logger.debug(
                         "Missing columns for '%s': %s, wrote NaN",
                         name,
@@ -103,8 +117,9 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
                 try:
                     result = handler(result, name, cache)
                     present_cols = set(result.columns)
-                except Exception:
+                except Exception as exc:
                     result[name] = np.nan
+                    failed.append((name, str(exc)))
                     present_cols = set(result.columns)
                     logger.warning(
                         "Failed to compute indicator '%s'", name, exc_info=True
@@ -113,7 +128,8 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
                 try:
                     result = _compute_dynamic(result, name)
                     present_cols = set(result.columns)
-                except Exception:
+                except Exception as exc:
+                    failed.append((name, str(exc)))
                     logger.warning(
                         "Failed to compute dynamic indicator '%s'",
                         name,
@@ -123,15 +139,21 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
                 try:
                     result = _compute_rolling_vp_dynamic(result, name, cache)
                     present_cols = set(result.columns)
-                except Exception:
+                except Exception as exc:
+                    failed.append((name, str(exc)))
                     logger.warning(
                         "Failed to compute rolling VP '%s'",
                         name,
                         exc_info=True,
                     )
             else:
+                failed.append((name, "Unknown indicator name"))
                 logger.warning("Unknown indicator: '%s'", name)
 
+        # Surface per-call failures on the returned frame so the job runner
+        # can report them (ADR-6). Attached AFTER the loop so handlers that
+        # reassign ``result`` (e.g. proxy enrichment copies) cannot drop it.
+        result.attrs[FAILED_INDICATORS_ATTR] = failed
         return result
 
 

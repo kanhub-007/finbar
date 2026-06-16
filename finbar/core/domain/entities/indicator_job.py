@@ -57,6 +57,14 @@ class IndicatorJob:
     error: str | None = None
     """Error message for failed jobs."""
 
+    failed_indicators: list[tuple[str, str]] = field(default_factory=list)
+    """Indicators that failed during computation as ``(name, error)`` tuples.
+
+    Surfaced so silent NaN-producing failures (handler exceptions,
+    unsatisfied required columns) are visible to users instead of
+    swallowed (spec 2026-06-16 Scenario 4 / ADR-6).
+    """
+
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional machine-readable job metadata."""
 

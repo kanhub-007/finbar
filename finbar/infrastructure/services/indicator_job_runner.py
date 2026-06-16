@@ -32,6 +32,9 @@ from finbar.infrastructure.repositories.sql_price_cache_repository import (
 from finbar.core.domain.entities.derivatives_metrics import (
     DERIVATIVES_FIELDS,
 )
+from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+    FAILED_INDICATORS_ATTR,
+)
 
 
 # Derivatives metric names that require pre-merged data from the repository.
@@ -198,6 +201,13 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             _fail(self._manager, job, f"Indicator calculation error: {exc}")
             return None
         self._manager.update(job, indicators_applied=list(indicators))
+        # Surface per-indicator failures (handler exceptions, unsatisfied
+        # required columns) so they are visible instead of silent NaN
+        # (spec 2026-06-16 Scenario 4 / ADR-6). The calculator attaches
+        # them to the frame via pandas ``attrs``.
+        failed = list(enriched.attrs.get(FAILED_INDICATORS_ATTR, []))
+        if failed:
+            self._manager.update(job, failed_indicators=failed)
         return result, enriched
 
     def _merge_derivatives_if_needed(self, job, frame, indicators: list[str]):

@@ -25,4 +25,5 @@ class IndicatorJobProgressResult:
     indicators_applied: list[str] = field(default_factory=list)
     features_applied: list[str] = field(default_factory=list)
     error: str | None = None
+    failed_indicators: list[tuple] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
