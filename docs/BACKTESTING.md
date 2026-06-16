@@ -62,24 +62,36 @@ The inline JSON approach can exhaust agent context.
 
 ## Execution controls
 
-All backtest and optimization tools accept these parameters:
+All backtest and optimization tools accept these parameters. Each is exposed
+with a description in the MCP schema (visible to agents); the most error-prone
+ones are highlighted below.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `leverage` | 1.0 | Leverage multiplier (1.0 = spot) |
-| `risk_mode` | `fixed_equity_risk` | Risk sizing: `fixed_equity_risk` or `leverage_scaled_risk` |
-| `commission_pct` | 0.0 | Commission per side (decimal) |
-| `slippage_pct` | 0.0 | Directional slippage (decimal) |
-| `risk_per_trade` | 0.02 | Fraction of portfolio risked per trade |
-| `cap_explicit_size` | true | Cap explicit strategy sizes to buying power |
-| `reject_oversized_explicit_orders` | false | Reject instead of cap |
-| `allow_negative_cash` | false | Allow fills that overdraw cash |
-| `market_calendar` | `equity_regular_hours` | `equity_regular_hours` or `crypto_24_7` |
-| `borrow_fee_annual_pct` | 0.0 | Annual borrow fee for shorts |
-| `margin_mode` | `simplified` | `simplified` or `full` (separate margin tracking) |
-| `maintenance_margin_pct` | 0.005 | Maintenance margin fraction (full mode) |
-| `enable_funding` | false | Apply per-bar funding payments (full mode) |
-| `funding_rate` | 0.0001 | Funding rate per bar (full mode) |
+| `leverage` | 1.0 | Buying-power multiplier (1.0 = spot, 3.0 = 3x). Sets the affordability cap `max_size = (cash × leverage) / price`. **The strategy's stop must stay above the liquidation price** or the entry is rejected — see [Execution Model](backtest_execution_model.md#liquidation-boundary-leveraged-entries). |
+| `risk_mode` | `fixed_equity_risk` | `fixed_equity_risk` (budget is flat % of equity) or `leverage_scaled_risk` (multiplies budget by leverage). |
+| `commission_pct` | 0.0 | Commission per side as **decimal** (0.001 = 0.1% = 10 bps). |
+| `slippage_pct` | 0.0 | Directional slippage per fill as **decimal** (0.001 = 0.1%). |
+| `risk_per_trade` | 0.02 | ⚠️ **Decimal fraction, not percent.** 0.05 = 5%, 0.10 = 10%. Do **not** pass `5` — that means 500% of equity. Only used when the strategy has a stop and the risk-based size fits buying power; otherwise the affordability cap governs. |
+| `cap_explicit_size` | true | Cap strategy-supplied explicit sizes to buying power. |
+| `reject_oversized_explicit_orders` | false | Reject (instead of cap) oversized explicit orders. |
+| `allow_negative_cash` | false | Allow fills that overdraw cash (advanced sims only). |
+| `market_calendar` | `equity_regular_hours` | `equity_regular_hours` or `crypto_24_7`. |
+| `borrow_fee_annual_pct` | 0.0 | Annual borrow fee for shorts as **decimal** (0.03 = 3%/yr). |
+| `margin_mode` | `simplified` | `simplified` (isolated-margin liq model) or `full`. |
+| `maintenance_margin_pct` | 0.005 | Maintenance margin fraction (raises liq price slightly). |
+| `enable_funding` | false | Apply per-bar funding payments (perpetual swaps). |
+| `funding_rate` | 0.0001 | Funding rate per bar as **decimal** (0.0001 = 1 bp). |
+
+### Common mistakes to avoid
+
+- **`risk_per_trade=5` does not mean 5%.** It means 500%. Use `0.05`.
+- **High leverage can silently reject entries.** A 3.5×ATR stop on ETH 1h
+caps usable leverage around 25x. At 30x, entries get skipped (look for
+`ENTRY-SKIP` / `beyond liquidation` in logs).
+- **The affordability cap can override risk_per_trade.** When risk-based size
+exceeds buying power, position sizes max out at 100% of leverage. Inspect
+`diagnostics` for `order_resized` / `affordability_cap` entries.
 
 ## Multi-timeframe backtests
 

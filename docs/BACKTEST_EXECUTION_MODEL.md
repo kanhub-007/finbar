@@ -63,6 +63,67 @@ still valid relative to the fill:
 
 If no stop is set (`stop_price = 0`), no validation is needed.
 
+### Liquidation boundary (leveraged entries)
+
+When `leverage > 1.0`, the engine ALSO rejects any entry whose protective
+stop is on or beyond the **liquidation price**. This is a separate, often
+more restrictive check that prevents strategies from requesting stops that
+the exchange would never let you reach.
+
+The liquidation price uses an isolated-margin approximation:
+
+| Direction | Liquidation price |
+|-----------|-------------------|
+| Long  | `entry × (1 − 1/leverage + maintenance_margin_pct)` |
+| Short | `entry × (1 + 1/leverage − maintenance_margin_pct)` |
+
+For the entry to be valid, the stop must sit **inside** the liquidation
+boundary (above it for longs, below it for shorts):
+
+```
+long : stop_price > liquidation_price
+short: stop_price < liquidation_price
+```
+
+If the stop is outside the boundary, the entry is rejected with a log line
+like:
+
+```
+[ENTRY-SKIP] 2026-06-12 | LONG | price=1675.00 stop=1618.00
+               beyond liquidation=1616.38 (L=25x)
+```
+
+No trade is opened and the bar is skipped.
+
+### Maximum leverage is bounded by stop distance
+
+Because of the liquidation check, a strategy with a wide stop can run at
+high leverage, while a tight stop caps the usable leverage. The ceiling is:
+
+```
+long :  1 / leverage > stop_pct + maintenance_margin_pct
+        where stop_pct = (entry - stop) / entry
+```
+
+Equivalently: `max_leverage ≈ 1 / (stop_pct + maintenance_margin_pct)`.
+
+Worked example (ETH 1h, ATR=16.7, `atr_stop_mult=3.5`, `maintenance_margin_pct=0.005`):
+
+```
+stop_distance = 16.7 × 3.5 = 58.5   (on a $1,675 entry)
+stop_pct      = 58.5 / 1675  = 3.49%
+max_leverage  = 1 / (0.0349 + 0.005) ≈ 25.1x
+```
+
+So a 3.5×ATR stop on this ETH bar permits up to ~25x leverage. At 26x the
+entries would be rejected. Widening the stop (larger `atr_stop_mult`) raises
+the ceiling; tightening it lowers the ceiling.
+
+**If a strategy has no stop** (`stop_loss: {type: none}`), the liquidation
+check is skipped entirely — any leverage is allowed, but the only protection
+is the take-profit or signal exit. One gap and you are liquidated at the
+exchange's price, not yours. Use this mode with care.
+
 ## End-of-run liquidation
 
 Any open position at the end of the backtest is **liquidated at the final
@@ -98,11 +159,64 @@ size = (portfolio_value * risk_per_trade) / |fill_price - stop_price|
 ```
 
 Sizing uses the **actual next-open fill price**, including entry slippage, not
-the signal-bar open. `risk_per_trade` is fixed-equity risk by default: leverage
-expands buying power, but does not multiply the stop-loss risk budget.
+the signal-bar open.
 
-The default `risk_mode` is `fixed_equity_risk`. Advanced users can explicitly
-select `leverage_scaled_risk`, which multiplies the risk budget by leverage.
+⚠️ **`risk_per_trade` is a DECIMAL FRACTION, not a percent.** The default is
+`0.02` (= 2%). Passing `risk_per_trade=5` means a **500% risk budget**, not
+5%. Use `0.05` for 5%, `0.10` for 10%. This is the single most common
+configuration mistake and is called out in every MCP tool's parameter
+description.
+
+`risk_mode` controls how the budget interacts with leverage:
+
+| `risk_mode` | Behaviour |
+|-------------|-----------|
+| `fixed_equity_risk` (default) | Risk budget is a flat fraction of equity. Leverage expands buying power but does NOT multiply the risk budget. |
+| `leverage_scaled_risk` | Multiplies the risk budget by leverage (aggressive; amplifies both wins and stop-loss impact). |
+
+**Important**: the risk-based size is **capped** by the affordability rule
+below before the order fills. When the cap binds, the *intended* risk per
+trade is not the risk actually taken — see the next section.
+
+### Affordability cap (buying-power limit)
+
+Every order — risk-based or explicit — is capped to the position the account
+can actually pay for. This is the last gate before a fill and is what keeps
+backtests honest under leverage.
+
+```
+max_affordable_size = (cash × leverage) / (fill_price × (1 + commission_pct))
+filled_size         = min(requested_size, max_affordable_size)
+```
+
+Notes:
+
+- **Buying power** = `cash × leverage` (so 3x leverage on $10,000 = $30,000
+  of purchasing power, regardless of what `risk_per_trade` requests).
+- `allow_negative_cash=true` disables the cap entirely — intended only for
+  advanced what-if simulations.
+- `cap_explicit_size=true` (default) applies the cap to strategy-supplied
+  explicit sizes too. `reject_oversized_explicit_orders=true` rejects the
+  order instead of silently capping it.
+
+When the cap binds, the result diagnostics include an `order_resized` /
+`affordability_cap` entry recording the requested vs filled size, e.g.:
+
+```json
+{
+  "severity": "order_resized",
+  "code": "affordability_cap",
+  "message": "Requested size 855.04 capped to 12.97.",
+  "metadata": {"requested_size": 855.04, "filled_size": 12.97}
+}
+```
+
+**Why this matters for interpreting results**: when the risk-based size is
+larger than the affordability cap, every position is effectively maxed out
+at 100% of buying power. The `risk_per_trade` parameter stops controlling
+risk — leverage and stop distance do. Effective risk per trade becomes
+`(stop_distance / entry_price) × leverage × equity`. Always inspect the
+`diagnostics` array if you see surprisingly uniform position sizes.
 
 ### Fallback
 
@@ -240,7 +354,9 @@ are emitted as structured diagnostics with `severity`, `code`, `date`, and
 
 ## Known limitations
 
-- Short positions have no margin/borrow-cost model.
+- Short positions use a simplified borrow-cost model (`borrow_fee_annual_pct`) rather than dynamic margin/financing. Long positions never pay borrow.
+- The `simplified` margin mode uses an isolated-margin approximation. `full` mode tracks initial and maintenance margin explicitly but is less battle-tested.
 - Same-bar signal exit and entry: if a strategy exits and immediately enters on the same bar close, both are deferred to the same next open. The exit fills first (because `_execute_pending` processes exits before entries), then the entry fills. This is intentional — you cannot enter while already in a position.
 - Market-on-close exit timing is not yet supported (signal exits always defer).
 - Annualization factors assume equity hours. Crypto or 24/7 instruments need different factors.
+- The affordability cap does not model partial fills or order-book depth — it assumes the full capped size fills at the next bar's open.
