@@ -73,31 +73,36 @@ class CoinGlassRateLimiter:
             time.sleep(backoff_remaining)
 
         # --- Admission phase: serialise spacing + minute window + record. ---
-        with self._lock:
-            now = time.time()
+        # Any required wait is computed inside the lock (against a consistent
+        # snapshot) but the sleep itself happens OUTSIDE it. On wake we
+        # re-acquire the lock and re-check, because another caller may have
+        # consumed capacity while we slept.
+        while True:
+            with self._lock:
+                now = time.time()
 
-            elapsed = now - self._last_request_time
-            if self.min_interval > 0 and elapsed < self.min_interval:
-                time.sleep(self.min_interval - elapsed)
+                # -- Clear stale entries from the sliding window. --
+                minute_ago = now - 60
+                while self._request_times and self._request_times[0] < minute_ago:
+                    self._request_times.popleft()
 
-            now = time.time()
-            minute_ago = now - 60
-            while self._request_times and self._request_times[0] < minute_ago:
-                self._request_times.popleft()
+                # -- Enforce per-second spacing. --
+                elapsed = now - self._last_request_time
+                if self.min_interval > 0 and elapsed < self.min_interval:
+                    wait_time = self.min_interval - elapsed
+                elif len(self._request_times) >= self.max_per_minute:
+                    oldest = self._request_times[0]
+                    wait_time = max(0.0, 60 - (now - oldest))
+                else:
+                    # Admission granted: consume and record atomically.
+                    self._last_request_time = now
+                    self._request_times.append(now)
+                    return
 
-            if len(self._request_times) >= self.max_per_minute:
-                oldest = self._request_times[0]
-                wait = 60 - (now - oldest)
-                if wait > 0:
-                    logger.debug("CoinGlass minute window full, sleeping %.1fs", wait)
-                    time.sleep(wait)
-                    now = time.time()
-                    minute_ago = now - 60
-                    while self._request_times and self._request_times[0] < minute_ago:
-                        self._request_times.popleft()
-
-            self._last_request_time = now
-            self._request_times.append(now)
+            # Sleep OUTSIDE the lock so concurrent callers pause in parallel
+            # instead of convoying on the mutex for the full wait duration.
+            logger.debug("CoinGlass rate limit: sleeping %.3fs", wait_time)
+            time.sleep(wait_time)
 
     def on_rate_limit_error(self, attempt: int = 0) -> float:
         """Called on HTTP 429 — applies exponential backoff."""

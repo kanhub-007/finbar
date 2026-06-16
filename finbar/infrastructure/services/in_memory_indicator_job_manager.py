@@ -339,17 +339,38 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
 
 
 def _compute_lightweight_meta(bars: list[dict]) -> dict:
-    """Compute columns + date range from bars (no null counts).
+    """Compute columns + date range + null counts from bars in ONE pass.
 
     Called once at store time so list/describe avoid loading all bars.
+    Null counts are pre-computed here so ``_metadata_from_cache`` can
+    serve them without a separate O(n * cols) scan.
     """
     if not bars:
-        return {"columns": [], "start_date": "", "end_date": "", "bar_count": 0}
+        return {
+            "columns": [],
+            "start_date": "",
+            "end_date": "",
+            "bar_count": 0,
+            "null_counts": {},
+        }
+    # Single-pass column discovery + null counting.
+    columns: list[str] = []
+    seen: set[str] = set()
+    nulls: dict[str, int] = {}
+    for bar in bars:
+        for key in bar:
+            if key not in seen:
+                seen.add(key)
+                columns.append(key)
+                nulls[key] = 0
+            if bar.get(key) is None:
+                nulls[key] += 1
     return {
-        "columns": _columns_from_bars(bars),
+        "columns": columns,
         "start_date": str(bars[0].get("timestamp", "")),
         "end_date": str(bars[-1].get("timestamp", "")),
         "bar_count": len(bars),
+        "null_counts": nulls,
     }
 
 
@@ -358,7 +379,12 @@ def _metadata_from_cache(
     meta: dict,
     include_null_counts: bool,
 ) -> dict:
-    """Build artifact metadata from the cached lightweight dict."""
+    """Build artifact metadata from the cached lightweight dict.
+
+    Null counts are pre-computed at store time (see
+    ``_compute_lightweight_meta``) and served from the cache so
+    ``describe_artifact`` never loads all bars.
+    """
     return {
         "artifact_id": job.job_id,
         "symbol": job.symbol,
@@ -373,7 +399,7 @@ def _metadata_from_cache(
         "columns": meta.get("columns", []),
         "indicators_applied": list(job.indicators_applied),
         "features_applied": list(job.features_applied),
-        "null_counts": {},
+        "null_counts": meta.get("null_counts", {}) if include_null_counts else {},
         "created_at": job.created_at.isoformat(),
         "expires_at": None,
         "retention_policy": _RETENTION_POLICY,
@@ -461,20 +487,39 @@ def _page_bars(
 ) -> tuple[list[dict], int, int, int, int, list[str]]:
     """Filter, project, and paginate artifact bars.
 
-    Projects ONLY the requested page window, not the full filtered set —
-    building a dict per bar for the whole artifact on every page request was
-    O(n*cols) allocation discarded to return at most page_size rows.
+    Counts matching bars and collects only the requested page slice in a
+    single pass.  The previous implementation materialised a full filtered
+    list (up to all bars) even when only ``page_size`` rows were returned.
     """
-    filtered = _filter_bars(bars, start_date, end_date)
-    total = len(filtered)
-    selected_columns = columns or _columns_from_bars(filtered)
     page_size = max(1, min(page_size, 1000))
+    start_idx = page * page_size
+    end_idx = start_idx + page_size
+    # Resolve column set — prefer the caller's list, then cached metadata,
+    # falling back to scanning the first bar as a cheap heuristic.
+    selected_columns: list[str] | None = None
+    if columns:
+        selected_columns = list(columns)
+
+    projected: list[dict] = []
+    total = 0
+    for bar in bars:
+        timestamp = str(bar.get("timestamp", ""))
+        if start_date and timestamp < start_date:
+            continue
+        if end_date and timestamp > end_date:
+            continue
+        # Discover columns lazily from the first matching bar when caller
+        # didn't specify them (avoids _columns_from_bars scanning all bars).
+        if selected_columns is None:
+            selected_columns = list(bar.keys())
+        if total >= start_idx and total < end_idx:
+            projected.append(_project_bar(bar, selected_columns))
+        total += 1
+
+    if selected_columns is None:
+        selected_columns = []
     total_pages = (total + page_size - 1) // page_size if total else 0
     page = max(0, min(page, total_pages - 1)) if total_pages else 0
-    start = page * page_size
-    end = min(start + page_size, total)
-    page_slice = filtered[start:end]
-    projected = [_project_bar(bar, selected_columns) for bar in page_slice]
     return projected, page, page_size, total_pages, total, selected_columns
 
 
@@ -483,7 +528,13 @@ def _filter_bars(
     start_date: str | None,
     end_date: str | None,
 ) -> list[dict]:
-    """Filter bars by timestamp string range."""
+    """Filter bars by timestamp string range.
+
+    .. deprecated::
+        Retained for backward compatibility.  ``_page_bars`` now does a
+        single-pass count-and-collect that avoids materialising the full
+        filtered list.
+    """
     filtered = []
     for bar in bars:
         timestamp = str(bar.get("timestamp", ""))

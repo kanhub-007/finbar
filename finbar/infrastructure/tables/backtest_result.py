@@ -1,6 +1,6 @@
 """SQLAlchemy ORM table for backtest results."""
 
-from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy import Column, Index, Integer, String, Text
 
 from finbar.infrastructure.data.connection import Base
 
@@ -19,3 +19,10 @@ class BacktestResult(Base):
     end_date = Column(String, default="")
     result_json = Column(Text, nullable=False)
     created_at = Column(String, nullable=False)
+
+    __table_args__ = (
+        # Supports list_metadata() queries filtered by symbol or strategy_name
+        # without a full table scan.
+        Index("ix_backtest_results_symbol", "symbol"),
+        Index("ix_backtest_results_strategy_name", "strategy_name"),
+    )

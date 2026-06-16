@@ -198,7 +198,12 @@ class HyperliquidFetcher(StockDataFetcher):
         chunk_ms = interval_ms * max_bars
 
         now = datetime.now(UTC)
-        all_bars: list[PriceBar] = []
+        # Build chunks in reverse order (newest first) then reverse once
+        # at the end.  The previous ``all_bars = bars + all_bars`` created a
+        # new list on every iteration, copying the growing accumulated list
+        # each time (O(k²) element copies for k chunks).  Using a single
+        # forward-ordered list + reverse is O(n) total.
+        temp: list[PriceBar] = []
         chunk_end_ms = int(now.timestamp() * 1000)
 
         max_chunks = 200  # Safety limit
@@ -218,10 +223,11 @@ class HyperliquidFetcher(StockDataFetcher):
                 )
                 break
 
-            all_bars = bars + all_bars  # Prepend to maintain chronological
+            temp.extend(bars)  # O(len(bars)) amortized
             chunk_end_ms = chunk_start_ms
 
-        all_bars = _deduplicate_bars(all_bars)
+        temp.reverse()  # O(n) — recover chronological order
+        all_bars = _deduplicate_bars(temp)
         logger.info(
             "Fetched %d bars for %s (%s) — full history",
             len(all_bars),

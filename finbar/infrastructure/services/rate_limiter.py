@@ -59,36 +59,36 @@ class YahooFinanceRateLimiter:
             time.sleep(backoff_remaining)
 
         # --- Admission phase: serialise spacing + minute window + record. ---
-        with self._lock:
-            now = time.time()
+        # Any required wait is computed inside the lock (against a consistent
+        # snapshot) but the sleep itself happens OUTSIDE it. On wake we
+        # re-acquire the lock and re-check, because another caller may have
+        # consumed capacity while we slept.
+        while True:
+            with self._lock:
+                now = time.time()
 
-            elapsed_since_last = now - self._last_request_time
-            if elapsed_since_last < self.min_interval:
-                sleep_time = self.min_interval - elapsed_since_last
-                logger.debug("Rate limit: sleeping %.3fs between requests", sleep_time)
-                time.sleep(sleep_time)
+                # -- Clear stale entries from the sliding window. --
+                minute_ago = now - 60
+                while self._request_times and self._request_times[0] < minute_ago:
+                    self._request_times.popleft()
 
-            now = time.time()
-            minute_ago = now - 60
-            while self._request_times and self._request_times[0] < minute_ago:
-                self._request_times.popleft()
+                # -- Enforce per-second spacing. --
+                elapsed_since_last = now - self._last_request_time
+                if elapsed_since_last < self.min_interval:
+                    wait_time = self.min_interval - elapsed_since_last
+                elif len(self._request_times) >= self.max_per_minute:
+                    oldest = self._request_times[0]
+                    wait_time = max(0.0, 60 - (now - oldest))
+                else:
+                    # Admission granted: consume and record atomically.
+                    self._last_request_time = now
+                    self._request_times.append(now)
+                    return
 
-            if len(self._request_times) >= self.max_per_minute:
-                oldest = self._request_times[0]
-                sleep_time = 60 - (now - oldest)
-                if sleep_time > 0:
-                    logger.debug(
-                        "Rate limit: minute window full, sleeping %.1fs",
-                        sleep_time,
-                    )
-                    time.sleep(sleep_time)
-                    now = time.time()
-                    minute_ago = now - 60
-                    while self._request_times and self._request_times[0] < minute_ago:
-                        self._request_times.popleft()
-
-            self._last_request_time = now
-            self._request_times.append(now)
+            # Sleep OUTSIDE the lock so concurrent callers pause in parallel
+            # instead of convoying on the mutex for the full wait duration.
+            logger.debug("Rate limit: sleeping %.3fs", wait_time)
+            time.sleep(wait_time)
 
     def on_rate_limit_error(self, attempt: int = 0) -> float:
         """Called when HTTP 429 is received.
