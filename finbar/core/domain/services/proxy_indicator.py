@@ -22,6 +22,7 @@ from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 TRADING_DAYS_PER_YEAR = 252
 
@@ -320,16 +321,33 @@ def enrich_dataframe_with_proxies(df: Any) -> Any:
     bar_range = h - l
     result["proxy_ibs"] = np.where(bar_range > 0, (c - l) / bar_range, 0.5)
 
-    if "atr" in result.columns:
-        atr_col = result["atr"].fillna(0)
-        result["proxy_ib_high"] = o + 0.1 * atr_col
-        result["proxy_ib_low"] = o - 0.1 * atr_col
-        result["proxy_expected_move"] = 0.8 * atr_col
-        result["proxy_iv"] = np.where(
-            c > 0,
-            (atr_col / c) * math.sqrt(TRADING_DAYS_PER_YEAR),
-            0.0,
-        )
+    # proxy_atr (Wilder RMA, 14-period) is always computed from OHLCV so that
+    # its dependents (proxy_ib_high/low/expected_move, proxy_iv) work
+    # unconditionally regardless of whether the caller requested the
+    # pandas_ta ``atr`` column. See spec 2026-06-16 Scenario 8 (Option B):
+    # the ``name.startswith("proxy_")`` short-circuit in
+    # PandasTaIndicatorCalculator routes every proxy name here, so this is
+    # the only dispatched path.
+    #
+    # The dependents intentionally use THIS proxy_atr (never the pandas_ta
+    # ``atr`` column) so the proxy family is self-contained and does not
+    # depend on indicator-request ordering (if "atr" is requested after a
+    # proxy, the column is absent when enrichment runs).
+    prev_close = c.shift(1).fillna(c)
+    tr = pd.concat(
+        [h - l, (h - prev_close).abs(), (l - prev_close).abs()], axis=1
+    ).max(axis=1)
+    atr = tr.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+    atr_filled = atr.fillna(0)
+    result["proxy_atr"] = atr
+    result["proxy_ib_high"] = o + 0.1 * atr_filled
+    result["proxy_ib_low"] = o - 0.1 * atr_filled
+    result["proxy_expected_move"] = 0.8 * atr_filled
+    result["proxy_iv"] = np.where(
+        c > 0,
+        (atr_filled / c) * math.sqrt(TRADING_DAYS_PER_YEAR),
+        0.0,
+    )
 
     # Parkinson: ln(H/L)^2 / (4 * ln(2))
     log_hl = np.where(

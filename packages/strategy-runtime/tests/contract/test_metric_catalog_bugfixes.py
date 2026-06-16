@@ -200,3 +200,157 @@ class TestRollingScalarWindowMatchesLookback:
         non_null = result["liu_illiq"].dropna()
         assert len(non_null) > 0
         assert (non_null == 0.0).all()
+
+
+# =========================================================================
+# Scenario 8: proxy_atr / proxy_ib_high / proxy_ib_low / proxy_expected_move
+#   Root cause (verified): the proxy handlers in inside_bar.py are NEVER
+#   dispatched — pandas_ta_indicator_calculator.py short-circuits every
+#   name.startswith("proxy_") to enrich_dataframe_with_proxies(). Those 4
+#   proxies are missing because (a) proxy_atr was only computed by the dead
+#   handler, and (b) proxy_ib_high/low/expected_move were gated behind
+#   `if "atr" in result.columns`, but the pandas_ta atr column is never
+#   added unless separately requested. Fix (Option B): compute them
+#   unconditionally inside enrich_dataframe_with_proxies.
+# =========================================================================
+
+
+class TestProxyEnrichmentAlwaysComputesAtrDependents:
+    """Scenario 8 — proxy_atr and its dependents without requesting atr."""
+
+    def test_all_four_proxy_columns_present_without_atr(self, calc):
+        """Request proxies WITHOUT atr; all 4 columns must appear."""
+        rng = np.random.default_rng(seed=3)
+        n = 40
+        close = 100.0 + rng.uniform(-3.0, 3.0, n).cumsum()
+        df = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 1.5,
+                "low": close - 1.5,
+                "close": close,
+                "volume": rng.integers(1_000_000, 5_000_000, n).astype(float),
+            }
+        )
+        df.index = pd.date_range("2026-01-01", periods=n, freq="D")
+
+        result = calc.calculate(
+            df,
+            ["proxy_atr", "proxy_ib_high", "proxy_ib_low", "proxy_expected_move"],
+        )
+        for col in (
+            "proxy_atr",
+            "proxy_ib_high",
+            "proxy_ib_low",
+            "proxy_expected_move",
+        ):
+            assert col in result.columns, f"{col} missing"
+
+    def test_proxy_columns_non_null_after_warmup(self, calc):
+        """After the 14-bar ATR warmup, all 4 proxies must be non-null."""
+        rng = np.random.default_rng(seed=4)
+        n = 40
+        close = 100.0 + rng.uniform(-3.0, 3.0, n).cumsum()
+        df = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 1.5,
+                "low": close - 1.5,
+                "close": close,
+                "volume": 1_000_000.0,
+            }
+        )
+        df.index = pd.date_range("2026-01-01", periods=n, freq="D")
+
+        result = calc.calculate(
+            df, ["proxy_atr", "proxy_ib_high", "proxy_ib_low", "proxy_expected_move"]
+        )
+        for col in (
+            "proxy_atr",
+            "proxy_ib_high",
+            "proxy_ib_low",
+            "proxy_expected_move",
+        ):
+            tail = result[col].tail(5)
+            assert not tail.isna().any(), f"{col} has NaN at tail: {tail.tolist()}"
+
+    def test_proxy_atr_positive_and_scales_with_range(self, calc):
+        """proxy_atr must be positive and grow when bar range grows."""
+        n = 40
+        idx = pd.date_range("2026-01-01", periods=n, freq="D")
+        close = pd.Series(np.linspace(100.0, 110.0, n), index=idx)
+
+        small = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 0.5,
+                "low": close - 0.5,
+                "close": close,
+                "volume": 1_000_000.0,
+            },
+            index=idx,
+        )
+        large = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 5.0,
+                "low": close - 5.0,
+                "close": close,
+                "volume": 1_000_000.0,
+            },
+            index=idx,
+        )
+
+        small_atr = calc.calculate(small, ["proxy_atr"])["proxy_atr"].iloc[-1]
+        large_atr = calc.calculate(large, ["proxy_atr"])["proxy_atr"].iloc[-1]
+        assert small_atr > 0.0
+        assert large_atr > small_atr
+
+    def test_proxy_ib_high_above_proxy_ib_low(self, calc):
+        """proxy_ib_high must be > proxy_ib_low at every bar (open +/- 0.1*ATR)."""
+        rng = np.random.default_rng(seed=5)
+        n = 40
+        close = 100.0 + rng.uniform(-2.0, 2.0, n).cumsum()
+        df = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 1.0,
+                "low": close - 1.0,
+                "close": close,
+                "volume": 1_000_000.0,
+            }
+        )
+        df.index = pd.date_range("2026-01-01", periods=n, freq="D")
+
+        result = calc.calculate(df, ["proxy_ib_high", "proxy_ib_low", "proxy_atr"])
+        tail = result.tail(20)
+        assert (tail["proxy_ib_high"] > tail["proxy_ib_low"]).all()
+
+    def test_proxy_family_independent_of_atr_request_order(self, calc):
+        """Requesting atr before vs after a proxy must not change proxy output.
+
+        Guards against the dispatch-ordering trap: proxies must use their own
+        proxy_atr, never the pandas_ta atr column (which may or may not be
+        present when enrichment runs, depending on request order).
+        """
+        rng = np.random.default_rng(seed=9)
+        n = 40
+        close = 100.0 + rng.uniform(-2.0, 2.0, n).cumsum()
+        base = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 1.0,
+                "low": close - 1.0,
+                "close": close,
+                "volume": 1_000_000.0,
+            }
+        )
+        base.index = pd.date_range("2026-01-01", periods=n, freq="D")
+
+        proxy_first = calc.calculate(base.copy(), ["proxy_ib_high", "atr"])[
+            "proxy_ib_high"
+        ]
+        atr_first = calc.calculate(base.copy(), ["atr", "proxy_ib_high"])[
+            "proxy_ib_high"
+        ]
+        pd.testing.assert_series_equal(proxy_first, atr_first)
