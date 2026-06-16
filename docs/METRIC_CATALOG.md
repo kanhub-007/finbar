@@ -77,10 +77,10 @@ Core indicators usable as building blocks in any strategy.
 | `breakout_quality` | Structure | ✅ | ✅ | Breakout quality score |
 | `vol_buffer_high` | Volume | ✅ | ✅ | Volume-based buffer above price |
 | `vol_buffer_low` | Volume | ✅ | ✅ | Volume-based buffer below price |
-| `ib_high` | Session | ✅ | ✅ | Initial Balance high (first-hour range) |
-| `ib_low` | Session | ✅ | ✅ | Initial Balance low |
-| `ib_midpoint` | Session | ✅ | ✅ | Initial Balance midpoint |
-| `ib_range` | Session | ✅ | ✅ | Initial Balance range width |
+| `ib_high` | Session | ❌ | ✅ | Initial Balance high (first-hour range). Intraday only — needs session-scoped first-hour bars |
+| `ib_low` | Session | ❌ | ✅ | Initial Balance low. Intraday only — needs session-scoped first-hour bars |
+| `ib_midpoint` | Session | ❌ | ✅ | Initial Balance midpoint. Intraday only — needs session-scoped first-hour bars |
+| `ib_range` | Session | ❌ | ✅ | Initial Balance range width. Intraday only — needs session-scoped first-hour bars |
 | `coil_intensity` | Structure | ✅ | ✅ | Coil/compression intensity score |
 | `is_coiled` | Structure | ✅ | ✅ | Binary: market is in a coil/compression |
 
@@ -93,13 +93,16 @@ use rolling composites on daily.
 
 ### VWAP Standard Deviation Bands
 
+Session-scoped VWAP with 1σ and 2σ bands. Unlike the continuous `vwap`
+(pandas_ta), these reset each calendar day.
+
 | Indicator | Daily | Intraday | Description |
 |-----------|-------|----------|-------------|
 | `vwap_session` | ❌ | ✅ | Session-scoped cumulative VWAP (resets daily) |
-| `vwap_upper_1` | ❌ | ✅ | VWAP + 1 standard deviation |
-| `vwap_lower_1` | ❌ | ✅ | VWAP − 1 standard deviation |
-| `vwap_upper_2` | ❌ | ✅ | VWAP + 2 standard deviations |
-| `vwap_lower_2` | ❌ | ✅ | VWAP − 2 standard deviations |
+| `vwap_upper_1` | ❌ | ✅ | VWAP + 1σ |
+| `vwap_lower_1` | ❌ | ✅ | VWAP − 1σ |
+| `vwap_upper_2` | ❌ | ✅ | VWAP + 2σ |
+| `vwap_lower_2` | ❌ | ✅ | VWAP − 2σ |
 
 ### Volume Profile
 
@@ -511,10 +514,13 @@ bars when tick/intraday data is unavailable. All are ⚠️ proxy confidence.
 
 Volume distribution and trade frequency metrics.
 
+> **Limitation:** `volume_to_trade_count_proxy` uses a hardcoded average trade
+> size of 500 (`volume ÷ 500`) — a rough estimate only. No real trade count
+> data is available from yfinance or Hyperliquid APIs.
+
 | Indicator | Daily | Intraday | Description |
 |-----------|-------|----------|-------------|
-| `volume_to_trade_count_proxy` | ✅ | ✅ | Average trade size proxy (volume ÷ trade count) |
-| `trade_count_daily` | ✅ | ✅ | Estimated daily trade count |
+| `volume_to_trade_count_proxy` | ⚠️ | ⚠️ | Crude proxy: `volume ÷ 500`. No real trade count data used. |
 
 ---
 
@@ -548,6 +554,7 @@ Quick reference for which metric families require which data.
 | Pattern & Structure | ✅ | ✅ | — |
 | Regime Detection | ✅ | ✅ | — |
 | Derivatives (CoinGlass) | 🔑 | 🔑 | CoinGlass |
+| Volume & Trade Count | ⚠️ | ⚠️ | — |
 | Quantitative Proxies | ✅ | N/A | — |
 
 **Key:**
