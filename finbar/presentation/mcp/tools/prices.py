@@ -316,9 +316,9 @@ def _resolve_pagination(
 
     if tail is not None:
         tail = max(1, min(tail, total))
-        resolved_page = max(0, total_pages - (tail + page_size - 1) // page_size)
         start_idx = max(0, total - tail)
         end_idx = total
+        resolved_page = start_idx // page_size
         ps_used = end_idx - start_idx
         return resolved_page, start_idx, end_idx, ps_used
 

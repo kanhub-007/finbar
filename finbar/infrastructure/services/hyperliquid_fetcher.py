@@ -240,6 +240,10 @@ class HyperliquidFetcher(StockDataFetcher):
 
         start_dt = _to_utc(start_date)
         end_dt = _to_utc(end_date)
+        if start_dt >= end_dt:
+            raise ValueError(
+                f"start_date ({start_date}) must be before end_date ({end_date})"
+            )
         start_ms = int(start_dt.timestamp() * 1000)
         end_ms = int(end_dt.timestamp() * 1000)
 

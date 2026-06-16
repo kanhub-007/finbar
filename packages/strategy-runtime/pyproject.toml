@@ -3,10 +3,12 @@ name = "finbar-strategy-runtime"
 version = "0.1.0"
 description = "Finbar strategy runtime — parser, evaluator, indicator calculator for strategy definitions"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pandas-ta>=0.3.14",
+]
 
 [project.optional-dependencies]
-pandas = ["numpy>=1.26.0", "pandas>=2.0.0", "pandas-ta>=0.3.14"]
+pandas = ["numpy>=1.26.0", "pandas>=2.0.0"]
 yaml = ["pyyaml>=6.0.0"]
 dev = ["pytest>=8.0.0", "ruff>=0.6.0", "black>=24.0.0", "build>=1.2.0"]
 

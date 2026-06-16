@@ -103,7 +103,13 @@ class PositionSizer:
         return capped
 
     def _max_affordable_size(self, cash: float, fill_price: float) -> float:
-        """Maximum position size given equity, leverage, and entry cost."""
+        """Maximum position size given equity, leverage, and entry cost.
+
+        Commission is included in the effective price as a safety margin
+        so the affordability cap cannot over-commit buying power when
+        commission is significant (e.g. 1%+). At typical rates (0.1%)
+        the impact is negligible.
+        """
         if fill_price <= 0:
             return 0.0
         effective_price = fill_price * (1.0 + max(self._config.commission_pct, 0.0))

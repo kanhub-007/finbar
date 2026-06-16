@@ -64,7 +64,7 @@ class BacktestRunner(BacktestEngine):
 
         risk_per_trade = float(params.pop("risk_per_trade", _DEFAULT_RISK_PER_TRADE))
         interval = str(params.pop("interval", "") or "")
-        warmup_bars = int(params.pop("warmup_bars", 0) or 0)
+        warmup_bars = max(0, int(params.pop("warmup_bars", 0) or 0))
         first_tradable = str(params.pop("first_tradable", "") or "")
         commission_pct = float(params.pop("commission_pct", 0.0) or 0.0)
         slippage_pct = float(params.pop("slippage_pct", 0.0) or 0.0)
@@ -258,6 +258,8 @@ def _process_signal(
 ) -> None:
     """Generate and handle strategy signals for the current bar."""
     signal = strategy.on_bar(bar, state.position.to_dict())
+    if signal is None:
+        return
 
     if (
         signal.direction == "exit"

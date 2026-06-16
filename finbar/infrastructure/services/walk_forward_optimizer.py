@@ -346,7 +346,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
                 and validation.definition.timeframes.has_informative()
             )
             if base_frame is not None and not has_informative:
-                frame = base_frame
+                frame = base_frame.copy()
             elif has_informative:
                 frame = _merge_informative(
                     bars,
@@ -414,7 +414,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             validation.definition.timeframes
             and validation.definition.timeframes.has_informative()
         ):
-            frame = test_frame
+            frame = test_frame.copy()
         else:
             frame = None
             if (

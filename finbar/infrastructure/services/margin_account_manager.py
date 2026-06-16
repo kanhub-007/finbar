@@ -6,6 +6,8 @@ all accounting is done through BacktestLoopState.cash directly.
 
 from __future__ import annotations
 
+import math
+
 from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.core.domain.entities.margin_account import MarginAccount
 from finbar.infrastructure.services.backtest_loop_state import BacktestLoopState
@@ -51,7 +53,11 @@ class MarginAccountManager:
             else cost
         )
         self.account.margin_book += margin
-        if state.cash == self.account.cash:
+        # Use ``math.isclose`` instead of ``==`` so floating-point rounding
+        # on ``state.cash`` does not cause a spurious divergence. When the
+        # opener has not yet modified cash (e.g. some tests), apply the
+        # delta; otherwise sync to the authoritative state.
+        if math.isclose(state.cash, self.account.cash, rel_tol=1e-12):
             self.account.cash -= cost + commission
         else:
             self.account.cash = state.cash
@@ -59,8 +65,14 @@ class MarginAccountManager:
     def credit_entry_short(
         self, state: BacktestLoopState, cost: float, commission: float
     ) -> None:
-        """Mirror or apply a short entry cash credit."""
-        if state.cash == self.account.cash:
+        """Mirror a short entry cash credit.
+
+        ``PositionOpener`` has already applied the entry cash flow to
+        ``state.cash`` before calling this method, so we sync the margin
+        account's cash to the authoritative backtest state rather than
+        re-applying the same cash flow.
+        """
+        if math.isclose(state.cash, self.account.cash, rel_tol=1e-12):
             self.account.cash += cost - commission
         else:
             self.account.cash = state.cash

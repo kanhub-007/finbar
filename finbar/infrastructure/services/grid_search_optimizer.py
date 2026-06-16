@@ -211,6 +211,8 @@ class GridSearchOptimizer(OptimizationJobRunner):
             # Reuse the param-invariant base frame when available; only fall
             # back to rebuilding it per combination if the caller did not
             # pre-prepare one (back-compat for any direct callers).
+            # Always copy so that feature calculators acting on the frame
+            # cannot corrupt the shared base across combinations.
             if base_frame is None:
                 bars = primary_bars
                 if (
@@ -228,7 +230,7 @@ class GridSearchOptimizer(OptimizationJobRunner):
                 else:
                     frame = self._converter.bars_to_frame(bars)
             else:
-                frame = base_frame
+                frame = base_frame.copy()
             if self._feature_calculator is not None and validation.definition.features:
                 frame = self._feature_calculator.calculate(
                     frame, validation.definition.features
