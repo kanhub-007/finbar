@@ -477,14 +477,14 @@ METRICS: list[MarketMetricDefinition] = [
     MarketMetricDefinition(
         name="first_last_hour_vol_fraction",
         family=MetricFamily.INTRADAY_SEASONALITY,
-        description="Fraction of volume in first and last hours.",
-        required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
-        required_columns=("opening_volume", "closing_volume", "volume"),
-        min_lookback=20,
+        description="Fraction of volume in first and last hours of each UTC day.",
+        required_data_classes=(DataClass.INTRADAY_OHLCV,),
+        required_columns=("volume",),
+        min_lookback=24,
         confidence=MetricConfidence.PROXY,
         condition_note=(
-            "Requires opening_volume/closing_volume columns that no OHLCV "
-            "data source provides; not computable from daily or intraday OHLCV."
+            "Intraday only — proxied by grouping bars by UTC date and "
+            "summing first/last-hour volume; returns NaN on daily data."
         ),
     ),
 

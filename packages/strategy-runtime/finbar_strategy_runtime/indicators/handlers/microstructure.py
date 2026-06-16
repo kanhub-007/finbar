@@ -61,7 +61,7 @@ from finbar_strategy_runtime.domain.services.resiliency_proxies import (  # noqa
     resiliency_spread_to_impact as _res_si,
 )
 from finbar_strategy_runtime.domain.services.intraday_seasonality_proxies import (  # noqa: E402
-    first_last_hour_vol_fraction as _flhvf,
+    first_last_hour_vol_fraction_proxy as _flhvf,
     overnight_intraday_decomp as _oid,
     parametric_u_shape as _u_shape,
 )
@@ -314,7 +314,7 @@ def _h_u_shape(df, _name, _cache):
     df["parametric_u_shape"] = _u_shape(df["volume"])
     return df
 
-@_register("first_last_hour_vol_fraction", requires={"close", "volume"})
+@_register("first_last_hour_vol_fraction", requires={"volume"})
 def _h_flhvf(df, _name, _cache):
     df["first_last_hour_vol_fraction"] = _flhvf(df)
     return df
