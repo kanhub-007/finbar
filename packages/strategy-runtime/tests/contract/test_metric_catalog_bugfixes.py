@@ -354,3 +354,105 @@ class TestProxyEnrichmentAlwaysComputesAtrDependents:
             "proxy_ib_high"
         ]
         pd.testing.assert_series_equal(proxy_first, atr_first)
+
+
+# =========================================================================
+# Scenario 9: poc_rejection / edge_volume_building on intraday
+#
+# ⚠️ SPEC DISCREPANCY (flagged to user, not silently "fixed"):
+# The corrected spec (research/03) hypothesised compute_amt_signals raises an
+# exception on intraday. Diagnosis with random, multi-day, and real-handler-
+# enriched intraday fixtures shows compute_amt_signals does NOT raise — it
+# returns clean boolean Series whenever its dependencies are present. The
+# reproducible failure is a dependency-resolution gap: poc_rejection
+# (requires={vp_poc,atr}) and edge_volume_building (requires={vp_vah,vp_val,
+# rvol}) get NaN when their deps are not co-requested. That belongs to the
+# Slice 2 "check_metric warns on unsatisfied non-OHLCV requires" scenario
+# (same class as vol_buffer_high, research/03 §2), NOT an in-code exception.
+#
+# The tests below pin the ACTUAL contract from the spec's "Then" clause:
+# when deps are present, poc_rejection / edge_volume_building must be bool
+# Series with no NaN, and compute_amt_signals must not raise.
+# =========================================================================
+
+
+class TestAmtSignalsIntradayContract:
+    """Scenario 9 — characterization of the actual (non-exception) behavior."""
+
+    def test_compute_amt_signals_does_not_raise_on_intraday(self):
+        """compute_amt_signals must return bool columns, no NaN, on intraday."""
+        from finbar_strategy_runtime.domain.services.amt_signals import (
+            compute_amt_signals,
+        )
+
+        rng = np.random.default_rng(seed=21)
+        n = 120  # 5 days of 1h bars
+        idx = pd.date_range("2026-01-05", periods=n, freq="1h")
+        close = 100.0 + rng.uniform(-0.5, 0.5, n).cumsum()
+        enriched = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 0.3,
+                "low": close - 0.3,
+                "close": close,
+                "volume": rng.integers(100, 1000, n).astype(float),
+                "vp_poc": close,
+                "vp_vah": close + 1.0,
+                "vp_val": close - 1.0,
+                "at_poc": rng.random(n) < 0.3,
+                "near_vah": rng.random(n) < 0.3,
+                "near_val": rng.random(n) < 0.3,
+                "inside_value": True,
+                "above_value": False,
+                "below_value": False,
+                "rvol": 1.0,
+                "atr": 1.5,
+            },
+            index=idx,
+        )
+
+        result = compute_amt_signals(enriched)
+
+        assert result["poc_rejection"].dtype == bool
+        assert result["edge_volume_building"].dtype == bool
+        assert result["poc_rejection"].notna().all()
+        assert result["edge_volume_building"].notna().all()
+
+    def test_amt_signals_via_dispatch_with_deps_present(self, calc):
+        """Via dispatch, with deps co-requested, AMT signals are bool + non-null."""
+        rng = np.random.default_rng(seed=22)
+        n = 120
+        idx = pd.date_range("2026-01-05", periods=n, freq="1h")
+        close = 100.0 + rng.uniform(-0.5, 0.5, n).cumsum()
+        df = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 0.3,
+                "low": close - 0.3,
+                "close": close,
+                "volume": rng.integers(100, 1000, n).astype(float),
+            },
+            index=idx,
+        )
+        result = calc.calculate(
+            df,
+            [
+                "atr",
+                "rvol",
+                "vp_poc",
+                "vp_vah",
+                "vp_val",
+                "inside_value",
+                "above_value",
+                "below_value",
+                "at_poc",
+                "near_vah",
+                "near_val",
+                "poc_rejection",
+                "edge_volume_building",
+            ],
+        )
+        assert result["poc_rejection"].dtype == bool
+        assert result["poc_rejection"].notna().all()
+        assert result["edge_volume_building"].dtype == bool
+        assert result["edge_volume_building"].notna().all()
