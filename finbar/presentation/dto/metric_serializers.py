@@ -30,13 +30,21 @@ def metric_to_dict(
         confidence, and implemented fields.
     """
     result = catalog.check(definition.name, data_class)
+    # Compose a human-readable description that includes the condition
+    # note when present, so list_market_metrics surfaces the constraint
+    # (spec 2026-06-16 Scenario 3 Verify checks ``description``).
+    description = definition.description
+    if definition.condition_note:
+        description = f"{description} {definition.condition_note}"
     return {
         "name": definition.name,
         "family": definition.family.value,
-        "description": definition.description,
+        "description": description,
         "computable": result.computable,
         "confidence": result.confidence.value,
         "implemented": definition.implemented,
+        "min_lookback": definition.min_lookback,
+        "condition_note": definition.condition_note,
     }
 
 

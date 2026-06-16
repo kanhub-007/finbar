@@ -95,6 +95,7 @@ METRICS: list[MarketMetricDefinition] = [
         min_lookback=60,
         confidence=MetricConfidence.PROXY,
         paper_reference="Holden (2009), 'New Low-Frequency Spread Measures'",
+        condition_note="Requires at least 60 bars for the lookback window.",
     ),
     MarketMetricDefinition(
         name="fong_holden_tran_spread",
@@ -125,6 +126,7 @@ METRICS: list[MarketMetricDefinition] = [
         min_lookback=60,
         confidence=MetricConfidence.PROXY,
         paper_reference="Lesmond, Ogden & Trzcinka (1999), 'A New Estimate of Transaction Costs'",
+        condition_note="Requires at least 60 bars for the lookback window.",
     ),
 
     # --- Volatility (9) ---
@@ -467,15 +469,7 @@ METRICS: list[MarketMetricDefinition] = [
         min_lookback=20,
         confidence=MetricConfidence.PROXY,
     ),
-    MarketMetricDefinition(
-        name="trade_count_daily",
-        family=MetricFamily.ORDER_ARRIVAL,
-        description="Daily trade count from tick-level data.",
-        required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
-        required_columns=("trade_count",),
-        min_lookback=1,
-        confidence=MetricConfidence.PROXY,
-    ),
+
 
     # --- Intraday OHLCV metrics (implementable, handler backlog) ---
     MarketMetricDefinition(
@@ -671,6 +665,7 @@ METRICS: list[MarketMetricDefinition] = [
         required_columns=("high",),
         min_lookback=5,
         confidence=MetricConfidence.PROXY,
+        condition_note="May be null on short histories with insufficient swings.",
     ),
     MarketMetricDefinition(
         name="williams_fractal_low",
@@ -680,6 +675,7 @@ METRICS: list[MarketMetricDefinition] = [
         required_columns=("low",),
         min_lookback=5,
         confidence=MetricConfidence.PROXY,
+        condition_note="May be null on short histories with insufficient swings.",
     ),
     MarketMetricDefinition(
         name="zone_signal",
@@ -745,6 +741,10 @@ METRICS: list[MarketMetricDefinition] = [
         required_columns=("close", "volume"),
         min_lookback=20,
         confidence=MetricConfidence.PROXY,
+        condition_note=(
+            "Returns 'unknown' when no clear phase is detected; fires only "
+            "on markup/distribution/accumulation conditions."
+        ),
     ),
 
     # --- Price-action: SMC / Smart Money Concepts (11) ---
@@ -1021,8 +1021,9 @@ METRICS: list[MarketMetricDefinition] = [
         description="Hurst exponent for trend persistence vs mean-reversion.",
         required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
         required_columns=("close",),
-        min_lookback=50,
+        min_lookback=100,
         confidence=MetricConfidence.PROXY,
+        condition_note="Requires at least 100 bars; returns None otherwise.",
     ),
     MarketMetricDefinition(
         name="fractal_regime",
@@ -1041,8 +1042,9 @@ METRICS: list[MarketMetricDefinition] = [
         description="Market regime classification (trend/range/volatile).",
         required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
         required_columns=("close", "high", "low", "volume"),
-        min_lookback=20,
+        min_lookback=220,
         confidence=MetricConfidence.PROXY,
+        condition_note="Requires at least 220 bars for classification.",
     ),
     MarketMetricDefinition(
         name="day_type_classification",
@@ -1162,6 +1164,61 @@ METRICS: list[MarketMetricDefinition] = [
     # Elliott Wave (catalogued, not implemented — 5 metrics)
     # trades_and_quotes + classified (2)
     # Level 1 quotes (1)
+
+    # --- Intraday-only session metrics (handlers exist; not computable on
+    # daily OHLCV because they need session-scoped first-hour bars or a
+    # session-resetting VWAP). Catalogued so check_metric is honest and
+    # list_market_metrics surfaces the constraint (spec 2026-06-16 S3). ---
+    MarketMetricDefinition(
+        name="ib_high",
+        family=MetricFamily.SESSION,
+        description="Initial Balance high (first-hour range).",
+        required_data_classes=(DataClass.INTRADAY_OHLCV,),
+        required_columns=("high", "low"),
+        min_lookback=2,
+        confidence=MetricConfidence.ACTUAL,
+        condition_note="Intraday only — requires session-scoped data to identify first-hour bars.",
+    ),
+    MarketMetricDefinition(
+        name="ib_low",
+        family=MetricFamily.SESSION,
+        description="Initial Balance low (first-hour range).",
+        required_data_classes=(DataClass.INTRADAY_OHLCV,),
+        required_columns=("high", "low"),
+        min_lookback=2,
+        confidence=MetricConfidence.ACTUAL,
+        condition_note="Intraday only — requires session-scoped data to identify first-hour bars.",
+    ),
+    MarketMetricDefinition(
+        name="ib_midpoint",
+        family=MetricFamily.SESSION,
+        description="Initial Balance midpoint.",
+        required_data_classes=(DataClass.INTRADAY_OHLCV,),
+        required_columns=("high", "low"),
+        min_lookback=2,
+        confidence=MetricConfidence.ACTUAL,
+        condition_note="Intraday only — requires session-scoped data to identify first-hour bars.",
+    ),
+    MarketMetricDefinition(
+        name="ib_range",
+        family=MetricFamily.SESSION,
+        description="Initial Balance range width.",
+        required_data_classes=(DataClass.INTRADAY_OHLCV,),
+        required_columns=("high", "low"),
+        min_lookback=2,
+        confidence=MetricConfidence.ACTUAL,
+        condition_note="Intraday only — requires session-scoped data to identify first-hour bars.",
+    ),
+    MarketMetricDefinition(
+        name="vwap_session",
+        family=MetricFamily.SESSION,
+        description="Session-scoped cumulative VWAP (resets each calendar day).",
+        required_data_classes=(DataClass.INTRADAY_OHLCV,),
+        required_columns=("high", "low", "close", "volume"),
+        min_lookback=2,
+        confidence=MetricConfidence.ACTUAL,
+        condition_note="Intraday only — session-scoped VWAP.",
+    ),
 ]
 
 # Conceptual metrics with dual-path resolution

@@ -31,6 +31,11 @@ class MarketMetricDefinition:
     implemented: bool = True
     resolution_paths: tuple[MetricResolutionPath, ...] = ()
     applicable_asset_classes: tuple[str, ...] = ("equity", "crypto")
+    condition_note: str = ""
+    """Human-readable constraint note for conditional metrics, e.g.
+    'Returns null on short histories' or 'Intraday only'. Surfaced in
+    ``list_market_metrics`` / ``check_metric`` so users don't request
+    metrics that silently fail (spec 2026-06-16 Scenario 3)."""
 
     @property
     def primary_data_requirement(self) -> DataRequirement:
