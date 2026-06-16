@@ -379,9 +379,11 @@ def _h_dz_high(df, _name, _cache):
     return df
 
 
-@_register("demand_zone_score", requires={"high", "low", "close"})
+@_register("demand_zone_score", requires={"high", "low", "close", "volume"})
 def _h_dz_score(df, _name, _cache):
-    df["demand_zone_score"] = _dz_score(df["high"], df["low"], df["close"])
+    df["demand_zone_score"] = _dz_score(
+        df["high"], df["low"], df["close"], df["volume"]
+    )
     return df
 
 
@@ -397,21 +399,27 @@ def _h_sz_high(df, _name, _cache):
     return df
 
 
-@_register("supply_zone_score", requires={"high", "low", "close"})
+@_register("supply_zone_score", requires={"high", "low", "close", "volume"})
 def _h_sz_score(df, _name, _cache):
-    df["supply_zone_score"] = _sz_score(df["high"], df["low"], df["close"])
+    df["supply_zone_score"] = _sz_score(
+        df["high"], df["low"], df["close"], df["volume"]
+    )
     return df
 
 
-@_register("zone_failure_bullish", requires={"high", "low", "close"})
+@_register("zone_failure_bullish", requires={"high", "low", "close", "volume"})
 def _h_zf_bull(df, _name, _cache):
-    df["zone_failure_bullish"] = _zf_bull(df["high"], df["low"], df["close"])
+    df["zone_failure_bullish"] = _zf_bull(
+        df["high"], df["low"], df["close"], df["volume"]
+    )
     return df
 
 
-@_register("zone_failure_bearish", requires={"high", "low", "close"})
+@_register("zone_failure_bearish", requires={"high", "low", "close", "volume"})
 def _h_zf_bear(df, _name, _cache):
-    df["zone_failure_bearish"] = _zf_bear(df["high"], df["low"], df["close"])
+    df["zone_failure_bearish"] = _zf_bear(
+        df["high"], df["low"], df["close"], df["volume"]
+    )
     return df
 
 
