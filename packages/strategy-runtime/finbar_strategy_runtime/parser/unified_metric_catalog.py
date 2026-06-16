@@ -43,6 +43,30 @@ from finbar_strategy_runtime.parser.usable_metric_set import UsableMetricSet
 # UnifiedMetricCatalog
 # ---------------------------------------------------------------------------
 
+#: Columns always present in any OHLCV frame. A handler ``requires`` set
+#: that extends beyond these denotes a dependency on another indicator
+#: that must be computed in the same batch (e.g. ``atr``, ``vp_poc``).
+#: ``check_metric`` warns about these so users co-request them instead of
+#: getting silent NaN (spec 2026-06-16 Scenario 5).
+_OHLCV_COLUMNS = frozenset({"open", "high", "low", "close", "volume"})
+
+
+def _non_ohlcv_requires(handled_names: set[str], name: str) -> list[str]:
+    """Return the non-OHLCV columns a metric's handler requires, sorted.
+
+    Returns an empty list for unknown names or handlers requiring only
+    OHLCV columns.
+    """
+    from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+        _INDICATOR_HANDLERS,
+    )
+
+    entry = _INDICATOR_HANDLERS.get(name)
+    if entry is None:
+        return []
+    _handler, requires = entry
+    return sorted(requires - _OHLCV_COLUMNS)
+
 
 class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
     """Merges parser whitelist + capability registry into one catalog.
@@ -180,14 +204,45 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
 
         Enforces confidence honesty (Invariant #4): returns
         ``computable=True`` only when a handler is registered AND the
-        data class is satisfied.
+        data class is satisfied. Also warns about non-OHLCV handler
+        dependencies (Scenario 5): a metric requiring e.g. ``atr`` will
+        silently produce NaN unless that dependency is computed in the
+        same batch.
         """
         definition = self._by_name.get(name)
         if definition is not None:
-            return self._check_definition(definition, available_data_class)
+            return self._add_dependency_warning(
+                self._check_definition(definition, available_data_class), name
+            )
 
         # Not a market-metric definition — check if it's a parser indicator
-        return self._check_parser_indicator(name)
+        return self._add_dependency_warning(
+            self._check_parser_indicator(name), name
+        )
+
+    def _add_dependency_warning(
+        self, result: MetricCapabilityResult, name: str
+    ) -> MetricCapabilityResult:
+        """Append a warning for non-OHLCV handler dependencies (Scenario 5)."""
+        deps = _non_ohlcv_requires(self._handled_names, name)
+        if not deps:
+            return result
+        warning = (
+            f"Requires indicator column(s) {deps} to be computed in the "
+            f"same batch; this metric returns NaN otherwise."
+        )
+        return MetricCapabilityResult(
+            metric=result.metric,
+            supported=result.supported,
+            computable=result.computable,
+            confidence=result.confidence,
+            selected_metric=result.selected_metric,
+            available_paths=result.available_paths,
+            missing_data_classes=result.missing_data_classes,
+            missing_providers=result.missing_providers,
+            proxy_candidates=result.proxy_candidates,
+            warnings=(*result.warnings, warning),
+        )
 
     def resolve_best(
         self,
