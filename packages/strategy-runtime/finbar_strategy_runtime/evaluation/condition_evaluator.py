@@ -22,6 +22,22 @@ PendingValues = dict[str, tuple[float, float]]
 
 _CROSSOVER_OPERATORS = frozenset({"crosses_above", "crosses_below"})
 
+# Separator for crossover state-dict keys. ASCII Unit Separator (\x1f) is
+# used instead of ':' so labels that themselves contain ':' cannot collide
+# (e.g. left="a:b", right="c" would otherwise clash with left="a",
+# right="b:c"). Tests MUST build keys via ``_crossover_key`` rather than
+# hardcoding a separator, so this stays a private implementation detail.
+_CROSSOVER_KEY_SEP = "\x1f"
+
+
+def _crossover_key(left_label: str, right_label: str, operator: str) -> str:
+    """Build the pending_values / previous_values key for a crossover.
+
+    Centralising the key format means the separator is defined in one place;
+    changing it can never desync code from tests.
+    """
+    return f"{left_label}{_CROSSOVER_KEY_SEP}{right_label}{_CROSSOVER_KEY_SEP}{operator}"
+
 
 class ConditionEvaluator:
     """Evaluate nested JSON strategy condition groups against enriched bars."""
@@ -122,7 +138,7 @@ class ConditionEvaluator:
         if left_n is None or right_n is None:
             return
         right_label = condition.right.label if condition.right else ""
-        key = f"{condition.left.label}:{right_label}:{condition.operator}"
+        key = _crossover_key(condition.left.label, right_label, condition.operator)
         pending_values[key] = (left_n, right_n)
 
     # ------------------------------------------------------------------
@@ -265,7 +281,7 @@ class ConditionEvaluator:
         pending_values: PendingValues,
     ) -> bool:
         right_label = condition.right.label if condition.right is not None else ""
-        key = f"{condition.left.label}:{right_label}:{condition.operator}"
+        key = _crossover_key(condition.left.label, right_label, condition.operator)
         previous = previous_values.get(key)
         # NOTE: _collect_state already wrote pending_values[key] in pass 1.
         # We still write here for the case where _crossed is called outside

@@ -11,8 +11,16 @@ from finbar_strategy_runtime.domain.entities.condition_group import ConditionGro
 from finbar_strategy_runtime.domain.entities.operand import Operand
 from finbar_strategy_runtime.evaluation.condition_evaluator import (
     _CROSSOVER_OPERATORS,
+    _crossover_key,
     ConditionEvaluator,
 )
+
+
+# Build crossover state-dict keys via the production helper so tests never
+# hardcode the separator (an implementation detail). Changing the separator
+# can never desync these assertions from the code.
+def _key(left: str, right: str, op: str) -> str:
+    return _crossover_key(left, right, op)
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +89,7 @@ class TestCrossoverStateSurvivesShortCircuit:
         result = evaluator.evaluate(entry, bar, pv)
 
         assert result is False
-        assert pv.get("sma_20:sma_50:crosses_above") == (99.0, 100.0), (
+        assert pv.get(_key("sma_20", "sma_50", "crosses_above")) == (99.0, 100.0), (
             f"Crossover state not recorded! pv={pv}"
         )
 
@@ -102,7 +110,7 @@ class TestCrossoverStateSurvivesShortCircuit:
         result = evaluator.evaluate(entry, bar, pv)
 
         assert result is True
-        assert pv.get("sma_20:sma_50:crosses_above") == (99.0, 100.0), (
+        assert pv.get(_key("sma_20", "sma_50", "crosses_above")) == (99.0, 100.0), (
             f"Crossover state not recorded when any short-circuits! pv={pv}"
         )
 
@@ -122,7 +130,7 @@ class TestCrossoverStateSurvivesShortCircuit:
         result = evaluator.evaluate(entry, bar, pv)
 
         assert result is False
-        assert pv.get("sma_20:sma_50:crosses_above") == (99.0, 100.0)
+        assert pv.get(_key("sma_20", "sma_50", "crosses_above")) == (99.0, 100.0)
 
     def test_three_children_all_crossovers_recorded(self):
         """all: [cross_a, vol>500, cross_b]
@@ -146,8 +154,8 @@ class TestCrossoverStateSurvivesShortCircuit:
         result = evaluator.evaluate(entry, bar, pv)
 
         assert result is False
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
-        assert pv.get("rsi:threshold:crosses_below") == (70.0, 50.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
+        assert pv.get(_key("rsi", "threshold", "crosses_below")) == (70.0, 50.0)
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +184,7 @@ class TestTwoBarCrossoverParity:
         bar1 = {"sma_20": 99, "sma_50": 100, "volume": 100}
         r1 = evaluator.evaluate(entry, bar1, pv)
         assert r1 is False
-        assert "sma_20:sma_50:crosses_above" in pv
+        assert _key("sma_20", "sma_50", "crosses_above") in pv
 
         # Bar 2: filter passes, crossover should trigger
         bar2 = {"sma_20": 101, "sma_50": 100, "volume": 2000}
@@ -202,7 +210,7 @@ class TestTwoBarCrossoverParity:
         bar1 = {"sma_20": 99, "sma_50": 100, "volume": 100}
         r1 = evaluator.evaluate(entry, bar1, pv)
         assert r1 is False
-        assert pv.get("sma_20:sma_50:crosses_above") == (99.0, 100.0)
+        assert pv.get(_key("sma_20", "sma_50", "crosses_above")) == (99.0, 100.0)
 
         bar2 = {"sma_20": 101, "sma_50": 100, "volume": 2000}
         r2 = evaluator.evaluate(entry, bar2, pv)
@@ -225,12 +233,12 @@ class TestTwoBarCrossoverParity:
         bar1 = {"fast": 10, "slow": 20, "volume": 100}
         r1 = evaluator.evaluate(entry, bar1, pv)
         assert r1 is False
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
 
         bar2 = {"fast": 10, "slow": 20, "volume": 2000}
         r2 = evaluator.evaluate(entry, bar2, pv)
         assert r2 is False  # no crossover yet (same values)
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
 
         bar3 = {"fast": 25, "slow": 20, "volume": 2000}
         r3 = evaluator.evaluate(entry, bar3, pv)
@@ -269,8 +277,8 @@ class TestNestedGroupCrossoverState:
 
         # Volume fails, but inner all evaluates both crossovers
         assert result is False
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
-        assert pv.get("rsi:threshold:crosses_below") == (70.0, 50.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
+        assert pv.get(_key("rsi", "threshold", "crosses_below")) == (70.0, 50.0)
 
     def test_not_wrapping_crossover_still_records_state(self):
         """not: [crosses_above(fast, slow)]
@@ -288,7 +296,7 @@ class TestNestedGroupCrossoverState:
 
         # No previous value → _crossed returns False → not(False) = True
         assert result is True
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
 
     def test_not_wrapping_any_with_crossover_still_records_state(self):
         """not: [any: [cross_a, vol>500]]
@@ -309,7 +317,7 @@ class TestNestedGroupCrossoverState:
         # any: crossover=False (no previous), vol=False → False
         # not(False) = True
         assert result is True
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
 
 
 # ---------------------------------------------------------------------------
@@ -490,7 +498,7 @@ class TestShortCircuitAvoidsUnnecessaryEvaluations:
 
         assert result is False
         # Crossover state recorded by pass 1
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
         # Only close<40 was evaluated in pass 2; crossover not counted
         # (counted in pass 1), volume>500 short-circuited
         assert evaluator.boolean_count == 1, (
@@ -515,7 +523,7 @@ class TestShortCircuitAvoidsUnnecessaryEvaluations:
         result = evaluator.evaluate(entry, bar, pv)
 
         assert result is False  # crossover False (no previous), all short-circuits
-        assert pv.get("fast:slow:crosses_above") == (10.0, 20.0)
+        assert pv.get(_key("fast", "slow", "crosses_above")) == (10.0, 20.0)
         # Only crossover evaluated in pass 2 (close and volume were
         # short-circuited).  Crossover is not counted as boolean.
         assert evaluator.boolean_count == 0, (
