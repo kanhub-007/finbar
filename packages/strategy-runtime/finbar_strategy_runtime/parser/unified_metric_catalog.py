@@ -33,6 +33,7 @@ from finbar_strategy_runtime.parser._metric_registry import (
     METRICS,
     _interval_matches,
     _is_class_available,
+    _missing_columns,
 )
 from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
@@ -382,6 +383,24 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
                 confidence=MetricConfidence.UNAVAILABLE,
                 missing_data_classes=tuple(
                     dc.value for dc in definition.required_data_classes
+                ),
+                missing_providers=definition.required_providers,
+                proxy_candidates=definition.proxy_candidates,
+            )
+
+        # Column availability (Scenario 2): a metric requiring columns the
+        # data class cannot provide (e.g. opening_volume/closing_volume) is
+        # not computable, even when the data class itself is available.
+        missing_cols = _missing_columns(definition.required_columns, available_class)
+        if missing_cols:
+            return MetricCapabilityResult(
+                metric=definition.name,
+                supported=True,
+                computable=False,
+                confidence=MetricConfidence.UNAVAILABLE,
+                warnings=(
+                    f"Requires column(s) {missing_cols} not provided by "
+                    f"{available_class.value} data.",
                 ),
                 missing_providers=definition.required_providers,
                 proxy_candidates=definition.proxy_candidates,

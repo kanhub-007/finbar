@@ -31,6 +31,31 @@ def _is_class_available(
     return available in required
 
 
+#: Columns available per OHLCV data class. A metric whose ``required_columns``
+#: extends beyond these cannot be computed from that data class (e.g.
+#: ``first_last_hour_vol_fraction`` needs ``opening_volume``/``closing_volume``
+#: which no OHLCV source provides). Used by check_metric (Scenario 2).
+_AVAILABLE_COLUMNS_BY_CLASS: dict[DataClass, frozenset[str]] = {
+    DataClass.DAILY_OHLCV: frozenset({"open", "high", "low", "close", "volume"}),
+    DataClass.INTRADAY_OHLCV: frozenset({"open", "high", "low", "close", "volume"}),
+}
+
+
+def _missing_columns(
+    required_columns: tuple[str, ...], available_class: DataClass
+) -> list[str]:
+    """Return required columns not available in the data class, sorted.
+
+    Returns an empty list when the data class provides all required columns
+    or when the data class is not OHLCV-based (external providers are
+    checked separately via ``required_providers``).
+    """
+    available = _AVAILABLE_COLUMNS_BY_CLASS.get(available_class)
+    if available is None:
+        return []
+    return [c for c in required_columns if c not in available]
+
+
 def _interval_matches(available: str, required_min: str) -> bool:
     """Check whether the available interval is at least as fine as required.
 
@@ -454,9 +479,13 @@ METRICS: list[MarketMetricDefinition] = [
         family=MetricFamily.INTRADAY_SEASONALITY,
         description="Fraction of volume in first and last hours.",
         required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
-        required_columns=("close", "volume"),
+        required_columns=("opening_volume", "closing_volume", "volume"),
         min_lookback=20,
         confidence=MetricConfidence.PROXY,
+        condition_note=(
+            "Requires opening_volume/closing_volume columns that no OHLCV "
+            "data source provides; not computable from daily or intraday OHLCV."
+        ),
     ),
 
     # --- Order arrival proxies (2) ---
