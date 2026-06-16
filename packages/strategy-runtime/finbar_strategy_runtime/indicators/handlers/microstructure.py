@@ -66,7 +66,6 @@ from finbar_strategy_runtime.domain.services.intraday_seasonality_proxies import
     parametric_u_shape as _u_shape,
 )
 from finbar_strategy_runtime.domain.services.order_arrival_proxies import (  # noqa: E402
-    trade_count_daily as _tc_daily,
     volume_to_trade_count_proxy as _vtc,
 )
 from finbar_strategy_runtime.indicators.rolling_scalar_wrapper import (  # noqa: E402
@@ -93,7 +92,12 @@ def _h_abdi_ranaldo(df, _name, _cache):
 
 @_register("effective_tick_spread", requires={"close"})
 def _h_effective_tick(df, _name, _cache):
-    df["effective_tick_spread"] = rolling_scalar_series(_et_calc, df["close"])
+    # Window must be >= effective_tick_spread's default lookback=60.
+    # TODO: derive from inspect.signature(effective_tick_spread).parameters[
+    #       "lookback"].default to avoid future drift (ADR-3).
+    df["effective_tick_spread"] = rolling_scalar_series(
+        _et_calc, df["close"], window=60
+    )
     return df
 
 @_register("fong_holden_tran_spread", requires={"open", "high", "low", "close"})
@@ -108,7 +112,11 @@ def _h_chung_zhang(df, _name, _cache):
 
 @_register("lot_zero_return_spread", requires={"close"})
 def _h_lot_spread(df, _name, _cache):
-    df["lot_zero_return_spread"] = rolling_scalar_series(_lot_calc, df["close"])
+    # Window must be >= lot_zero_return_spread's default lookback=60.
+    # TODO: derive from inspect.signature (ADR-3).
+    df["lot_zero_return_spread"] = rolling_scalar_series(
+        _lot_calc, df["close"], window=60
+    )
     return df
 
 
@@ -184,7 +192,9 @@ def _h_hasbrouck(df, _name, _cache):
 
 @_register("liu_illiq", requires={"volume"})
 def _h_liu(df, _name, _cache):
-    df["liu_illiq"] = rolling_scalar_series(_liu, df["volume"])
+    # Window must be >= liu_illiq's default lookback=21.
+    # TODO: derive from inspect.signature (ADR-3).
+    df["liu_illiq"] = rolling_scalar_series(_liu, df["volume"], window=21)
     return df
 
 @_register("bao_pan_zhou_cost", requires={"close"})
@@ -267,7 +277,11 @@ def _h_on_gap(df, _name, _cache):
 
 @_register("resiliency_autocorr", requires={"close"})
 def _h_res_auto(df, _name, _cache):
-    df["resiliency_autocorr"] = rolling_scalar_series(_res_auto, df["close"])
+    # Calculator needs lookback(20) + lag(1) = 21 bars; window must cover both.
+    # TODO: derive from inspect.signature (ADR-3).
+    df["resiliency_autocorr"] = rolling_scalar_series(
+        _res_auto, df["close"], window=21
+    )
     return df
 
 @_register("resiliency_spread_to_impact", requires={"close", "volume"})
@@ -313,7 +327,4 @@ def _h_vtc(df, _name, _cache):
     df["volume_to_trade_count_proxy"] = _vtc(df["volume"])
     return df
 
-@_register("trade_count_daily", requires={"trade_count"})
-def _h_tc_daily(df, _name, _cache):
-    df["trade_count_daily"] = _tc_daily(df)
-    return df
+

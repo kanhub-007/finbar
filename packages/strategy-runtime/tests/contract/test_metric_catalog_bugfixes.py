@@ -101,3 +101,102 @@ class TestSupplyDemandZoneHandlersNonNullable:
         # All-NaN means the handler crashed inside dispatch.
         assert not col.isna().all(), f"{metric} is all-NaN (handler crashed)"
         assert col.dtype == bool, f"{metric} dtype {col.dtype}, expected bool"
+
+
+# =========================================================================
+# Scenarios 4-7: rolling_scalar_series window vs calculator lookback
+#   Root cause: handlers in microstructure.py call rolling_scalar_series
+#   with the default window=20, but the scalar calculators need a larger
+#   lookback (60 for spreads, 21 for liu/resiliency). The wrapper passes a
+#   20-bar slice; the calculator sees len(slice) < lookback and returns
+#   None -> the wrapper writes NaN for every bar.
+# =========================================================================
+
+
+class TestRollingScalarWindowMatchesLookback:
+    """Scenarios 4, 5, 6, 7 — rolling-scalar metrics must be non-null at tail."""
+
+    @pytest.mark.parametrize(
+        ("metric", "min_bars"),
+        [
+            # Calculator default lookback=60; wrapper window must be >= 60.
+            ("effective_tick_spread", 65),
+            ("lot_zero_return_spread", 65),
+            # Calculator default lookback=21.
+            ("liu_illiq", 25),
+            # Calculator needs lookback(20) + lag(1) = 21.
+            ("resiliency_autocorr", 25),
+        ],
+    )
+    def test_rolling_scalar_metric_non_null_at_tail(
+        self, calc, metric, min_bars
+    ):
+        """The metric column must contain non-NaN values at the tail.
+
+        With a too-small wrapper window the calculator returns None on
+        every 20-bar slice, so the whole column is NaN. We build exactly
+        ``min_bars`` rows so there is enough data to clear warmup once
+        the window is fixed.
+        """
+        rng = np.random.default_rng(seed=7)
+        n = max(min_bars, 30)
+        close = 100.0 + rng.uniform(-5.0, 5.0, n).cumsum()
+        df = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 1.0,
+                "low": close - 1.0,
+                "close": close,
+                "volume": rng.integers(1_000_000, 5_000_000, n).astype(float),
+            }
+        )
+        df.index = pd.date_range("2026-01-01", periods=n, freq="D")
+
+        result = calc.calculate(df, [metric])
+        assert metric in result.columns, f"{metric} column missing"
+
+        tail = result[metric].tail(5)
+        assert tail.notna().any(), (
+            f"{metric} all-NaN at tail (wrapper window < calculator lookback)"
+        )
+
+    def test_resiliency_autocorr_in_valid_range(self, calc):
+        """Scenario 7: autocorrelation must be a float in [-1, 1]."""
+        rng = np.random.default_rng(seed=11)
+        n = 40
+        close = 100.0 + rng.uniform(-2.0, 2.0, n).cumsum()
+        df = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 0.5,
+                "low": close - 0.5,
+                "close": close,
+                "volume": 1_000_000.0,
+            }
+        )
+        df.index = pd.date_range("2026-01-01", periods=n, freq="D")
+
+        result = calc.calculate(df, ["resiliency_autocorr"])
+        non_null = result["resiliency_autocorr"].dropna()
+        assert len(non_null) > 0
+        assert ((non_null >= -1.0) & (non_null <= 1.0)).all()
+
+    def test_liu_illiq_zero_for_never_zero_volume(self, calc):
+        """Scenario 6: crypto-style constant volume -> 0.0 zero-volume days."""
+        n = 30
+        close = pd.Series(np.linspace(100.0, 120.0, n))
+        df = pd.DataFrame(
+            {
+                "open": close,
+                "high": close + 1.0,
+                "low": close - 1.0,
+                "close": close,
+                "volume": 1_000_000.0,
+            }
+        )
+        df.index = pd.date_range("2026-01-01", periods=n, freq="D")
+
+        result = calc.calculate(df, ["liu_illiq"])
+        non_null = result["liu_illiq"].dropna()
+        assert len(non_null) > 0
+        assert (non_null == 0.0).all()
