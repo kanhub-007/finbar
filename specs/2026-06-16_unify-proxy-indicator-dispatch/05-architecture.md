@@ -125,16 +125,37 @@ a confidence level.
 and the streaming calculator (batch vs incremental). They share the
 `_handler_registry` as a dependency.
 
-**Decision:** This spec is a **prerequisite** for clean streaming proxy
-support, but the two are otherwise independent. Implement this first.
-If the streaming spec lands first, proxies resolve to `UNKNOWN`
-(fail-closed per streaming-spec ADR-3) or windowed-compute-all-12; this
-spec removes that wart by giving each proxy a real handler.
+**Decision:** This spec is a **prerequisite for clean streaming proxy
+support**, but the two are otherwise independent. Implement this first.
+
+**What "clean streaming proxy support" actually requires (verified):**
+The streaming spec's `WindowedIndicatorState` fallback is scoped to three
+prefix families only — `rvp_*`, `vp_*Nd`, `cvp_*Nd` — so proxies match
+none of them. As written, the streaming classifier would resolve `proxy_*`
+names to `UNKNOWN` and **raise at construction** (streaming-spec ADR-3,
+fail-closed). After this spec, proxies become normal registered handlers
+with per-indicator `min_lookback`, so they fall under the streaming spec's
+**windowed-default rule** (any registered handler not hand-classified as
+STREAMING defaults to `WindowedIndicatorState(maxlen=max(min_lookback,
+MIN_BARS))`). They are therefore *computable* under streaming, not
+fail-closed.
+
+**Note on optimality vs correctness:** A proxy like `proxy_vwap` is
+trivially `O(1)` (`(H+L+C)/3`), so leaving it on the windowed fallback is
+correct but suboptimal. A future streaming slice may add hand-written
+state classes for the cheap proxies (`ProxyVwapState`, etc.); that is a
+performance refinement, not a blocker. This spec neither adds nor
+requires those — it only removes the dispatch wart that would make them
+impossible.
 
 **Consequences:**
-- ✅ Streaming's classifier (`classify_indicator`) needs no proxy
-  special-case after this spec — proxies are standard handled names.
-- ✅ Streaming's windowed fallback ("recompute via the existing batch
-  handler on the window slice") works for proxies out of the box.
-- 📝 Add a one-line cross-reference in the streaming spec's
-  `03-domain.md` classifier section noting the dependency is satisfied.
+- ✅ After this spec, the streaming spec's classifier needs no
+  `proxy_` special-case: proxies are standard handled names with a
+  `min_lookback`, so the windowed-default rule covers them.
+- ✅ The streaming spec's windowed fallback works for proxies *once that
+  fallback is extended to all registered handlers* (a streaming-spec gap
+  this spec does not fix).
+- 📝 The streaming spec must be edited to (a) make windowed the default
+  for any registered handler, and (b) list the exact
+  `SUPPORTED_STREAMING_SETS`. Those edits belong to the streaming spec,
+  not here.

@@ -49,14 +49,28 @@ handler path.
 ## Streaming coupling (cross-spec dependency)
 
 The streaming-indicator-calculator spec (2026-06-16) classifies names
-via `_handler_registry` and falls back to "recompute via the existing
-batch handler on the window slice". **Before this spec**, there is no
-per-proxy batch handler to call — only the monolithic
-`enrich_dataframe_with_proxies`. **After this spec**, each proxy has a
-real handler, so the streaming classifier and windowed fallback treat
-proxies uniformly with every other metric.
+via `_handler_registry` and applies a **windowed-default rule**: any
+registered handler not hand-classified as STREAMING falls back to
+`WindowedIndicatorState(maxlen=max(min_lookback, MIN_BARS))`.
 
-This spec is therefore a **prerequisite for clean streaming proxy
-support**, but does not implement streaming itself. If the streaming
-spec lands first, proxies would resolve to `UNKNOWN` (fail-closed) or
-windowed-compute-all-12; this spec removes that wart.
+**Before this spec:** proxies are not registered handlers — the
+`name.startswith("proxy_")` short-circuit routes them to
+`enrich_dataframe_with_proxies`, which is invisible to the streaming
+classifier. A `proxy_*` name would resolve to `UNKNOWN` and raise at
+engine construction (fail-closed).
+
+**After this spec:** each `proxy_*` is a normal registered handler with
+a `MarketMetricDefinition.min_lookback`. The streaming windowed-default
+rule then covers it automatically — proxies become computable under
+streaming (correct, `O(window)` per bar), needing no streaming-spec
+special-case.
+
+**Optimality note:** proxies like `proxy_vwap = (H+L+C)/3` are trivially
+`O(1)`, so the windowed fallback is correct but suboptimal. A future
+streaming slice may add hand-written state classes for the cheap
+proxies; that is a performance refinement, not a blocker. This spec
+neither adds nor requires those.
+
+This spec is therefore a **prerequisite for streaming proxy
+correctness** (without it, streaming any proxy crashes at construction),
+but does not implement streaming itself.

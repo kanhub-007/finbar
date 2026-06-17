@@ -208,7 +208,10 @@ Confirm the Slice-1 metric-catalog proxy tests (scenario 8) still pass —
 they request the 4 ATR-cluster proxies together, which now dispatch as 4
 separate handlers sharing the cached ATR. Values must be identical.
 
-Add a one-line note to the streaming-indicator-calculator spec's
-`03-domain.md` classifier section: "proxy names now resolve via the
-standard handler registry (post 2026-06-16 unify-proxy-dispatch); no
-special-case branch needed."
+**Cross-reference to streaming spec (do NOT edit the streaming spec from
+this slice):** after this spec lands, the streaming spec's
+`windowed-default rule` (see streaming-spec ADR-X) covers proxies
+automatically. The streaming spec itself must be edited separately to
+(a) make windowed the default for any registered handler and (b) include
+`proxy_*` names in its parity set. Those edits are tracked as streaming-
+spec gaps, not part of this slice.

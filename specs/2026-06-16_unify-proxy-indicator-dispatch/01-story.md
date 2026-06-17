@@ -50,11 +50,14 @@ left four loose ends:
    registered as handlers or in the parser whitelist. They are
    undiscoverable side-effects of requesting any other proxy.
 4. **Blocks clean streaming.** The streaming-indicator-calculator spec
-   (2026-06-16) classifies names via `_handler_registry` and falls back
-   to "recompute via the existing batch handler on the window slice".
-   There is no per-proxy batch handler to call — only the monolithic
-   `enrich_dataframe_with_proxies`. So streaming a single proxy today
-   would mean computing all 12 on each window slice.
+   (2026-06-16) classifies names via `_handler_registry` and its windowed
+   fallback reuses per-name batch handlers. For proxies there is no
+   per-name batch handler today — only the monolithic
+   `enrich_dataframe_with_proxies`. So under the streaming spec's
+   windowed-default rule, a `proxy_*` name would resolve to `UNKNOWN`
+   and **raise at engine construction** (fail-closed). This spec makes
+   each proxy a real registered handler with a `min_lookback`, so the
+   windowed-default rule covers it.
 
 ## Non-Goals
 
