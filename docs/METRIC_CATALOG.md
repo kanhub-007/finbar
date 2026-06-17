@@ -492,21 +492,32 @@ prior `fetch_derivatives` call. 🔑 External data source.
 Industry-standard estimators that simulate intraday structure from daily OHLCV
 bars when tick/intraday data is unavailable. All are ⚠️ proxy confidence.
 
+> **Dispatch unification (2026-06-16):** all 12 proxies are now real dispatched
+> handlers (one per metric) with exact request scope — requesting `proxy_vwap`
+> returns only `proxy_vwap`. The ATR-cluster (`proxy_atr` and its 4 dependents)
+> shares computation via the per-call cache. All 12 belong to the `proxy` family
+> in `list_market_metrics`.
+
 | Indicator | Daily | Intraday | Description |
 |-----------|-------|----------|-------------|
 | `proxy_vwap` | ✅ | N/A | Typical Price `(H+L+C)/3` as VWAP substitute |
+| `proxy_typical_price` | ✅ | N/A | Same as `proxy_vwap`: `(H+L+C)/3` |
+| `proxy_ohlc4` | ✅ | N/A | VWAP proxy with open context: `(O+H+L+C)/4` |
 | `proxy_ibs` | ✅ | N/A | Daily IBS as intraday closing drive proxy |
-| `proxy_atr` | ✅ | N/A | ATR as volatility proxy |
+| `proxy_atr` | ✅ | N/A | Wilder RMA ATR (14-period) from high/low/close |
 | `proxy_garman_klass` | ✅ | N/A | Garman-Klass volatility from daily bars |
 | `proxy_parkinson` | ✅ | N/A | Parkinson high-low volatility |
-| `proxy_rogers_satchell` | ✅ | N/A | Rogers-Satchell volatility |
-| `proxy_expected_move` | ✅ | N/A | 0.8 × ATR as implied-volatility expected move |
-| `proxy_ib_high` | ✅ | N/A | Open + 0.1×ATR as Initial Balance high proxy |
-| `proxy_ib_low` | ✅ | N/A | Open − 0.1×ATR as Initial Balance low proxy |
+| `proxy_rogers_satchell` | ✅ | N/A | Rogers-Satchell drift-independent volatility |
+| `proxy_iv` | ✅ | N/A | Implied volatility proxy: `(ATR/close)*sqrt(252)` |
+| `proxy_expected_move` | ✅ | N/A | `0.8 × ATR` as implied-volatility expected move |
+| `proxy_ib_high` | ✅ | N/A | `open + 0.1×ATR` as Initial Balance high proxy |
+| `proxy_ib_low` | ✅ | N/A | `open − 0.1×ATR` as Initial Balance low proxy |
 
 > **Note:** On intraday data, use the real indicators (`vwap`, `ibs`, `atr`,
-> `parkinson_vol`, etc.) directly. Proxies exist only for daily-data backtests
-> where the actual intraday metric is unavailable.
+> `parkinson_vol`, etc.) directly. Proxies exist primarily for daily-data
+> backtests where the actual intraday metric is unavailable. All 12 proxies
+> DO work on intraday data (they require only OHLCV), but they are
+> approximations; the real versions are preferred when available.
 
 ---
 
