@@ -11,7 +11,7 @@ import pandas as pd
 
 def hurst_exponent(
     close: pd.Series,
-    min_bars: int = 100,
+    min_bars: int = 250,
     max_lag: int | None = None,
 ) -> float | None:
     """Estimate Hurst exponent via R/S analysis.
@@ -83,7 +83,7 @@ def hurst_exponent(
 
 def fractal_regime(
     close: pd.Series,
-    min_bars: int = 100,
+    min_bars: int = 250,
 ) -> str:
     """Classify market regime from Hurst exponent.
 

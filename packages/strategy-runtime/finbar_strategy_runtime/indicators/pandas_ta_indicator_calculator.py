@@ -11,6 +11,7 @@ Dynamic-period dispatch logic lives in ``_dynamic_dispatch``.
 from __future__ import annotations
 
 import logging
+from collections import deque
 
 import numpy as np
 import pandas as pd
@@ -43,6 +44,62 @@ logger = logging.getLogger(__name__)
 
 MIN_BARS = 10
 FAILED_INDICATORS_ATTR = "failed_indicators"
+
+
+def _topological_sort(
+    names: list[str],
+    handlers: dict[str, tuple],
+) -> list[str]:
+    """Sort indicator names so dependencies precede dependents.
+
+    Uses Kahn's algorithm (BFS). Dynamic indicators (not in handlers)
+    and those with no inter-indicator dependencies are placed first.
+
+    Args:
+        names: Requested indicator names in any order.
+        handlers: Registry dict mapping name → (handler_fn, requires_set).
+
+    Returns:
+        Sorted list with the same elements; dependencies before dependents.
+    """
+    if len(names) <= 1:
+        return list(names)
+
+    names_set = set(names)
+
+    in_degree: dict[str, int] = {}
+    adjacency: dict[str, list[str]] = {}
+
+    for name in names:
+        if name not in handlers:
+            continue
+        _, requires = handlers[name]
+        for dep in requires:
+            if dep in names_set:
+                adjacency.setdefault(dep, []).append(name)
+                in_degree[name] = in_degree.get(name, 0) + 1
+
+    # Start with all nodes that have no unmet dependencies within the request
+    queue: deque[str] = deque(
+        name for name in names if in_degree.get(name, 0) == 0
+    )
+    sorted_names: list[str] = []
+
+    while queue:
+        node = queue.popleft()
+        sorted_names.append(node)
+        for dependent in adjacency.get(node, []):
+            in_degree[dependent] -= 1
+            if in_degree[dependent] == 0:
+                queue.append(dependent)
+
+    # Append any unprocessed nodes (unknown names, circular deps)
+    processed = set(sorted_names)
+    for name in names:
+        if name not in processed:
+            sorted_names.append(name)
+
+    return sorted_names
 
 
 class PandasTaIndicatorCalculator(IndicatorCalculator):
@@ -83,7 +140,8 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         present_cols = set(result.columns)
         failed: list[tuple[str, str]] = []
 
-        for name in indicators:
+        sorted_indicators = _topological_sort(indicators, _INDICATOR_HANDLERS)
+        for name in sorted_indicators:
             if name in _INDICATOR_HANDLERS:
                 handler, requires = _INDICATOR_HANDLERS[name]
                 if requires and requires - present_cols:

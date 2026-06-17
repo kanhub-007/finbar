@@ -15,17 +15,7 @@ from finbar_strategy_runtime.domain.entities.metric_confidence import MetricConf
 from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
 
 METRICS: list[MarketMetricDefinition] = [
-    # --- Spread proxies (7) ---
-    MarketMetricDefinition(
-        name="corwin_schultz_spread",
-        family=MetricFamily.SPREAD,
-        description="OHLC-based bid-ask spread estimator with overnight-gap adjustment.",
-        required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
-        required_columns=("open", "high", "low", "close"),
-        min_lookback=20,
-        confidence=MetricConfidence.PROXY,
-        paper_reference="Corwin & Schultz (2012), 'A Simple Way to Estimate Bid-Ask Spreads'",
-    ),
+    # --- Spread proxies (4) ---
     MarketMetricDefinition(
         name="roll_spread",
         family=MetricFamily.SPREAD,
@@ -35,16 +25,6 @@ METRICS: list[MarketMetricDefinition] = [
         min_lookback=20,
         confidence=MetricConfidence.PROXY,
         paper_reference="Roll (1984), 'A Simple Implicit Measure of the Effective Bid-Ask Spread'",
-    ),
-    MarketMetricDefinition(
-        name="abdi_ranaldo_spread",
-        family=MetricFamily.SPREAD,
-        description="OHLC-based spread estimator using mid-price and close.",
-        required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
-        required_columns=("open", "high", "low", "close"),
-        min_lookback=20,
-        confidence=MetricConfidence.PROXY,
-        paper_reference="Abdi & Ranaldo (2017), 'A Simple Estimation of Bid-Ask Spreads'",
     ),
     MarketMetricDefinition(
         name="effective_tick_spread",
@@ -66,16 +46,6 @@ METRICS: list[MarketMetricDefinition] = [
         min_lookback=20,
         confidence=MetricConfidence.PROXY,
         paper_reference="Fong, Holden & Trzcinka (2017), 'What Are the Best Liquidity Proxies?'",
-    ),
-    MarketMetricDefinition(
-        name="chung_zhang_spread",
-        family=MetricFamily.SPREAD,
-        description="OHLC-based spread estimator with simple calculation.",
-        required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
-        required_columns=("open", "high", "low", "close"),
-        min_lookback=20,
-        confidence=MetricConfidence.PROXY,
-        paper_reference="Chung & Zhang (2014), 'A Simple Approximation of Intraday Spreads'",
     ),
     MarketMetricDefinition(
         name="lot_zero_return_spread",
@@ -985,9 +955,9 @@ METRICS: list[MarketMetricDefinition] = [
         description="Hurst exponent for trend persistence vs mean-reversion.",
         required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
         required_columns=("close",),
-        min_lookback=100,
+        min_lookback=250,
         confidence=MetricConfidence.PROXY,
-        condition_note="Requires at least 100 bars; returns None otherwise.",
+        condition_note="Requires at least 250 bars; returns None otherwise.",
     ),
     MarketMetricDefinition(
         name="fractal_regime",

@@ -88,7 +88,7 @@ def register_metric_catalog_tools(mcp: FastMCP) -> None:
         """Check capability for a single metric.
 
         Args:
-            name: The metric name (e.g. 'corwin_schultz_spread').
+            name: The metric name (e.g. 'fong_holden_tran_spread').
             available_data_class: Data class available
                 ('daily_ohlcv', 'intraday_ohlcv', 'external_provider').
             symbol: Asset symbol. Used for derivatives data checks.

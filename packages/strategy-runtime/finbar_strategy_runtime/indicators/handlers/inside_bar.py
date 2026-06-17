@@ -51,6 +51,12 @@ def _ib_midpoint(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
     return df
 
 
+# Bars per initial balance period for common intervals.
+_IB_BARS_MAP = {"5min": 12, "15min": 4, "30min": 2, "1h": 1}
+_DEFAULT_IB_BARS = 2
+_IB_MINUTES_MAP = {"5min": 5, "15min": 15, "30min": 30, "1h": 60}
+
+
 def _get_ib_bars(df: pd.DataFrame) -> int:
     """Determine how many bars make up the initial balance period.
 

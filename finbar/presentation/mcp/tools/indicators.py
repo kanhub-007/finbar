@@ -71,9 +71,9 @@ _TA_INDICATORS = [
     "is_accumulation", "is_markup", "is_distribution",
     "is_markdown", "is_wyckoff_neutral",
     # Spread proxies
-    "corwin_schultz_spread", "roll_spread", "abdi_ranaldo_spread",
+    "roll_spread",
     "effective_tick_spread", "fong_holden_tran_spread",
-    "chung_zhang_spread", "lot_zero_return_spread",
+    "lot_zero_return_spread",
     # Volatility estimators
     "close_to_close_vol", "parkinson_vol", "garman_klass_vol",
     "rogers_satchell_vol", "yang_zhang_vol", "gk_plus_overnight_vol",
@@ -208,7 +208,7 @@ def _ta_description() -> str:
         "parameterized rolling composites vp_poc_Nd/cvp_poc_Nd/rvp_poc_N for any N, "
         "auction state classifiers, AMT rule signals), "
         "Profile shape & Wyckoff classifiers, Coil/Squeeze, "
-        "Spread proxies (Corwin-Schultz, Roll, Abdi-Ranaldo, etc.), "
+        "Spread proxies (Roll, FHT, etc.), "
         "Volatility estimators (Parkinson, Garman-Klass, Yang-Zhang, etc.), "
         "Intraday realized volatility (5m/15m/1h) & bipower variation, "
         "Liquidity/impact (Amihud, Florackis, Hasbrouck, etc.), "
@@ -220,7 +220,7 @@ def _ta_description() -> str:
         "Derivatives (funding rate, OI, CVD, liquidations — crypto/CoinGlass) "
         "on cached OHLCV bars. "
         'Pass indicators_json like \'["sma_20","sma_50","rsi_14","atr",'
-        '"vp_poc","vp_val","vp_poc_10d","corwin_schultz_spread",'
+        '"vp_poc","vp_val","vp_poc_10d","fong_holden_tran_spread",'
         '"awesome_oscillator","balance_status"]\'. '
         "Supports arbitrary periods for parameterized indicators. "
         "Full catalog: see get_strategy_capabilities or list_market_metrics. "
@@ -289,7 +289,7 @@ def _tm_description() -> str:
         "vp_poc_Nd, vp_vah_Nd, vp_val_Nd, rvp_poc_N, cvp_poc_Nd (param.), "
         "mp_poc, mp_vah, mp_val (Market Profile / TPO), "
         "auction state + AMT rule signals.\n\n"
-        "Market Microstructure: Spread proxies (7), Volatility estimators (9), "
+        "Market Microstructure: Spread proxies (4), Volatility estimators (9), "
         "Liquidity/impact (6), Order flow (6), Informed trading (2), "
         "Jump risk (4), Resiliency (3), Intraday seasonality (4), "
         "Intraday realized vol (9).\n\n"
@@ -302,7 +302,7 @@ def _tm_description() -> str:
         "On daily bars, use rolling composites for multi-day value areas.\n\n"
         'Example: metrics_json=["vwap","vp_poc","vp_vah","vp_val",'
         '"inside_value","balance_status","acceptance_outside_value",'
-        '"corwin_schultz_spread","awesome_oscillator"]. '
+        '"fong_holden_tran_spread","awesome_oscillator"]. '
         "See get_strategy_capabilities for full catalog.\n\n"
         "Use start_date/end_date to limit computation to a date range.\n\n"
         "Poll with get_indicator_job_progress(job_id), then page results "

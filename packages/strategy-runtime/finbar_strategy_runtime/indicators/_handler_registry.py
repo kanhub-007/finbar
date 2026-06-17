@@ -9,6 +9,7 @@ populating ``_INDICATOR_HANDLERS`` at import time.
 import logging
 from collections.abc import Callable
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,9 @@ def _safe_ta(func: Callable, *args, **kwargs) -> pd.Series | None:
 
     pandas_ta returns None when there are fewer bars than the requested
     period length. This helper converts None to a NaN-filled Series.
+    Also masks the first N bars to NaN (warmup) when ``length=`` is
+    provided, guarding against functions like ``ta.rsi`` that return
+    partial Series with misleading values (e.g. 0.0) instead of None.
     """
     try:
         result = func(*args, **kwargs)
@@ -29,6 +33,19 @@ def _safe_ta(func: Callable, *args, **kwargs) -> pd.Series | None:
         if series is not None and isinstance(series, pd.Series):
             return pd.Series(float("nan"), index=series.index, dtype="float64")
         return None
+
+    # Mask warmup bars: first N bars → NaN where N = lookback period.
+    # Some pandas_ta functions (e.g. ta.rsi) return partial Series instead
+    # of None when there are fewer than ``length`` bars.
+    lookback = kwargs.get("length")
+    if (
+        lookback is not None
+        and isinstance(result, pd.Series)
+        and len(result) > lookback
+    ):
+        result = result.copy()
+        result.iloc[:lookback] = np.nan
+
     return result
 
 

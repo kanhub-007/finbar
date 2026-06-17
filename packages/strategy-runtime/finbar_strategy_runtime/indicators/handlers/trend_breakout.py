@@ -145,11 +145,5 @@ def _vol_buffer_low(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# True Initial Balance — grouped by date from intraday bars
+# True Initial Balance constants moved to inside_bar.py (2026-06-17).
 # ---------------------------------------------------------------------------
-
-# Bars per initial balance period for common intervals.
-# 5min: 12 bars = 1 hour. 15min: 4 bars. 30min: 2 bars. 1h: 1 bar.
-_IB_BARS_MAP = {"5min": 12, "15min": 4, "30min": 2, "1h": 1}
-_DEFAULT_IB_BARS = 2
-_IB_MINUTES_MAP = {"5min": 5, "15min": 15, "30min": 30, "1h": 60}

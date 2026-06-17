@@ -10,9 +10,6 @@ from finbar_strategy_runtime.indicators._handler_registry import _register
 
 
 from finbar_strategy_runtime.domain.services.spread_proxies import (  # noqa: E402
-    abdi_ranaldo_spread as _ar_calc,
-    chung_zhang_spread as _cz_calc,
-    corwin_schultz_spread as _cs_calc,
     effective_tick_spread as _et_calc,
     fong_holden_tran_spread as _fht_calc,
     lot_zero_return_spread as _lot_calc,
@@ -73,21 +70,11 @@ from finbar_strategy_runtime.indicators.rolling_scalar_wrapper import (  # noqa:
 )
 
 
-# --- Spread proxies (7) ---
-
-@_register("corwin_schultz_spread", requires={"open", "high", "low", "close"})
-def _h_corwin_schultz(df, _name, _cache):
-    df["corwin_schultz_spread"] = _cs_calc(df)
-    return df
+# --- Spread proxies (4) ---
 
 @_register("roll_spread", requires={"close"})
 def _h_roll_spread(df, _name, _cache):
     df["roll_spread"] = rolling_scalar_series(_roll_calc, df["close"])
-    return df
-
-@_register("abdi_ranaldo_spread", requires={"open", "high", "low", "close"})
-def _h_abdi_ranaldo(df, _name, _cache):
-    df["abdi_ranaldo_spread"] = _ar_calc(df)
     return df
 
 @_register("effective_tick_spread", requires={"close"})
@@ -103,11 +90,6 @@ def _h_effective_tick(df, _name, _cache):
 @_register("fong_holden_tran_spread", requires={"open", "high", "low", "close"})
 def _h_fht_spread(df, _name, _cache):
     df["fong_holden_tran_spread"] = _fht_calc(df)
-    return df
-
-@_register("chung_zhang_spread", requires={"open", "high", "low", "close"})
-def _h_chung_zhang(df, _name, _cache):
-    df["chung_zhang_spread"] = _cz_calc(df)
     return df
 
 @_register("lot_zero_return_spread", requires={"close"})

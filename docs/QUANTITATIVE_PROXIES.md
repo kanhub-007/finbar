@@ -53,7 +53,7 @@ Without intraday volume distribution, Typical Price is the standard substitute.
 
 In Auction Market Theory, the Initial Balance (first 60 minutes of trading)
 defines the day's range. The 0.1×ATR buffer ensures signals only trigger on
-significant breakouts from the opening price. **Requires `atr` indicator.**
+significant breakouts from the opening price.
 
 ### Institutional Presence Proxies
 
@@ -96,35 +96,33 @@ the spread, they don't measure it.
 |--------|---------|-------------|
 | `roll_spread` | `2 × √(−Cov(ΔP_t, ΔP_{t−1}))` | Serial covariance of close-to-close price changes caused by bid-ask bounce. The original spread proxy. Set to 0 when covariance is positive (~30-40% of stocks). |
 
-### Corwin-Schultz Estimator (2012) — Gold Standard
-
-| Column | Description |
-|--------|-------------|
-| `corwin_schultz_spread` | OHLC-based with overnight-gap adjustment. Uses 1-day and 2-day high-low ranges — true price variance doubles over two days but the spread component does not. The most accurate daily spread proxy. |
-
-### Additional Estimators
+### Recommended Estimators
 
 | Column | Source | Method |
 |--------|--------|--------|
-| `abdi_ranaldo_spread` | Abdi-Ranaldo (2017) | Mid-price + close covariance. Improves on Roll by using daily range midpoints. |
-| `chung_zhang_spread` | Chung-Zhang | Simplified OHLC-based estimator. |
-| `effective_tick_spread` | Goyenko-Holden-Trzcinka | Tick-based: close-to-close price clustering around tick multiples. |
-| `fong_holden_tran_spread` | FHT | Simple OHLC-based closed-form estimator. |
-| `lot_zero_return_spread` | Lesmond-Ogden-Trzcinka | Proportion of zero-return days as a liquidity proxy. |
+| `fong_holden_tran_spread` | FHT | **Recommended.** Simple OHLC-based closed-form estimator, always positive. |
+| `roll_spread` | Roll (1984) | Close-to-close serial covariance. Works for stocks; returns 0 for crypto. |
+| `effective_tick_spread` | Goyenko-Holden-Trzcinka | Tick-based: close-to-close price clustering around tick multiples. Requires ≥60 bars. |
+| `lot_zero_return_spread` | Lesmond-Ogden-Trzcinka | Proportion of zero-return days as a liquidity proxy. Requires ≥60 bars. |
+
+> **Note (2026-06-17):** `corwin_schultz_spread`, `abdi_ranaldo_spread`,
+> and `chung_zhang_spread` were removed. These cross-sectional estimators
+> return 0.0 for single-asset time series (the `alpha.clip(lower=0)` path
+> is always taken in trending markets). Use `fong_holden_tran_spread` for
+> OHLC-based estimates or `roll_spread` for close-based.
 
 ### When to use which
 
 | Estimator | Best for | Limitation |
 |-----------|----------|------------|
-| `corwin_schultz_spread` | General purpose, large-cap stocks | Sensitive to extreme overnight gaps |
-| `abdi_ranaldo_spread` | Low-volume stocks | Needs sufficient non-zero range days |
-| `roll_spread` | Quick baseline | Breaks when covariance is positive |
-| `effective_tick_spread` | Stocks with tick-size constraints | Requires tick-size knowledge |
+| `fong_holden_tran_spread` | **General purpose, any asset** | — |
+| `roll_spread` | Stocks with bid-ask bounce | Breaks when covariance is positive (trending markets, crypto) |
+| `effective_tick_spread` | Stocks with tick-size constraints | Requires tick-size knowledge, ≥60 bars |
+| `lot_zero_return_spread` | Illiquid assets | Requires ≥60 bars |
 
 ```
 compute_indicators("AAPL", "1d", [
-    "corwin_schultz_spread",
-    "abdi_ranaldo_spread",
+    "fong_holden_tran_spread",
     "roll_spread"
 ])
 ```

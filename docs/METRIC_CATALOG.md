@@ -306,7 +306,7 @@ Williams' trading system based on fractal geometry and market psychology.
 
 | Indicator | Daily | Intraday | Description |
 |-----------|-------|----------|-------------|
-| `hurst_exponent` | ✅ | ✅ | H<0.5 = mean-reverting, H=0.5 = random, H>0.5 = trending. Requires ≥100 bars; returns None otherwise |
+| `hurst_exponent` | ✅ | ✅ | H<0.5=mean-reverting, H=0.5=random, H>0.5=trending. Full-series broadcast (not rolling). Requires ≥250 bars; returns None otherwise |
 | `fractal_regime` | ✅ | ✅ | Fractal-based market regime classification |
 
 ---
@@ -319,12 +319,14 @@ All are ⚠️ proxy confidence.
 | Indicator | Daily | Intraday | Description |
 |-----------|-------|----------|-------------|
 | `roll_spread` | ✅ | ✅ | Roll (1984): serial covariance of close-to-close price changes |
-| `corwin_schultz_spread` | ✅ | ✅ | Corwin-Schultz (2012): OHLC-based, overnight-gap-adjusted. Gold standard daily proxy |
-| `abdi_ranaldo_spread` | ✅ | ✅ | Abdi-Ranaldo (2017): mid-price + close covariance |
-| `chung_zhang_spread` | ✅ | ✅ | Chung-Zhang: simplified OHLC-based estimator |
 | `effective_tick_spread` | ✅ | ✅ | Tick-based: close-to-close price clustering. Requires ≥60 bars for lookback window |
-| `fong_holden_tran_spread` | ✅ | ✅ | FHT: simple OHLC-based estimator |
+| `fong_holden_tran_spread` | ✅ | ✅ | **Recommended.** FHT: simple OHLC-based estimator, always positive |
 | `lot_zero_return_spread` | ✅ | ✅ | LOT: zero-return proportion method. Requires ≥60 bars for lookback window |
+
+> **Note (2026-06-17):** `corwin_schultz_spread`, `abdi_ranaldo_spread`, and
+> `chung_zhang_spread` were removed — they are cross-sectional estimators that
+> return 0.0 for single-asset time series. Use `fong_holden_tran_spread` or
+> `roll_spread` instead.
 
 ---
 
@@ -478,7 +480,7 @@ prior `fetch_derivatives` call. 🔑 External data source.
 | `open_interest` | 🔑 | 🔑 | Aggregate open interest |
 | `open_interest_delta_1h` | 🔑 | 🔑 | 1-hour change in open interest |
 | `open_interest_delta_24h` | 🔑 | 🔑 | 24-hour change in open interest |
-| `cumulative_volume_delta` | 🔑 | 🔑 | CVD: cumulative buy − sell delta |
+| `cumulative_volume_delta` | 🔑 | 🔑 | CVD (CoinGlass): cumulative buy − sell delta from exchange data. See also §10 for the OHLCV-derived proxy. |
 | `long_short_ratio` | 🔑 | 🔑 | Long/short account ratio |
 | `liquidations_long_1h` | 🔑 | 🔑 | Long liquidations (1 hour) |
 | `liquidations_short_1h` | 🔑 | 🔑 | Short liquidations (1 hour) |
