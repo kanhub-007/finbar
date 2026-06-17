@@ -81,11 +81,11 @@ class TestPandasTaCalculator:
 
     def test_proxy_indicators(self):
         df = _make_sample_df(50)
-        df = self.calc.calculate(df, ["atr"])  # ATR needed for IB proxies
         result = self.calc.calculate(df, ["proxy_typical_price", "proxy_ibs"])
         assert "proxy_typical_price" in result.columns
-        # All proxies computed in batch
-        assert "proxy_parkinson" in result.columns
+        assert "proxy_ibs" in result.columns
+        # Exact request scope: unrequested proxies are not present.
+        assert "proxy_parkinson" not in result.columns
 
     def test_trend_indicators(self):
         df = _make_sample_df(250)

@@ -39,9 +39,14 @@ class TestCheckMetricWarnsOnNonOhlcvRequires:
         text = " ".join(result.warnings)
         assert "rvol" in text
 
-    def test_proxy_ib_high_warns_about_atr(self, catalog):
+    def test_proxy_ib_high_no_longer_warns_about_atr(self, catalog):
+        """proxy_ib_high derives ATR internally via the cache helper, so it
+        no longer declares requires={"atr"} and produces no dep warning."""
         result = catalog.check("proxy_ib_high", "daily_ohlcv")
-        assert any("atr" in w for w in result.warnings), result.warnings
+        # Should NOT warn about atr — the handler is self-contained.
+        assert not any("atr" in w for w in result.warnings), (
+            "proxy_ib_high should not warn about atr: it derives ATR internally"
+        )
 
     def test_pure_ohlcv_metric_has_no_dependency_warning(self, catalog):
         """A metric requiring only OHLCV columns gets no dep warning."""

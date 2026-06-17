@@ -4,8 +4,15 @@ This module is imported by ``handlers/__init__.py`` which triggers
 registration of all ``@_register`` decorators at import time.
 """
 
+import math
+
+import numpy as np
 import pandas as pd
 
+from finbar_strategy_runtime.domain.services.proxy_indicator import (
+    compute_proxy_atr,
+    ensure_proxy_atr,
+)
 from finbar_strategy_runtime.domain.services.vwap_bands import compute_vwap_session_bands
 from finbar_strategy_runtime.indicators._handler_registry import _register
 
@@ -85,25 +92,142 @@ def _compute_true_ib(df: pd.DataFrame, ib_bars: int) -> None:
     df["ib_midpoint"] = date_series.map(ib_mids)
 
 
-@_register("proxy_atr")
-def _proxy_atr(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
-    """Wilder RMA ATR from high/low/close."""
-    high = df["high"]
-    low = df["low"]
-    close = df["close"]
-    prev_close = close.shift(1).fillna(close)
-    tr = pd.concat(
-        [high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1
-    ).max(axis=1)
-    atr = tr.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
-    df["proxy_atr"] = atr
+@_register("proxy_atr", requires={"high", "low", "close"})
+def _h_proxy_atr(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    """Wilder RMA ATR (14-period) from high/low/close."""
+    df["proxy_atr"] = ensure_proxy_atr(df, cache)
     return df
 
 
-@_register("proxy_vwap")
-def _proxy_vwap(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
-    """Typical price as VWAP proxy."""
+@_register("proxy_vwap", requires={"high", "low", "close"})
+def _h_proxy_vwap(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
+    """Typical price as VWAP proxy: (H+L+C)/3."""
     df["proxy_vwap"] = (df["high"] + df["low"] + df["close"]) / 3.0
+    return df
+
+
+@_register("proxy_ibs", requires={"high", "low", "close"})
+def _h_proxy_ibs(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
+    """Internal Bar Strength proxy: (C-L)/(H-L)."""
+    bar_range = df["high"] - df["low"]
+    df["proxy_ibs"] = np.where(
+        bar_range > 0, (df["close"] - df["low"]) / bar_range, 0.5
+    )
+    return df
+
+
+@_register("proxy_ib_high", requires={"open", "high", "low", "close"})
+def _h_proxy_ib_high(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    """Initial Balance high proxy: open + 0.1 * ATR."""
+    atr = ensure_proxy_atr(df, cache).fillna(0)
+    df["proxy_ib_high"] = df["open"] + 0.1 * atr
+    return df
+
+
+@_register("proxy_ib_low", requires={"open", "high", "low", "close"})
+def _h_proxy_ib_low(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    """Initial Balance low proxy: open - 0.1 * ATR."""
+    atr = ensure_proxy_atr(df, cache).fillna(0)
+    df["proxy_ib_low"] = df["open"] - 0.1 * atr
+    return df
+
+
+@_register("proxy_expected_move", requires={"open", "high", "low", "close"})
+def _h_proxy_expected_move(
+    df: pd.DataFrame, _name: str, cache: dict
+) -> pd.DataFrame:
+    """Expected daily move proxy: 0.8 * ATR."""
+    atr = ensure_proxy_atr(df, cache).fillna(0)
+    df["proxy_expected_move"] = 0.8 * atr
+    return df
+
+
+@_register("proxy_iv", requires={"high", "low", "close"})
+def _h_proxy_iv(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    """Implied volatility proxy: (ATR / close) * sqrt(252)."""
+    atr = ensure_proxy_atr(df, cache).fillna(0)
+    c = df["close"]
+    df["proxy_iv"] = np.where(c > 0, (atr / c) * math.sqrt(252), 0.0)
+    return df
+
+
+@_register("proxy_parkinson", requires={"high", "low"})
+def _h_proxy_parkinson(
+    df: pd.DataFrame, _name: str, _cache: dict
+) -> pd.DataFrame:
+    """Parkinson high-low volatility proxy: ln(H/L)^2 / (4*ln(2))."""
+    log_hl = np.where(
+        (df["high"] > 0) & (df["low"] > 0),
+        np.log(df["high"] / df["low"]),
+        0.0,
+    )
+    df["proxy_parkinson"] = log_hl**2 / (4.0 * math.log(2))
+    return df
+
+
+@_register("proxy_garman_klass", requires={"open", "high", "low", "close"})
+def _h_proxy_garman_klass(
+    df: pd.DataFrame, _name: str, _cache: dict
+) -> pd.DataFrame:
+    """Garman-Klass OHLC volatility proxy."""
+    hl = np.where(
+        (df["high"] > 0) & (df["low"] > 0),
+        np.log(df["high"] / df["low"]),
+        0.0,
+    )
+    co = np.where(
+        (df["close"] > 0) & (df["open"] > 0),
+        np.log(df["close"] / df["open"]),
+        0.0,
+    )
+    df["proxy_garman_klass"] = 0.5 * hl**2 - (2.0 * math.log(2) - 1.0) * co**2
+    return df
+
+
+@_register("proxy_rogers_satchell", requires={"open", "high", "low", "close"})
+def _h_proxy_rogers_satchell(
+    df: pd.DataFrame, _name: str, _cache: dict
+) -> pd.DataFrame:
+    """Rogers-Satchell drift-independent volatility proxy."""
+    hc = np.where(
+        (df["high"] > 0) & (df["close"] > 0),
+        np.log(df["high"] / df["close"]), 0.0
+    )
+    ho = np.where(
+        (df["high"] > 0) & (df["open"] > 0),
+        np.log(df["high"] / df["open"]), 0.0
+    )
+    lc = np.where(
+        (df["low"] > 0) & (df["close"] > 0),
+        np.log(df["low"] / df["close"]), 0.0
+    )
+    lo = np.where(
+        (df["low"] > 0) & (df["open"] > 0),
+        np.log(df["low"] / df["open"]), 0.0
+    )
+    df["proxy_rogers_satchell"] = hc * ho + lc * lo
+    return df
+
+
+@_register("proxy_typical_price", requires={"high", "low", "close"})
+def _h_proxy_typical_price(
+    df: pd.DataFrame, _name: str, _cache: dict
+) -> pd.DataFrame:
+    """VWAP proxy: (H+L+C)/3."""
+    df["proxy_typical_price"] = (
+        df["high"] + df["low"] + df["close"]
+    ) / 3.0
+    return df
+
+
+@_register("proxy_ohlc4", requires={"open", "high", "low", "close"})
+def _h_proxy_ohlc4(
+    df: pd.DataFrame, _name: str, _cache: dict
+) -> pd.DataFrame:
+    """VWAP proxy with open context: (O+H+L+C)/4."""
+    df["proxy_ohlc4"] = (
+        df["open"] + df["high"] + df["low"] + df["close"]
+    ) / 4.0
     return df
 
 

@@ -26,6 +26,52 @@ import pandas as pd
 
 TRADING_DAYS_PER_YEAR = 252
 
+#: Per-call ``cache`` key for the Wilder RMA ATR shared by the ATR-cluster
+#: proxy handlers (proxy_atr, proxy_ib_high, proxy_ib_low,
+#: proxy_expected_move, proxy_iv). Mirrors the ``cache["macd"]`` pattern
+#: in ``core_ta.py`` — compute once, reuse across co-requested handlers.
+_PROXY_ATR_CACHE_KEY = "__proxy_atr"
+
+
+def compute_proxy_atr(df: Any) -> Any:
+    """Wilder RMA ATR (14-period) from high/low/close.
+
+    Pure computation — state-free. Returns a ``pd.Series`` aligned to
+    ``df.index`` with NaN for the first 13 bars (warmup). Used by both
+    the proxy_atr handler and ``ensure_proxy_atr``.
+    """
+    high = df["high"]
+    low = df["low"]
+    close = df["close"]
+    prev_close = close.shift(1).fillna(close)
+    tr = pd.concat(
+        [high - low, (high - prev_close).abs(), (low - prev_close).abs()],
+        axis=1,
+    ).max(axis=1)
+    return tr.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+
+
+def ensure_proxy_atr(df: Any, cache: dict) -> Any:
+    """Return the cached ATR Series, computing + caching it if absent.
+
+    Computes Wilder RMA ATR via ``compute_proxy_atr`` and stashes it under
+    ``_PROXY_ATR_CACHE_KEY`` so the ATR-cluster handlers (proxy_ib_high,
+    proxy_ib_low, proxy_expected_move, proxy_iv) reuse the same Series
+    without recomputing. Mirrors the MACD ``cache["macd"]`` pattern.
+
+    Args:
+        df: OHLCV DataFrame.
+        cache: The per-call dispatch cache dict.
+
+    Returns:
+        ``pd.Series`` of the ATR values.
+    """
+    if _PROXY_ATR_CACHE_KEY in cache:
+        return cache[_PROXY_ATR_CACHE_KEY]
+    atr = compute_proxy_atr(df)
+    cache[_PROXY_ATR_CACHE_KEY] = atr
+    return atr
+
 
 # ---------------------------------------------------------------------------
 # VWAP proxies
@@ -321,23 +367,10 @@ def enrich_dataframe_with_proxies(df: Any) -> Any:
     bar_range = h - l
     result["proxy_ibs"] = np.where(bar_range > 0, (c - l) / bar_range, 0.5)
 
-    # proxy_atr (Wilder RMA, 14-period) is always computed from OHLCV so that
-    # its dependents (proxy_ib_high/low/expected_move, proxy_iv) work
-    # unconditionally regardless of whether the caller requested the
-    # pandas_ta ``atr`` column. See spec 2026-06-16 Scenario 8 (Option B):
-    # the ``name.startswith("proxy_")`` short-circuit in
-    # PandasTaIndicatorCalculator routes every proxy name here, so this is
-    # the only dispatched path.
-    #
-    # The dependents intentionally use THIS proxy_atr (never the pandas_ta
-    # ``atr`` column) so the proxy family is self-contained and does not
-    # depend on indicator-request ordering (if "atr" is requested after a
-    # proxy, the column is absent when enrichment runs).
-    prev_close = c.shift(1).fillna(c)
-    tr = pd.concat(
-        [h - l, (h - prev_close).abs(), (l - prev_close).abs()], axis=1
-    ).max(axis=1)
-    atr = tr.ewm(alpha=1 / 14, min_periods=14, adjust=False).mean()
+    # proxy_atr (Wilder RMA, 14-period) and its dependents.
+    # Delegates to ``compute_proxy_atr`` so the formula is defined in ONE
+    # place — both this batch enrichment and the per-proxy handlers share it.
+    atr = compute_proxy_atr(result)
     atr_filled = atr.fillna(0)
     result["proxy_atr"] = atr
     result["proxy_ib_high"] = o + 0.1 * atr_filled

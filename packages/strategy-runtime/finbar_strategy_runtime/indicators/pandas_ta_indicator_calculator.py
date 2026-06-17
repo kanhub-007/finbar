@@ -16,9 +16,6 @@ import numpy as np
 import pandas as pd
 
 from finbar_strategy_runtime.domain.interfaces.indicator_calculator import IndicatorCalculator
-from finbar_strategy_runtime.domain.services.proxy_indicator import (
-    enrich_dataframe_with_proxies,
-)
 from finbar_strategy_runtime.indicators.handlers import (  # noqa: F401
     core_ta,
     derivatives,
@@ -45,12 +42,6 @@ from finbar_strategy_runtime.indicators._dynamic_dispatch import (
 logger = logging.getLogger(__name__)
 
 MIN_BARS = 10
-_PROXY_CACHE_KEY = "__proxies_done"
-
-#: pandas DataFrame ``attrs`` key carrying the per-call list of indicators
-#: that failed during ``calculate``. Each entry is a ``(name, error)``
-#: tuple. Surfaced so job runners can report silent failures instead of
-#: swallowing them as NaN (spec 2026-06-16 Scenario 4 / ADR-6).
 FAILED_INDICATORS_ATTR = "failed_indicators"
 
 
@@ -93,10 +84,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         failed: list[tuple[str, str]] = []
 
         for name in indicators:
-            if name.startswith("proxy_"):
-                result = _compute_proxies(result, cache)
-                present_cols = set(result.columns)
-            elif name in _INDICATOR_HANDLERS:
+            if name in _INDICATOR_HANDLERS:
                 handler, requires = _INDICATOR_HANDLERS[name]
                 if requires and requires - present_cols:
                     result[name] = np.nan
@@ -156,15 +144,3 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         result.attrs[FAILED_INDICATORS_ATTR] = failed
         return result
 
-
-def _compute_proxies(df: pd.DataFrame, cache: dict) -> pd.DataFrame:
-    """Compute all proxy indicators in one batch (delegates to domain module).
-
-    Uses a sentinel key in the per-call cache to avoid recomputing
-    across multiple proxy indicator requests in the same calculate() call.
-    """
-    if _PROXY_CACHE_KEY in cache:
-        return df
-    result = enrich_dataframe_with_proxies(df)
-    cache[_PROXY_CACHE_KEY] = True
-    return result

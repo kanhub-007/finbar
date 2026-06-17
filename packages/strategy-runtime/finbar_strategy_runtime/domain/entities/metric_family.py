@@ -19,6 +19,7 @@ class MetricFamily(str, Enum):
     PRICE_ACTION = "price_action"
     TREND_STRUCTURE = "trend_structure"
     SESSION = "session"
+    PROXY = "proxy"
     VSA = "vsa"
     SENTIMENT = "sentiment"
     DERIVATIVES = "derivatives"

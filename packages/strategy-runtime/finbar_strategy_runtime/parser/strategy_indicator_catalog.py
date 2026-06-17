@@ -121,9 +121,12 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "proxy_ib_high": "proxy_ib_high",
         "proxy_ib_low": "proxy_ib_low",
         "proxy_expected_move": "proxy_expected_move",
+        "proxy_iv": "proxy_iv",
         "proxy_parkinson": "proxy_parkinson",
         "proxy_garman_klass": "proxy_garman_klass",
         "proxy_rogers_satchell": "proxy_rogers_satchell",
+        "proxy_typical_price": "proxy_typical_price",
+        "proxy_ohlc4": "proxy_ohlc4",
         # --- Intraday session metrics (real, not proxy) ---
         "ib_high": "ib_high",
         "ib_low": "ib_low",
