@@ -50,7 +50,7 @@ class TestCheckMetricWarnsOnNonOhlcvRequires:
 
     def test_pure_ohlcv_metric_has_no_dependency_warning(self, catalog):
         """A metric requiring only OHLCV columns gets no dep warning."""
-        result = catalog.check("corwin_schultz_spread", "daily_ohlcv")
-        # corwin_schultz requires open/high/low/close — all OHLCV.
+        result = catalog.check("fong_holden_tran_spread", "daily_ohlcv")
+        # fong_holden_tran requires open/high/low/close — all OHLCV.
         assert not any("requires" in w.lower() and "column" in w.lower()
                        for w in result.warnings)

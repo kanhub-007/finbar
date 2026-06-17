@@ -22,12 +22,12 @@ class TestListMarketMetricsRoute:
         assert isinstance(data, list)
         assert len(data) > 50
 
-    def test_list_includes_corwin_schultz(self, client):
-        """The list includes corwin_schultz_spread."""
+    def test_list_includes_fong_holden_tran(self, client):
+        """The list includes fong_holden_tran_spread."""
         response = client.get("/api/metrics", params={"interval": "1d"})
         data = response.json()
         names = {m["name"] for m in data}
-        assert "corwin_schultz_spread" in names
+        assert "fong_holden_tran_spread" in names
 
     def test_list_filter_by_family(self, client):
         """Family filter narrows results."""

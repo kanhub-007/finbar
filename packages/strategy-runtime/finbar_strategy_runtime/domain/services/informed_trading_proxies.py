@@ -86,10 +86,10 @@ def spread_based_pin_proxy(
         spread = df[cs_spread_col]
     else:
         from finbar_strategy_runtime.domain.services.spread_proxies import (
-            corwin_schultz_spread,
+            fong_holden_tran_spread,
         )
 
-        spread = corwin_schultz_spread(df, lookback=lookback)
+        spread = fong_holden_tran_spread(df, lookback=lookback)
 
     # Reversal proxy: negative of 1-bar return autocorrelation
     close = df["close"].astype(float)

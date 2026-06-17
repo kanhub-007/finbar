@@ -30,7 +30,7 @@ class TestCorwinSchultzSpread:
     def test_constant_prices_no_spread(self):
         """All OHLC the same → spread ≈ 0."""
         from finbar_strategy_runtime.domain.services.spread_proxies import (
-            corwin_schultz_spread,
+            fong_holden_tran_spread,
         )
 
         df = _make_ohlcv_frame(
@@ -41,14 +41,14 @@ class TestCorwinSchultzSpread:
             ]
             * 25  # need ≥20 bars for lookback
         )
-        result = corwin_schultz_spread(df)
+        result = fong_holden_tran_spread(df)
         # Zero spread when all prices identical
         assert result.iloc[-1] == 0.0
 
     def test_positive_ohlc_range_produces_positive_spread(self):
         """Realistic OHLC bars produce a positive spread estimate."""
         from finbar_strategy_runtime.domain.services.spread_proxies import (
-            corwin_schultz_spread,
+            fong_holden_tran_spread,
         )
 
         np.random.seed(1)
@@ -62,7 +62,7 @@ class TestCorwinSchultzSpread:
                 "close": close,
             }
         )
-        result = corwin_schultz_spread(df)
+        result = fong_holden_tran_spread(df)
         # Spread should be non-negative
         assert (result.dropna() >= 0).all()
         assert not result.iloc[-1] is None
@@ -71,7 +71,7 @@ class TestCorwinSchultzSpread:
     def test_insufficient_bars_returns_nan(self):
         """Less than 20 bars → all NaN."""
         from finbar_strategy_runtime.domain.services.spread_proxies import (
-            corwin_schultz_spread,
+            fong_holden_tran_spread,
         )
 
         df = _make_ohlcv_frame(
@@ -80,7 +80,7 @@ class TestCorwinSchultzSpread:
                 {"open": 100.5, "high": 102.0, "low": 100.0, "close": 101.5},
             ]
         )
-        result = corwin_schultz_spread(df)
+        result = fong_holden_tran_spread(df)
         assert result.isna().all()
 
 

@@ -63,10 +63,10 @@ def resiliency_spread_to_impact(
         spread = df[cs_spread_col]
     else:
         from finbar_strategy_runtime.domain.services.spread_proxies import (
-            corwin_schultz_spread,
+            fong_holden_tran_spread,
         )
 
-        spread = corwin_schultz_spread(df, lookback=lookback)
+        spread = fong_holden_tran_spread(df, lookback=lookback)
 
     from finbar_strategy_runtime.domain.services.liquidity_proxies import (
         amihud_illiq,

@@ -62,9 +62,9 @@ class TestUnifiedCatalogDualRole:
 
     def test_new_metric_supported_and_computable(self, catalog):
         """A catalogued OHLCV metric with a registered handler is computable."""
-        assert catalog.supports_concrete("corwin_schultz_spread") is True
+        assert catalog.supports_concrete("fong_holden_tran_spread") is True
 
-        result = catalog.check("corwin_schultz_spread", "daily_ohlcv")
+        result = catalog.check("fong_holden_tran_spread", "daily_ohlcv")
         assert result.supported is True
         assert result.computable is True
         assert result.confidence == MetricConfidence.PROXY
@@ -100,9 +100,9 @@ class TestUnifiedCatalogDualRole:
 
     def test_get_returns_definition(self, catalog):
         """get() returns the MarketMetricDefinition for a catalogued name."""
-        definition = catalog.get("corwin_schultz_spread")
+        definition = catalog.get("fong_holden_tran_spread")
         assert definition is not None
-        assert definition.name == "corwin_schultz_spread"
+        assert definition.name == "fong_holden_tran_spread"
         assert definition.family == MetricFamily.SPREAD
 
     def test_get_returns_none_for_unknown(self, catalog):
@@ -230,7 +230,7 @@ _HANDLED_FAMILY_SAMPLE = [
     # Fibonacci
     "fib_618_retrace",
     # Microstructure
-    "corwin_schultz_spread",
+    "fong_holden_tran_spread",
     # Derivatives
     "funding_rate",
     # Regime
@@ -434,7 +434,7 @@ class TestResolveHandlerGate:
         # The validator must flag the inconsistency and name some divergent
         # metric (which one fires first is insertion-order dependent).
         assert "inconsistent" in msg, exc.value
-        known_handled = [n for n in ("bag_holding", "corwin_schultz_spread", "bos")]
+        known_handled = [n for n in ("bag_holding", "fong_holden_tran_spread", "bos")]
         assert any(n in str(exc.value) for n in known_handled), exc.value
 
     def test_validate_consistency_raises_when_supports_concrete_drifts(
@@ -508,7 +508,7 @@ _DISCOVERY_SAMPLE = [
     "choch",
     "alligator_jaw",
     "fib_618_retrace",
-    "corwin_schultz_spread",
+    "fong_holden_tran_spread",
 ]
 
 

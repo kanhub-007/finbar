@@ -57,15 +57,15 @@ class TestListMarketMetrics:
             assert isinstance(entry["computable"], bool)
 
     @pytest.mark.asyncio
-    async def test_corwin_schultz_in_list(self, mcp):
-        """corwin_schultz_spread appears in the list."""
+    async def test_fong_holden_tran_in_list(self, mcp):
+        """fong_holden_tran_spread appears in the list."""
         result = await mcp.call_tool(
             "list_market_metrics",
             {"symbol": "BTC", "source": "hyperliquid", "interval": "1d"},
         )
         payload = _extract_payload(result)
         names = {m["name"] for m in payload}
-        assert "corwin_schultz_spread" in names
+        assert "fong_holden_tran_spread" in names
 
     @pytest.mark.asyncio
     async def test_intraday_metric_not_computable_on_daily(self, mcp):

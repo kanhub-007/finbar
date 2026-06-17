@@ -2,7 +2,7 @@
 
 This test goes through the REAL parser (not the catalog directly) to
 verify that a strategy YAML referencing a new metric (e.g.
-``corwin_schultz_spread``) is accepted, not rejected with
+``fong_holden_tran_spread``) is accepted, not rejected with
 ``unknown_operand``.
 """
 
@@ -14,8 +14,8 @@ from finbar_strategy_runtime.parser.strategy_definition_parser import (
 class TestParserAcceptsNewMetrics:
     """The parser must accept all new metric names in conditions."""
 
-    def test_corwin_schultz_spread_accepted(self):
-        """A strategy referencing corwin_schultz_spread must parse validly."""
+    def test_fong_holden_tran_spread_accepted(self):
+        """A strategy referencing fong_holden_tran_spread must parse validly."""
         parser = StrategyDefinitionParser()
         raw = {
             "schema_version": "2.0",
@@ -26,7 +26,7 @@ class TestParserAcceptsNewMetrics:
                     "entry": {
                         "condition": {
                             "operator": ">",
-                            "left": "corwin_schultz_spread",
+                            "left": "fong_holden_tran_spread",
                             "right": 0.01,
                         }
                     },
@@ -42,7 +42,7 @@ class TestParserAcceptsNewMetrics:
         }
         result = parser.parse(raw)
         assert result.valid is True, (
-            f"Parser rejected corwin_schultz_spread: "
+            f"Parser rejected fong_holden_tran_spread: "
             f"{[e.message for e in result.errors]}"
         )
 

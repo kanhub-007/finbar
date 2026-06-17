@@ -27,8 +27,8 @@ class TestCatalogCapabilityChecks:
     """Verify the catalog correctly reports metric capabilities."""
 
     def test_ohclv_proxy_returns_computable(self, catalog):
-        """corwin_schultz_spread with daily_ohlcv → computable, confidence=proxy."""
-        result = catalog.check("corwin_schultz_spread", "daily_ohlcv")
+        """fong_holden_tran_spread with daily_ohlcv → computable, confidence=proxy."""
+        result = catalog.check("fong_holden_tran_spread", "daily_ohlcv")
         assert result.supported is True
         assert result.computable is True
         assert result.confidence == MetricConfidence.PROXY
@@ -59,7 +59,7 @@ class TestCatalogCapabilityChecks:
 
     def test_result_is_json_serializable(self, catalog):
         """MetricCapabilityResult can be serialized to JSON for MCP/API."""
-        result = catalog.check("corwin_schultz_spread", "daily_ohlcv")
+        result = catalog.check("fong_holden_tran_spread", "daily_ohlcv")
         d = {
             "metric": result.metric,
             "supported": result.supported,
@@ -80,7 +80,7 @@ class TestCatalogListing:
         all_metrics = catalog.list()
         names = {m.name for m in all_metrics}
         assert len(all_metrics) >= 50, f"Expected ≥50 metrics, got {len(all_metrics)}"
-        assert "corwin_schultz_spread" in names
+        assert "fong_holden_tran_spread" in names
         assert "amihud_illiq" in names
         assert "yang_zhang_vol" in names
         assert "funding_rate" in names
@@ -100,9 +100,9 @@ class TestCatalogListing:
 
     def test_get_returns_definition_for_known(self, catalog):
         """get() returns the full definition for a known metric."""
-        d = catalog.get("corwin_schultz_spread")
+        d = catalog.get("fong_holden_tran_spread")
         assert d is not None
-        assert d.name == "corwin_schultz_spread"
+        assert d.name == "fong_holden_tran_spread"
         assert d.min_lookback == 20
         assert "open" in d.required_columns
 

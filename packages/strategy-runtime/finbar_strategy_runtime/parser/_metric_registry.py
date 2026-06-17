@@ -117,7 +117,7 @@ CONCEPTUAL_METRICS: list[MarketMetricDefinition] = [
         description="Conceptual spread — auto-selects best path.",
         resolution_paths=(
             MetricResolutionPath(
-                metric_name="corwin_schultz_spread",
+                metric_name="fong_holden_tran_spread",
                 required_data_class=DataClass.DAILY_OHLCV,
                 required_columns=("open", "high", "low", "close"),
                 confidence=MetricConfidence.PROXY,

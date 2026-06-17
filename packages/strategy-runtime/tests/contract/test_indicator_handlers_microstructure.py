@@ -53,12 +53,9 @@ class TestSpreadHandlers:
     @pytest.mark.parametrize(
         "metric",
         [
-            "corwin_schultz_spread",
-            "roll_spread",
-            "abdi_ranaldo_spread",
-            "effective_tick_spread",
             "fong_holden_tran_spread",
-            "chung_zhang_spread",
+            "roll_spread",
+            "effective_tick_spread",
             "lot_zero_return_spread",
         ],
     )
@@ -67,10 +64,10 @@ class TestSpreadHandlers:
         result = calc.calculate(ohlcv_df, [metric])
         assert metric in result.columns
 
-    def test_corwin_schultz_non_negative(self, calc, ohlcv_df):
+    def test_fong_holden_tran_non_negative(self, calc, ohlcv_df):
         """Corwin-Schultz spread values must be non-negative."""
-        result = calc.calculate(ohlcv_df, ["corwin_schultz_spread"])
-        col = result["corwin_schultz_spread"].dropna()
+        result = calc.calculate(ohlcv_df, ["fong_holden_tran_spread"])
+        col = result["fong_holden_tran_spread"].dropna()
         assert (col >= 0).all()
 
 

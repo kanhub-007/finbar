@@ -66,7 +66,7 @@ class TestCheckMetricCapability:
         use_case = CheckMetricCapabilityUseCase(repository=None)
 
         result = use_case.execute(
-            name="corwin_schultz_spread", data_class="daily_ohlcv"
+            name="fong_holden_tran_spread", data_class="daily_ohlcv"
         )
 
         assert result.computable is True
