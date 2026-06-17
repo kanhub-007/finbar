@@ -143,6 +143,7 @@ on domain objects (Classical school).
   When  `check_metric` is called for each
   Then  each reports `computable=True` on a supported data class
   And   the construction-time consistency check passes (handler == registry)
+  And   `list_market_metrics(family="proxy")` returns exactly those 12
 
 **Input table:**
 | Field      | Type | Example                              |
@@ -154,6 +155,7 @@ on domain objects (Classical school).
 |---------------------------------------------------|----------------------------|
 | `catalog.check(name, "daily_ohlcv").computable`   | True for OHLCV-only proxy |
 | construction-time `_validate_consistency` passes  | catalog instantiates       |
+| all 12 share `family == "proxy"`                  | list filtered by family    |
 
 **Verify (Classical school, black-box):**
 ```python
@@ -161,11 +163,18 @@ catalog = UnifiedMetricCatalog()  # raises if registry/handlers disagree
 for name in ALL_PROXIES:
     result = catalog.check(name, "daily_ohlcv")
     assert result.computable is True, f"{name}: {result.warnings}"
+
+# All 12 grouped under one family (ADR-4)
+from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
+proxy_metrics = catalog.list(MetricFamily.PROXY)
+assert {m.name for m in proxy_metrics} == set(ALL_PROXIES)
 ```
 
 **Also test:**
 - The 3 previously-hidden proxies (`proxy_typical_price`, `proxy_ohlc4`,
   `proxy_iv`) are now discoverable via `list_market_metrics`.
+- `list_market_metrics(family="proxy")` returns exactly 12 (no more, no
+  less — catches a stranded proxy reassigned to its old family).
 
 ---
 

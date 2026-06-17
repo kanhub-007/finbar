@@ -111,13 +111,23 @@ per-call `cache` still exists, but the old proxy sentinel is gone.
 **File:** `finbar_strategy_runtime/parser/_metric_registry.py`
 
 Add `MarketMetricDefinition` entries for the 3 currently-missing proxies
-(`proxy_typical_price`, `proxy_ohlc4`, `proxy_iv`) and verify the other
-9 are present. All 12:
+(`proxy_typical_price`, `proxy_ohlc4`, `proxy_iv`) **and** reassign the 9
+already-registered proxies to the new `MetricFamily.PROXY` so all 12 are
+grouped together (ADR-4). First add the enum member:
+
+```python
+# metric_family.py
+    SESSION = "session"
+    PROXY = "proxy"      # NEW — all proxy_* metrics
+    VSA = "vsa"
+```
+
+Then all 12 proxies use `family=MetricFamily.PROXY`:
 
 ```python
 MarketMetricDefinition(
     name="proxy_typical_price",
-    family=MetricFamily.VOLATILITY,   # or a new PROXY family — see ADR-4
+    family=MetricFamily.PROXY,
     description="VWAP proxy: (H+L+C)/3.",
     required_data_classes=(DataClass.DAILY_OHLCV, DataClass.INTRADAY_OHLCV),
     required_columns=("high", "low", "close"),
@@ -125,18 +135,25 @@ MarketMetricDefinition(
     confidence=MetricConfidence.PROXY,
 ),
 # ... proxy_ohlc4 (requires open,high,low,close),
-#     proxy_iv (requires high,low,close; condition_note "annualised ATR% / sqrt(252)")
+#     proxy_iv (requires high,low,close; condition_note "annualised ATR% / sqrt(252)"),
+#     and reassign proxy_atr/vwap/ibs/ib_high/ib_low/expected_move/
+#         parkinson/garman_klass/rogers_satchell from their current
+#         family to MetricFamily.PROXY
 ```
 
 Add the 3 missing names to `strategy_indicator_catalog._FIXED` so the
 parser accepts them.
 
-**Verify:** Scenario 4 (check_metric honest for all 12). The
-construction-time `_validate_consistency` will fail loud if any registry
-entry lacks a handler (or vice versa) — that's the safety net.
+**Verify:** Scenario 4 (check_metric honest for all 12; all 12 share
+family=PROXY). The construction-time `_validate_consistency` will fail
+loud if any registry entry lacks a handler (or vice versa) — that's the
+safety net. Also `list_market_metrics(family="proxy")` returns exactly
+12.
 **Common mistake:** giving an ATR-cluster proxy `required_columns`
 that omits a column its handler actually reads (e.g. `proxy_ib_high`
-needs `open` too, not just high/low/close).
+needs `open` too, not just high/low/close). Or forgetting to reassign
+one of the 9 existing proxies to the new family (leaves it stranded).
+Audit with `grep -n 'name="proxy_' _metric_registry.py`.
 
 ---
 

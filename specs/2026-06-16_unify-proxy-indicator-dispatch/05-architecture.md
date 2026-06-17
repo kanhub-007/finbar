@@ -88,27 +88,34 @@ AND avoids recompute when co-requested (Scenario 3).
 
 ---
 
-## ADR-4: Family classification for the 3 newly-registered proxies
+## ADR-4: New `MetricFamily.PROXY` to group all 12 proxies together
 
 **Context:** `proxy_typical_price`, `proxy_ohlc4`, `proxy_iv` were
 emitted but unregistered. Registering them requires a `MetricFamily`.
-The existing `MetricFamily` enum has no PROXY bucket; proxies today are
-scattered (volatility estimators under VOLATILITY, VWAP proxies under...
-none).
+Today the registered proxies are scattered across families (spread,
+volatility, session, intraday_seasonality); with the 3 hidden ones
+added, they'd spread further. The user wants all proxies grouped
+together in discovery.
 
-**Decision:** Assign each to its closest semantic family
-(`proxy_typical_price`/`proxy_ohlc4` → VOLATILITY alongside the other
-range estimators; `proxy_iv` → VOLATILITY). Do **not** add a PROXY family
-— `proxy_` is a confidence level (already captured by
-`MetricConfidence.PROXY`), not a family.
+**Decision:** Add a new `MetricFamily.PROXY = "proxy"` and assign **all
+12** `proxy_*` metrics to it — including the 9 already-registered ones
+(`proxy_atr`, `proxy_vwap`, `proxy_ibs`, `proxy_ib_high`, `proxy_ib_low`,
+`proxy_expected_move`, `proxy_parkinson`, `proxy_garman_klass`,
+`proxy_rogers_satchell`). `proxy_` is a family in its own right, not just
+a confidence level.
 
 **Consequences:**
-- ✅ No enum churn; `list_market_metrics(family="volatility")` surfaces
-  the proxy estimators alongside their real counterparts, which is what a
-  user exploring "what volatility metrics exist" wants.
-- ⚠️ Proxies are spread across families in `list_market_metrics` output.
-  Acceptable: the `confidence=proxy` field already distinguishes them, and
-  the `proxy_` prefix makes them greppable.
+- ✅ `list_market_metrics(family="proxy")` returns all 12 proxies in one
+  call — what a user exploring "what proxy metrics exist" wants.
+- ✅ Proxies no longer scatter across spread/volatility/session in the
+  unfiltered `list_market_metrics` output; they form one contiguous block.
+- ⚠️ The 9 already-registered proxies change family. This is a
+  metadata-only change (no formula/dispatch impact), but any caller
+  filtering by their old family stops seeing them. Audit via
+  `grep -rn 'family.*"spread"\|family.*"volatility"'` for tests that
+  count family members — adjust counts.
+- ⚠️ The `MetricFamily` enum gains one member. Enum additions are
+  backward-compatible (no existing value changes).
 
 ---
 

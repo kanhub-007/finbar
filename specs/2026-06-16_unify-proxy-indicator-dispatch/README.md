@@ -41,7 +41,7 @@ cache (MACD pattern). Register all 12 in the capability registry so
 | Per-handler dispatch with exact request scope (ADR-1) | "request one get all 12" is unwanted; uniformity with all other metrics | Keep short-circuit + filter by requested set — leaves the special case |
 | Keep `enrich_dataframe_with_proxies` alive, off the hot path (ADR-2) | Single-bar enrichment still needs it; formulas stay DRY via shared `compute_proxy_*` fns | Delete it — breaks `enrich_bar_with_proxies` |
 | ATR cluster via compute-if-absent cache helper (ADR-3) | Self-contained handlers + no recompute; mirrors MACD; no dispatch change | `requires={"proxy_atr"}` — transitive-dep NaN problem (Non-Goal) |
-| Assign hidden proxies to VOLATILITY family (ADR-4) | `proxy_` is a confidence, not a family; no enum churn | New PROXY family — fragments `list_market_metrics` |
+| New `MetricFamily.PROXY`; assign all 12 proxies to it (ADR-4) | User wants all proxies grouped together in `list_market_metrics`; `proxy_` is a family, not just a confidence | Keep them scattered across volatility/spread/session — fragments discovery |
 
 ## Scope
 
