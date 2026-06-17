@@ -74,7 +74,83 @@ def ensure_proxy_atr(df: Any, cache: dict) -> Any:
 
 
 # ---------------------------------------------------------------------------
-# VWAP proxies
+# Per-proxy compute functions — the single source of truth for each formula.
+# Called by BOTH the per-handler dispatch (inside_bar.py) and the batch
+# enrichment (enrich_dataframe_with_proxies). Extract-method (Pipeline)
+# pattern: each function returns a pd.Series, no side-effects.
+# ---------------------------------------------------------------------------
+
+
+def compute_proxy_vwap(df: Any) -> Any:
+    """Typical price VWAP proxy: (H+L+C)/3."""
+    return (df["high"] + df["low"] + df["close"]) / 3.0
+
+
+def compute_proxy_ibs(df: Any) -> Any:
+    """Internal Bar Strength proxy: (C-L)/(H-L), 0.5 when range=0."""
+    bar_range = df["high"] - df["low"]
+    return np.where(bar_range > 0, (df["close"] - df["low"]) / bar_range, 0.5)
+
+
+def compute_proxy_parkinson(df: Any) -> Any:
+    """Parkinson high-low volatility proxy: ln(H/L)^2 / (4*ln(2))."""
+    log_hl = np.where(
+        (df["high"] > 0) & (df["low"] > 0),
+        np.log(df["high"] / df["low"]),
+        0.0,
+    )
+    return log_hl**2 / (4.0 * math.log(2))
+
+
+def compute_proxy_garman_klass(df: Any) -> Any:
+    """Garman-Klass OHLC volatility proxy."""
+    hl = np.where(
+        (df["high"] > 0) & (df["low"] > 0),
+        np.log(df["high"] / df["low"]),
+        0.0,
+    )
+    co = np.where(
+        (df["close"] > 0) & (df["open"] > 0),
+        np.log(df["close"] / df["open"]),
+        0.0,
+    )
+    return 0.5 * hl**2 - (2.0 * math.log(2) - 1.0) * co**2
+
+
+def compute_proxy_rogers_satchell(df: Any) -> Any:
+    """Rogers-Satchell drift-independent volatility proxy."""
+    hc = np.where(
+        (df["high"] > 0) & (df["close"] > 0),
+        np.log(df["high"] / df["close"]),
+        0.0,
+    )
+    ho = np.where(
+        (df["high"] > 0) & (df["open"] > 0),
+        np.log(df["high"] / df["open"]),
+        0.0,
+    )
+    lc = np.where(
+        (df["low"] > 0) & (df["close"] > 0),
+        np.log(df["low"] / df["close"]),
+        0.0,
+    )
+    lo = np.where(
+        (df["low"] > 0) & (df["open"] > 0),
+        np.log(df["low"] / df["open"]),
+        0.0,
+    )
+    return hc * ho + lc * lo
+
+
+def compute_proxy_ohlc4(df: Any) -> Any:
+    """VWAP proxy with open context: (O+H+L+C)/4."""
+    return (
+        df["open"] + df["high"] + df["low"] + df["close"]
+    ) / 4.0
+
+
+# ---------------------------------------------------------------------------
+# VWAP proxies (scalar)
 # ---------------------------------------------------------------------------
 
 
@@ -318,7 +394,13 @@ def atr_to_iv_proxy(atr: float, price: float) -> float:
 
 
 def enrich_bar_with_proxies(bar: dict[str, Any]) -> dict[str, Any]:
-    """Compute all proxy indicators for one bar and return a new dict."""
+    """Compute all proxy indicators for one bar and return a new dict.
+
+    Requires an ``atr`` field on the bar dict for IB-proxy / expected-move /
+    IV computation. If absent, those proxies are omitted. For self-contained
+    per-proxy computation without pre-computed ATR, use
+    ``PandasTaIndicatorCalculator.calculate()`` instead.
+    """
     o = bar.get("open", 0)
     h = bar.get("high", 0)
     l = bar.get("low", 0)  # noqa: E741
@@ -347,31 +429,28 @@ def enrich_bar_with_proxies(bar: dict[str, Any]) -> dict[str, Any]:
 
 
 def enrich_dataframe_with_proxies(df: Any) -> Any:
-    """Batch-compute proxy indicators for an entire DataFrame.
+    """Batch-compute all 12 proxy indicators for an entire DataFrame.
 
     Requires columns: open, high, low, close, volume.
-    If ``atr`` column is present, also computes IB proxies, expected move,
-    and IV proxy.
+    All proxies are computed unconditionally from OHLCV. The
+    ATR-dependent proxies (IB high/low, expected move, IV) use
+    the internally-computed ``proxy_atr`` — no external ``atr``
+    column is needed.
     """
     result = df.copy()
 
-    h = result["high"]
-    l = result["low"]  # noqa: E741
-    c = result["close"]
-    o = result["open"]
+    # Delegate to per-proxy compute functions for the non-ATR formulas
+    # so each formula is defined in ONE place (shared with the handlers).
+    result["proxy_vwap"] = compute_proxy_vwap(result)
+    result["proxy_typical_price"] = result["proxy_vwap"]
+    result["proxy_ohlc4"] = compute_proxy_ohlc4(result)
+    result["proxy_ibs"] = compute_proxy_ibs(result)
 
-    result["proxy_typical_price"] = (h + l + c) / 3
-    result["proxy_ohlc4"] = (o + h + l + c) / 4
-    result["proxy_vwap"] = result["proxy_typical_price"]
-
-    bar_range = h - l
-    result["proxy_ibs"] = np.where(bar_range > 0, (c - l) / bar_range, 0.5)
-
-    # proxy_atr (Wilder RMA, 14-period) and its dependents.
-    # Delegates to ``compute_proxy_atr`` so the formula is defined in ONE
-    # place — both this batch enrichment and the per-proxy handlers share it.
+    # ATR cluster — delegates to compute_proxy_atr (shared with handlers).
     atr = compute_proxy_atr(result)
     atr_filled = atr.fillna(0)
+    o = result["open"]
+    c = result["close"]
     result["proxy_atr"] = atr
     result["proxy_ib_high"] = o + 0.1 * atr_filled
     result["proxy_ib_low"] = o - 0.1 * atr_filled
@@ -382,29 +461,9 @@ def enrich_dataframe_with_proxies(df: Any) -> Any:
         0.0,
     )
 
-    # Parkinson: ln(H/L)^2 / (4 * ln(2))
-    log_hl = np.where(
-        (h > 0) & (l > 0),
-        np.log(h / l),
-        0.0,
-    )
-    result["proxy_parkinson"] = log_hl**2 / (4.0 * math.log(2))
-
-    # Garman-Klass: 0.5 * ln(H/L)^2 - (2*ln(2)-1) * ln(C/O)^2
-    log_co = np.where(
-        (c > 0) & (o > 0),
-        np.log(c / o),
-        0.0,
-    )
-    result["proxy_garman_klass"] = (
-        0.5 * log_hl**2 - (2.0 * math.log(2) - 1.0) * log_co**2
-    )
-
-    # Rogers-Satchell: ln(H/C)*ln(H/O) + ln(L/C)*ln(L/O)
-    log_hc = np.where((h > 0) & (c > 0), np.log(h / c), 0.0)
-    log_ho = np.where((h > 0) & (o > 0), np.log(h / o), 0.0)
-    log_lc = np.where((l > 0) & (c > 0), np.log(l / c), 0.0)
-    log_lo = np.where((l > 0) & (o > 0), np.log(l / o), 0.0)
-    result["proxy_rogers_satchell"] = log_hc * log_ho + log_lc * log_lo
+    # Volatility estimators.
+    result["proxy_parkinson"] = compute_proxy_parkinson(result)
+    result["proxy_garman_klass"] = compute_proxy_garman_klass(result)
+    result["proxy_rogers_satchell"] = compute_proxy_rogers_satchell(result)
 
     return result

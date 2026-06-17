@@ -1,4 +1,9 @@
-"""Inside-bar handlers and proxy ATR/VWAP.
+"""Inside-bar handlers and proxy OHLCV indicators.
+
+12 proxy metrics (MetricFamily.PROXY) are registered here as per-handler
+dispatch targets. The ATR-cluster (proxy_atr + 4 dependents) shares
+computation via ``ensure_proxy_atr(df, cache)`` mirroring the MACD cache
+pattern. Each handler writes exactly one column.
 
 This module is imported by ``handlers/__init__.py`` which triggers
 registration of all ``@_register`` decorators at import time.
@@ -10,7 +15,12 @@ import numpy as np
 import pandas as pd
 
 from finbar_strategy_runtime.domain.services.proxy_indicator import (
-    compute_proxy_atr,
+    compute_proxy_garman_klass,
+    compute_proxy_ibs,
+    compute_proxy_ohlc4,
+    compute_proxy_parkinson,
+    compute_proxy_rogers_satchell,
+    compute_proxy_vwap,
     ensure_proxy_atr,
 )
 from finbar_strategy_runtime.domain.services.vwap_bands import compute_vwap_session_bands
@@ -102,17 +112,14 @@ def _h_proxy_atr(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
 @_register("proxy_vwap", requires={"high", "low", "close"})
 def _h_proxy_vwap(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
     """Typical price as VWAP proxy: (H+L+C)/3."""
-    df["proxy_vwap"] = (df["high"] + df["low"] + df["close"]) / 3.0
+    df["proxy_vwap"] = compute_proxy_vwap(df)
     return df
 
 
 @_register("proxy_ibs", requires={"high", "low", "close"})
 def _h_proxy_ibs(df: pd.DataFrame, _name: str, _cache: dict) -> pd.DataFrame:
     """Internal Bar Strength proxy: (C-L)/(H-L)."""
-    bar_range = df["high"] - df["low"]
-    df["proxy_ibs"] = np.where(
-        bar_range > 0, (df["close"] - df["low"]) / bar_range, 0.5
-    )
+    df["proxy_ibs"] = compute_proxy_ibs(df)
     return df
 
 
@@ -156,12 +163,7 @@ def _h_proxy_parkinson(
     df: pd.DataFrame, _name: str, _cache: dict
 ) -> pd.DataFrame:
     """Parkinson high-low volatility proxy: ln(H/L)^2 / (4*ln(2))."""
-    log_hl = np.where(
-        (df["high"] > 0) & (df["low"] > 0),
-        np.log(df["high"] / df["low"]),
-        0.0,
-    )
-    df["proxy_parkinson"] = log_hl**2 / (4.0 * math.log(2))
+    df["proxy_parkinson"] = compute_proxy_parkinson(df)
     return df
 
 
@@ -170,17 +172,7 @@ def _h_proxy_garman_klass(
     df: pd.DataFrame, _name: str, _cache: dict
 ) -> pd.DataFrame:
     """Garman-Klass OHLC volatility proxy."""
-    hl = np.where(
-        (df["high"] > 0) & (df["low"] > 0),
-        np.log(df["high"] / df["low"]),
-        0.0,
-    )
-    co = np.where(
-        (df["close"] > 0) & (df["open"] > 0),
-        np.log(df["close"] / df["open"]),
-        0.0,
-    )
-    df["proxy_garman_klass"] = 0.5 * hl**2 - (2.0 * math.log(2) - 1.0) * co**2
+    df["proxy_garman_klass"] = compute_proxy_garman_klass(df)
     return df
 
 
@@ -189,23 +181,7 @@ def _h_proxy_rogers_satchell(
     df: pd.DataFrame, _name: str, _cache: dict
 ) -> pd.DataFrame:
     """Rogers-Satchell drift-independent volatility proxy."""
-    hc = np.where(
-        (df["high"] > 0) & (df["close"] > 0),
-        np.log(df["high"] / df["close"]), 0.0
-    )
-    ho = np.where(
-        (df["high"] > 0) & (df["open"] > 0),
-        np.log(df["high"] / df["open"]), 0.0
-    )
-    lc = np.where(
-        (df["low"] > 0) & (df["close"] > 0),
-        np.log(df["low"] / df["close"]), 0.0
-    )
-    lo = np.where(
-        (df["low"] > 0) & (df["open"] > 0),
-        np.log(df["low"] / df["open"]), 0.0
-    )
-    df["proxy_rogers_satchell"] = hc * ho + lc * lo
+    df["proxy_rogers_satchell"] = compute_proxy_rogers_satchell(df)
     return df
 
 
@@ -213,10 +189,8 @@ def _h_proxy_rogers_satchell(
 def _h_proxy_typical_price(
     df: pd.DataFrame, _name: str, _cache: dict
 ) -> pd.DataFrame:
-    """VWAP proxy: (H+L+C)/3."""
-    df["proxy_typical_price"] = (
-        df["high"] + df["low"] + df["close"]
-    ) / 3.0
+    """VWAP proxy: (H+L+C)/3. Same formula as proxy_vwap."""
+    df["proxy_typical_price"] = compute_proxy_vwap(df)
     return df
 
 
@@ -225,9 +199,7 @@ def _h_proxy_ohlc4(
     df: pd.DataFrame, _name: str, _cache: dict
 ) -> pd.DataFrame:
     """VWAP proxy with open context: (O+H+L+C)/4."""
-    df["proxy_ohlc4"] = (
-        df["open"] + df["high"] + df["low"] + df["close"]
-    ) / 4.0
+    df["proxy_ohlc4"] = compute_proxy_ohlc4(df)
     return df
 
 
