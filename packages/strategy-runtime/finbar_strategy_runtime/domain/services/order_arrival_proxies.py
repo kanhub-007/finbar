@@ -24,16 +24,4 @@ def volume_to_trade_count_proxy(
     return volume.astype(float) / avg_trade_size
 
 
-def trade_count_daily(df: pd.DataFrame, column: str = "trade_count") -> pd.Series:
-    """Return the trade count column if it exists, else NaN.
 
-    Args:
-        df: DataFrame that may contain a 'trade_count' column.
-        column: Column name to look for.
-
-    Returns:
-        Series of trade counts, or all NaN if column missing.
-    """
-    if column in df.columns:
-        return df[column].astype(float)
-    return pd.Series(np.nan, index=df.index)

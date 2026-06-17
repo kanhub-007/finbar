@@ -45,20 +45,18 @@ class TestSortino:
         assert calculate_sortino(returns) == 0.0
 
     def test_downside_deviation_averaged_over_all_observations(self):
-        """Downside deviation must be RMS over ALL n returns, not just the
-        downside ones.
+        """Downside deviation uses sample variance (n-1), consistent with
+        calculate_sharpe.
 
         With 1 downside return of -0.01 among 4 total returns, the correct
-        downside deviation is sqrt((0.01^2)/4) = 0.005, giving Sortino =
-        mean/0.005 * sqrt(252). Dividing by len(downside)==1 would instead
-        give sqrt(0.01^2/1)=0.01 and half the Sortino.
+        downside deviation is sqrt((0.01^2)/(n-1)) = sqrt(0.0001/3).
         """
         import math
 
         returns = [0.02, -0.01, 0.02, 0.02]  # one downside, three upside
         n = len(returns)
         mean_ret = sum(returns) / n
-        expected_dd = math.sqrt(sum(r**2 for r in [-0.01]) / n)
+        expected_dd = math.sqrt(sum(r**2 for r in [-0.01]) / (n - 1))
         expected = mean_ret / expected_dd * math.sqrt(252)
         assert calculate_sortino(returns) == pytest.approx(expected, rel=1e-9)
 

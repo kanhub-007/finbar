@@ -151,7 +151,7 @@ class BacktestResultBuilder:
             "sharpe_ratio": round(sharpe, 4),
             "sortino_ratio": round(sortino, 4),
             "profit_factor": (
-                round(profit_factor, 4) if profit_factor != float("inf") else None
+                round(profit_factor, 4) if profit_factor != float("inf") else 9999.0
             ),
             "calmar_ratio": round(calmar, 4),
         }

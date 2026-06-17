@@ -213,7 +213,6 @@ class TestOrderArrivalHandlers:
         "metric",
         [
             "volume_to_trade_count_proxy",
-            "trade_count_daily",
         ],
     )
     def test_column_appears(self, calc, ohlcv_df, metric):

@@ -178,24 +178,6 @@ class TestOrderArrival:
         # 10000 / 500 = 20 trades
         assert result.iloc[-1] == 20.0
 
-    def test_trade_count_daily_requires_column(self):
-        from finbar_strategy_runtime.domain.services.order_arrival_proxies import (
-            trade_count_daily,
-        )
-
-        df = pd.DataFrame({"trade_count": [100.0, 200.0, 150.0]})
-        result = trade_count_daily(df)
-        assert result.iloc[-1] == 150.0
-
-    def test_trade_count_daily_missing_column_returns_nan(self):
-        from finbar_strategy_runtime.domain.services.order_arrival_proxies import (
-            trade_count_daily,
-        )
-
-        df = pd.DataFrame({"close": [100.0, 101.0, 102.0]})
-        result = trade_count_daily(df)
-        assert result.isna().all()
-
 
 # =========================================================================
 # Information share

@@ -4,6 +4,7 @@ Pure functions with no external dependencies — extracted from
 WalkForwardOptimizer to keep that file under 500 lines.
 """
 
+import math
 from collections.abc import Sequence
 
 from finbar.core.domain.entities.walk_forward_fold import WalkForwardFold
@@ -212,7 +213,9 @@ def _rank_values(values: list[float]) -> list[float]:
     i = 0
     while i < len(indexed):
         j = i
-        while j < len(indexed) and indexed[j][0] == indexed[i][0]:
+        while j < len(indexed) and math.isclose(
+            indexed[j][0], indexed[i][0], rel_tol=1e-12
+        ):
             j += 1
         avg_rank = (i + 1 + j) / 2.0
         for k in range(i, j):

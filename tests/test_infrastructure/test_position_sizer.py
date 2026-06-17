@@ -198,8 +198,8 @@ class TestExplicitSizePolicy:
         assert size == 0.0
         assert any(d.code == "explicit_size_rejected" for d in state.diagnostics)
 
-    def test_cap_explicit_disabled_rejects_oversized(self):
-        """cap_explicit_size=False means reject rather than cap."""
+    def test_cap_explicit_disabled_allows_uncapped(self):
+        """cap_explicit_size=False passes full explicit size through uncapped."""
         config = ExecutionConfig(cap_explicit_size=False)
         sizer = PositionSizer(config)
         entry = PendingEntry(
@@ -213,5 +213,5 @@ class TestExplicitSizePolicy:
         state = BacktestLoopState(10000)
         size = sizer.resolve(state, entry, 100.0, portfolio_value=10000.0)
 
-        assert size == 0.0
-        assert any(d.code == "explicit_size_rejected" for d in state.diagnostics)
+        assert size == 500.0
+        assert not any(d.code == "explicit_size_rejected" for d in state.diagnostics)

@@ -16,6 +16,22 @@ from finbar.core.application.dto.apply_indicators_request import (
 )
 from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.domain.entities.execution_config import ExecutionConfig
+from finbar.presentation.mcp.tools._execution_fields import (
+    ALLOW_NEGATIVE_CASH,
+    BORROW_FEE_ANNUAL_PCT,
+    CAP_EXPLICIT_SIZE,
+    COMMISSION_PCT,
+    ENABLE_FUNDING,
+    FUNDING_RATE,
+    LEVERAGE,
+    MAINTENANCE_MARGIN_PCT,
+    MARGIN_MODE,
+    MARKET_CALENDAR,
+    REJECT_OVERSIZED_EXPLICIT_ORDERS,
+    RISK_MODE,
+    RISK_PER_TRADE,
+    SLIPPAGE_PCT,
+)
 from finbar.startup.service_factory import (
     _get_db,
     _make_apply_indicators_use_case,
@@ -51,24 +67,30 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "Pass bars as JSON string and a list of indicator names "
             '(or a JSON-encoded string like \'["sma_20","rsi_14"]\'). '
             "Returns indicator bars with indicator columns. "
-            "Supported indicators:\n"
-            "  Traditional: rsi_7, rsi_14, sma_10, sma_20, sma_30, "
-            "sma_50, sma_200, ema_12, ema_26, macd, macd_signal, macd_hist, "
-            "atr, adx, vwap, bb_upper, bb_middle, bb_lower, ibs, rvol, ker, "
-            "kama, price_vs_sma20, trend_direction, trend_strength, "
-            "trend_status, swing_high_20, swing_low_20, breakout_level, "
-            "breakout_signal, is_power_zone, breakout_quality, "
-            "vol_buffer_high, vol_buffer_low.\n"
-            "  AMT VWAP: vwap_session, vwap_upper_1/2, vwap_lower_1/2.\n"
-            "  AMT Volume Profile: vp_poc, vp_vah, vp_val, "
-            "vp_poc_Nd, vp_vah_Nd, vp_val_Nd (any window, e.g. vp_poc_10d).\n"
-            "  AMT Market Profile: mp_poc, mp_vah, mp_val.\n"
-            "  AMT State: inside_value, above_value, below_value, at_poc, "
-            "near_vah, near_val, balance_status.\n"
-            "  AMT Signals: acceptance_into_value, acceptance_outside_value, "
-            "rejection_from_edge, poc_rejection, edge_volume_building, "
-            "value_area_migration.\n"
-            "  Proxies: proxy_ibs, proxy_parkinson, proxy_typical_price, etc."
+            "200+ supported indicators across 30+ families.\n"
+            "  Traditional TA: sma_N, ema_N, rsi_N, macd, atr, adx, "
+            "vwap, bb_upper/middle/lower, ibs, rvol, ker, kama.\n"
+            "  Trend/Breakout: trend_direction, trend_strength, trend_status, "
+            "swing_high_20, swing_low_20, breakout_level/signal/quality, "
+            "is_power_zone, vol_buffer_high/low, price_vs_sma20.\n"
+            "  AMT: vwap_session, vwap_upper/lower_1/2, vp_poc/vah/val, "
+            "vp_poc_Nd/vp_vah_Nd/vp_val_Nd, rvp_poc_N, cvp_poc_Nd, "
+            "mp_poc/vah/val, auction state + AMT rule signals.\n"
+            "  Profile/Wyckoff: profile_shape, is_*_shape, is_coiled, "
+            "coil_intensity, wyckoff_phase, poc_slope_*, is_* phase bools.\n"
+            "  Market Microstructure: Spread (7), Volatility estimators (9), "
+            "Liquidity/impact (6), Order flow (6), Informed trading (2), "
+            "Jump risk (4), Resiliency (3), Seasonality (4).\n"
+            "  Intraday Realized: realized_vol_5m/15m/1h, bipower_variation, "
+            "realized_skewness/kurtosis, lee_mykland_jump.\n"
+            "  Price Action: Fibonacci (5), Bill Williams (9), "
+            "SMC/FVG/order blocks (11), VSA signals (10), "
+            "Supply/demand zones (8), Trend structure (6), Hurst/regime (4).\n"
+            "  Derivatives (crypto): funding_rate, open_interest, "
+            "cumulative_volume_delta, long_short_ratio, liquidations.\n"
+            "  Proxies: proxy_vwap, proxy_ibs, proxy_atr, proxy_parkinson, "
+            "proxy_garman_klass, proxy_rogers_satchell, proxy_expected_move, etc.\n"
+            "Full catalog: see get_strategy_capabilities or list_market_metrics."
         ),
     )
     def apply_indicators(bars_json: str, indicators: str) -> str:
@@ -203,19 +225,19 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         interval: str = "",
         params_json: str = "{}",
         initial_cash: float = 10000.0,
-        leverage: float = 1.0,
-        risk_mode: str = "fixed_equity_risk",
-        commission_pct: float = 0.0,
-        slippage_pct: float = 0.0,
-        cap_explicit_size: bool = True,
-        reject_oversized_explicit_orders: bool = False,
-        allow_negative_cash: bool = False,
-        market_calendar: str = "equity_regular_hours",
-        borrow_fee_annual_pct: float = 0.0,
-        margin_mode: str = "simplified",
-        maintenance_margin_pct: float = 0.005,
-        enable_funding: bool = False,
-        funding_rate: float = 0.0001,
+        leverage: float = LEVERAGE,
+        risk_mode: str = RISK_MODE,
+        commission_pct: float = COMMISSION_PCT,
+        slippage_pct: float = SLIPPAGE_PCT,
+        cap_explicit_size: bool = CAP_EXPLICIT_SIZE,
+        reject_oversized_explicit_orders: bool = REJECT_OVERSIZED_EXPLICIT_ORDERS,
+        allow_negative_cash: bool = ALLOW_NEGATIVE_CASH,
+        market_calendar: str = MARKET_CALENDAR,
+        borrow_fee_annual_pct: float = BORROW_FEE_ANNUAL_PCT,
+        margin_mode: str = MARGIN_MODE,
+        maintenance_margin_pct: float = MAINTENANCE_MARGIN_PCT,
+        enable_funding: bool = ENABLE_FUNDING,
+        funding_rate: float = FUNDING_RATE,
         detail_level: str = "summary",
     ) -> str:
         """Run a backtest and return structured results.
@@ -227,10 +249,11 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             interval: Bar interval (e.g. "1d", "1h").
             params_json: JSON string with strategy parameters.
             initial_cash: Starting capital.
-            leverage: Leverage multiplier. 1.0 = spot, 3.0 = 3x.
+            leverage: Leverage multiplier. 1.0 = spot, 3.0 = 3x. Caps size
+                and requires stop > liquidation price (see param description).
             risk_mode: fixed_equity_risk or leverage_scaled_risk.
-            commission_pct: Percentage commission per side as decimal.
-            slippage_pct: Directional slippage percentage as decimal.
+            commission_pct: Commission per side as DECIMAL (0.001 = 0.1%).
+            slippage_pct: Directional slippage as DECIMAL (0.001 = 0.1%).
             cap_explicit_size: Cap explicit strategy sizes to buying power.
             reject_oversized_explicit_orders: Reject oversized explicit orders.
             allow_negative_cash: Allow cash overdrafts for advanced simulations.
@@ -305,11 +328,11 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         portfolio_config_json: str,
         initial_cash: float = 100000.0,
         interval: str = "1d",
-        risk_per_trade: float = 0.02,
-        leverage: float = 1.0,
-        risk_mode: str = "fixed_equity_risk",
-        commission_pct: float = 0.0,
-        slippage_pct: float = 0.0,
+        risk_per_trade: float = RISK_PER_TRADE,
+        leverage: float = LEVERAGE,
+        risk_mode: str = RISK_MODE,
+        commission_pct: float = COMMISSION_PCT,
+        slippage_pct: float = SLIPPAGE_PCT,
     ) -> str:
         """Run portfolio backtest from a JSON config string."""
         try:
@@ -500,8 +523,8 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
         start_date: str | None = None,
         end_date: str | None = None,
         initial_cash: float = 10000.0,
-        risk_per_trade: float = 0.02,
-        leverage: float = 1.0,
+        risk_per_trade: float = RISK_PER_TRADE,
+        leverage: float = LEVERAGE,
         detail_level: str = "summary",
     ) -> str:
         result = await _make_run_strategy_pipeline_use_case().execute(

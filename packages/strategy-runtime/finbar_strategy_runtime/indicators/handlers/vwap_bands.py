@@ -10,6 +10,11 @@ from finbar_strategy_runtime.domain.services.vwap_bands import compute_vwap_sess
 from finbar_strategy_runtime.indicators._handler_registry import _register
 
 
+@_register("vwap_session")
+def _vwap_session(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
+    return _compute_vwap_bands(df, cache)
+
+
 @_register("vwap_upper_1")
 def _vwap_upper_1(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
     return _compute_vwap_bands(df, cache)
@@ -28,6 +33,9 @@ def _vwap_upper_2(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
 @_register("vwap_lower_2")
 def _vwap_lower_2(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
     return _compute_vwap_bands(df, cache)
+
+
+_VWAP_BANDS_CACHE_KEY = "__vwap_bands_done"
 
 
 def _compute_vwap_bands(df: pd.DataFrame, cache: dict) -> pd.DataFrame:

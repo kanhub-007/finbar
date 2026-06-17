@@ -174,6 +174,9 @@ def _parse_timestamp(raw: str, time_basis: str):
     from datetime import datetime
 
     raw = raw.strip()
+    # Normalise the "Z" UTC suffix so fromisoformat works on Python < 3.11.
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
     if time_basis == "calendar_day":
         raw = raw[:10]
     return datetime.fromisoformat(raw)

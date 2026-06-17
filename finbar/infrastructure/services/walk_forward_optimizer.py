@@ -97,8 +97,9 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             len(bars), folds_config.folds, folds_config.train_ratio, folds_config.anchor
         )
 
-        total = len([f for f in fold_indices if f["test_count"] > 0])
-        if total == 0:
+        # Guard: at least one fold must exist (test_count > 0) to proceed.
+        total_folds = len([f for f in fold_indices if f["test_count"] > 0])
+        if total_folds == 0:
             self._manager.update(
                 job,
                 status="failed",
@@ -106,10 +107,20 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             )
             return
 
+        # Count executable folds (those that pass min-train/min-test).
+        executable = len(
+            [
+                f
+                for f in fold_indices
+                if f["train_count"] >= folds_config.min_train_bars
+                and f["test_count"] >= max(1, folds_config.min_test_bars)
+            ]
+        )
+
         self._manager.update(
             job,
             status="running",
-            total_combinations=total,
+            total_combinations=max(executable, 1),
         )
 
         fold_results: list[WalkForwardFold] = []
@@ -135,7 +146,11 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             self._manager.update(
                 job,
                 combinations_done=runs_done,
-                progress_pct=int(runs_done / total * 100),
+                progress_pct=(
+                    int(runs_done / max(executable, 1) * 100)
+                    if executable > 0
+                    else 0
+                ),
                 message=f"Fold {idx + 1}/{len(fold_indices)}: grid search",
             )
 
@@ -158,7 +173,7 @@ class WalkForwardOptimizer(OptimizationJobRunner):
             job,
             status="completed",
             progress_pct=100,
-            combinations_done=total,
+            combinations_done=runs_done,
             message="Walk-forward complete",
             metadata={**job.metadata, "walk_forward_result": result},
         )

@@ -55,7 +55,7 @@ class PositionSizer:
             risk_per_share = abs(entry_price - entry.stop_price)
             if risk_per_share > 0.001:
                 return risk_amount / risk_per_share
-        return _DEFAULT_POSITION_SIZE
+        return _DEFAULT_POSITION_SIZE  # no stop/explicit size
 
     # -- Affordability cap -------------------------------------------------
 
@@ -81,18 +81,25 @@ class PositionSizer:
         capped = min(size, cap)
         if capped >= size:
             return capped
-        if entry.explicit_size and self._reject_oversized():
-            self._add_diagnostic(
-                state,
-                "order_rejected",
-                "explicit_size_rejected",
-                (f"Explicit size {size:.8f} exceeds max " f"affordable {cap:.8f}."),
-                {
-                    "requested_size": size,
-                    "max_affordable_size": cap,
-                },
-            )
-            return 0.0
+        if entry.explicit_size:
+            if self._config.reject_oversized_explicit_orders:
+                self._add_diagnostic(
+                    state,
+                    "order_rejected",
+                    "explicit_size_rejected",
+                    (
+                        f"Explicit size {size:.8f} exceeds max "
+                        f"affordable {cap:.8f}."
+                    ),
+                    {
+                        "requested_size": size,
+                        "max_affordable_size": cap,
+                    },
+                )
+                return 0.0
+            if not self._config.cap_explicit_size:
+                # Allow full size through uncapped (documented behaviour).
+                return size
         self._add_diagnostic(
             state,
             "order_resized",
@@ -117,12 +124,6 @@ class PositionSizer:
             return 0.0
         buying_power = cash * self._leverage.multiplier
         return max(0.0, buying_power / effective_price)
-
-    def _reject_oversized(self) -> bool:
-        return (
-            self._config.reject_oversized_explicit_orders
-            or not self._config.cap_explicit_size
-        )
 
     @staticmethod
     def _add_diagnostic(
