@@ -126,8 +126,44 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         if df.empty or not indicators:
             return df.copy()
 
-        result = df.copy()
+        result = self._compute_all(df, indicators)
+        return result
 
+    def calculate_last(
+        self, df: pd.DataFrame, indicators: list[str]
+    ) -> dict[str, float]:
+        """Compute indicators and return only the latest-row scalars.
+
+        A backward-compatible, lower-allocation entry point for callers
+        that only need the latest bar's values.
+
+        Args:
+            df: DataFrame with columns [open, high, low, close, volume].
+            indicators: List of indicator names to compute.
+
+        Returns:
+            Dict mapping indicator name → scalar value for the last row.
+        """
+        if df.empty or not indicators:
+            return {}
+
+        result = self._compute_all(df, indicators)
+        # Convert last row to plain dict of floats
+        last = result.iloc[-1]
+        out: dict[str, float] = {}
+        for name in indicators:
+            if name in last.index:
+                val = last[name]
+                if isinstance(val, (int, float)) and not pd.isna(val):
+                    out[name] = float(val)
+        return out
+
+    @staticmethod
+    def _compute_all(
+        df: pd.DataFrame, indicators: list[str]
+    ) -> pd.DataFrame:
+
+        result = df.copy()
         if len(result) < MIN_BARS:
             logger.warning(
                 "Only %d bars (minimum %d), skipping indicators",
