@@ -182,6 +182,26 @@ class TestAtrDependentsNoExternalAtr:
             assert result[name].tail(5).notna().any()
             assert "atr" not in result.columns
 
+    def test_proxy_expected_move_works_without_open_column(self, calc):
+        """Regression guard: proxy_expected_move does NOT require open —
+        it only needs ATR (high/low/close). Bug: handler declared
+        requires={"open"} unnecessarily, causing all-NaN on open-less frames."""
+        rng = np.random.default_rng(seed=42)
+        n = 40
+        close = 100.0 + rng.uniform(-1.5, 1.5, n).cumsum()
+        df = pd.DataFrame(
+            {
+                "high": close + 1.0,
+                "low": close - 1.0,
+                "close": close,
+                "volume": 1_000_000.0,
+            },
+            index=pd.date_range("2026-01-01", periods=n, freq="D"),
+        )  # NO 'open' column
+        result = calc.calculate(df, ["proxy_expected_move"])
+        assert "proxy_expected_move" in result.columns
+        assert result["proxy_expected_move"].tail(5).notna().any()
+
 
 # =========================================================================
 # Scenario 6: No proxy short-circuit remains in the calculator

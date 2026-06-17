@@ -139,7 +139,7 @@ def _h_proxy_ib_low(df: pd.DataFrame, _name: str, cache: dict) -> pd.DataFrame:
     return df
 
 
-@_register("proxy_expected_move", requires={"open", "high", "low", "close"})
+@_register("proxy_expected_move", requires={"high", "low", "close"})
 def _h_proxy_expected_move(
     df: pd.DataFrame, _name: str, cache: dict
 ) -> pd.DataFrame:
