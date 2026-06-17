@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from finbar.core.domain.services.proxy_indicator import (
+from finbar_strategy_runtime.domain.services.proxy_indicator import (
     atr_to_iv_proxy,
     daily_expected_move,
     enrich_bar_with_proxies,

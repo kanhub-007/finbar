@@ -34,6 +34,10 @@ select = ["E", "F", "I", "N", "W", "UP"]
 # (from X import foo as bar) in this handler registry file. The imports are
 # correctly sorted; suppress the false positive.
 "**/price_action.py" = ["I001"]
+# re-export after helper functions — deliberately not at top of file.
+"**/_metric_registry.py" = ["E402"]
+# Data file with long paper_reference strings and condition_notes.
+"**/_metric_data.py" = ["E501"]
 
 [tool.black]
 line-length = 88
