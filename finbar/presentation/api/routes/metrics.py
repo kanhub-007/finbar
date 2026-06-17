@@ -1,13 +1,13 @@
 """Metric catalog API endpoints — discovery and capability checks."""
 
 from fastapi import APIRouter, Query
+from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
+from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 from finbar.core.application.use_cases.check_metric_capability import (
     CheckMetricCapabilityUseCase,
 )
 from finbar.presentation.dto.metric_serializers import metric_to_dict, result_to_dict
-from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
-from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 router = APIRouter(prefix="/api/metrics", tags=["Metrics"])
 

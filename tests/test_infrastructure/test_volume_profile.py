@@ -8,9 +8,8 @@ of expand_value_area under floating-point perturbation.
 import numpy as np
 import pandas as pd
 import pytest
-
-from finbar.core.domain.services._profile_utils import expand_value_area
-from finbar.core.domain.services.volume_profile import (
+from finbar_strategy_runtime.domain.services._profile_utils import expand_value_area
+from finbar_strategy_runtime.domain.services.volume_profile import (
     _distribute_bar_volume,
     _extract_poc_vah_val,
     _global_bucket_grid,

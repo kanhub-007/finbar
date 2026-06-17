@@ -5,11 +5,12 @@ fetched and persisted. For OHLCV metrics, delegates to the unified
 catalog's ``check()`` method.
 """
 
-from finbar.core.domain.interfaces.derivatives_repository import DerivativesRepository
 from finbar_strategy_runtime.domain.entities.metric_capability_result import (
     MetricCapabilityResult,
 )
 from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
+
+from finbar.core.domain.interfaces.derivatives_repository import DerivativesRepository
 
 
 class CheckMetricCapabilityUseCase:

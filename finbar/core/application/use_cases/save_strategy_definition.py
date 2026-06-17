@@ -5,16 +5,16 @@ import logging
 from datetime import UTC, datetime
 
 import yaml
+from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser,
+)
 
 from finbar.core.application.dto.save_strategy_definition_request import (
     SaveStrategyDefinitionRequest,
 )
 from finbar.core.application.dto.save_strategy_definition_result import (
     SaveStrategyDefinitionResult,
-)
-from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
-from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
-    StrategyDefinitionParser,
 )
 from finbar.core.domain.interfaces.strategy_document_repository import (
     StrategyDocumentRepository,

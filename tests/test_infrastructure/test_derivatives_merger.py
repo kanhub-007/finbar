@@ -5,9 +5,7 @@ with the no-lookahead invariant: a value timestamped T is only visible
 at bar T+1 or later.
 """
 
-import numpy as np
 import pandas as pd
-import pytest
 
 from finbar.core.domain.entities.derivatives_metrics import DerivativesMetrics
 from finbar.infrastructure.services.derivatives_merger import merge_derivatives_asof

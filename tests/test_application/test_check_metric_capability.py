@@ -4,7 +4,6 @@ Verifies derivatives metrics report computable=False when data hasn't
 been fetched, with a hint to run fetch_derivatives.
 """
 
-import pytest
 
 from finbar.core.application.use_cases.check_metric_capability import (
     CheckMetricCapabilityUseCase,

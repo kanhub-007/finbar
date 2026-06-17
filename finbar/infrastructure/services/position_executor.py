@@ -247,15 +247,22 @@ class PositionExecutor:
         )
         if state.equity_curve:
             last = state.equity_curve[-1]
-            last["value"] = self._portfolio_value(state, final_close)
-            last["position"] = 0
-            if last["value"] > state.peak_value:
-                state.peak_value = last["value"]
-            last["drawdown"] = (
-                (state.peak_value - last["value"]) / state.peak_value
+            portfolio_val = self._portfolio_value(state, final_close)
+            if portfolio_val > state.peak_value:
+                state.peak_value = portfolio_val
+            dd = (
+                (state.peak_value - portfolio_val) / state.peak_value
                 if state.peak_value > 0
                 else 0.0
             )
+            # Replace the last entry rather than mutating it in-place so
+            # no stale references survive.
+            state.equity_curve[-1] = {
+                **last,
+                "value": portfolio_val,
+                "position": 0,
+                "drawdown": dd,
+            }
 
     @staticmethod
     def portfolio_value(state: BacktestLoopState, close: float) -> float:

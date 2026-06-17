@@ -6,13 +6,8 @@ Pure dataclass — no behavior, no ORM, no framework dependencies.
 from dataclasses import dataclass, field
 from typing import Any
 
-from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar.core.domain.interfaces.indicator_artifact_provider import (
-    IndicatorArtifactProvider,
-)
-from finbar.core.domain.interfaces.optimization_job_manager import (
-    OptimizationJobManager,
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
 )
 from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
@@ -23,7 +18,17 @@ from finbar_strategy_runtime.domain.interfaces.strategy_definition_strategy_fact
 from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
-from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
+from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import (
+    TimeframeBarMerger,
+)
+
+from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
+from finbar.core.domain.interfaces.indicator_artifact_provider import (
+    IndicatorArtifactProvider,
+)
+from finbar.core.domain.interfaces.optimization_job_manager import (
+    OptimizationJobManager,
+)
 
 
 @dataclass(frozen=True)

@@ -2,24 +2,27 @@
 
 import logging
 
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
+    StrategyValidationError,
+)
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
+)
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser,
+)
+from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
+    StrategyFeatureCalculator,
+)
+from finbar_strategy_runtime.parser.feature_input_column_collector import (
+    FeatureInputColumnCollector,
+)
+
 from finbar.core.application.dto.apply_strategy_features_request import (
     ApplyStrategyFeaturesRequest,
 )
 from finbar.core.application.dto.apply_strategy_features_result import (
     ApplyStrategyFeaturesResult,
-)
-from finbar_strategy_runtime.parser.feature_input_column_collector import (
-    FeatureInputColumnCollector,
-)
-from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
-    StrategyDefinitionParser,
-)
-from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
-    StrategyValidationError,
-)
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
-    StrategyFeatureCalculator,
 )
 
 logger = logging.getLogger(__name__)

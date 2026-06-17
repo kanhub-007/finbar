@@ -347,17 +347,21 @@ def _precompute_dates(index) -> list[str]:
     component only when they actually carry one; non-datetime index values
     fall back to their string form.
     """
+    from datetime import datetime
+
+    import pandas as pd
+
     values = list(index) if hasattr(index, "__iter__") else [index]
     out: list[str] = []
     for ts in values:
-        if ts is None:
+        if ts is None or (hasattr(ts, "__class__") and pd.isna(ts)):
             out.append("")
             continue
-        if hasattr(ts, "hour") and hasattr(ts, "strftime"):
+        if isinstance(ts, datetime):
             if ts.hour or ts.minute or ts.second or ts.microsecond:
-                out.append(str(ts.strftime("%Y-%m-%dT%H:%M:%S")))
+                out.append(ts.strftime("%Y-%m-%dT%H:%M:%S"))
             else:
-                out.append(str(ts.strftime("%Y-%m-%d")))
+                out.append(ts.strftime("%Y-%m-%d"))
         else:
             out.append(str(ts))
     return out
@@ -369,19 +373,29 @@ def _log_run_summary(state: BacktestLoopState) -> None:
     if total_trades == 0:
         logger.info("[SUMMARY] No trades executed. Final cash=%.2f", state.cash)
         return
-    winning = sum(1 for t in state.trades if t["pnl"] > 0)
-    losing = sum(1 for t in state.trades if t["pnl"] <= 0)
-    gross_profit = sum(t["pnl"] for t in state.trades if t["pnl"] > 0)
-    gross_loss = sum(t["pnl"] for t in state.trades if t["pnl"] <= 0)
+    # Exclude NaN PnL trades (should not happen but guard against corruption)
+    import math
+
+    finite_trades = [t for t in state.trades if math.isfinite(float(t.get("pnl", 0.0)))]
+    if len(finite_trades) < total_trades:
+        logger.warning(
+            "[SUMMARY] %d trade(s) excluded due to non-finite PnL",
+            total_trades - len(finite_trades),
+        )
+    winning = sum(1 for t in finite_trades if t["pnl"] > 0)
+    losing = sum(1 for t in finite_trades if t["pnl"] <= 0)
+    gross_profit = sum(t["pnl"] for t in finite_trades if t["pnl"] > 0)
+    gross_loss = sum(t["pnl"] for t in finite_trades if t["pnl"] <= 0)
+    ft = len(finite_trades)
     total_pnl = gross_profit + gross_loss
     logger.info(
         "[SUMMARY] Trades=%d (W=%d L=%d) | WinRate=%.1f%% | "
         "GrossProfit=%.2f GrossLoss=%.2f NetPnL=%.2f | "
         "FinalCash=%.2f PeakValue=%.2f",
-        total_trades,
+        ft,
         winning,
         losing,
-        (winning / total_trades * 100) if total_trades > 0 else 0,
+        (winning / ft * 100) if ft > 0 else 0,
         gross_profit,
         gross_loss,
         total_pnl,

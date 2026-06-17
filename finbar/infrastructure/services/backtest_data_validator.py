@@ -138,11 +138,14 @@ def validate_required_data(
 
     first_valid_idx = valid_mask.idxmax() if valid_mask.any() else None
     if first_valid_idx is not None:
+        from datetime import datetime
+
         warmup_bars = frame.index.get_loc(first_valid_idx)
-        if hasattr(frame.index[warmup_bars], "strftime"):
-            first_tradable = str(frame.index[warmup_bars].strftime("%Y-%m-%dT%H:%M:%S"))
+        ts = frame.index[warmup_bars]
+        if isinstance(ts, datetime):
+            first_tradable = ts.strftime("%Y-%m-%dT%H:%M:%S")
         else:
-            first_tradable = str(frame.index[warmup_bars])
+            first_tradable = str(ts)
 
         post_mask = valid_mask.iloc[warmup_bars:]
         if not post_mask.all():

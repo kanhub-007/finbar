@@ -15,7 +15,6 @@ from finbar.infrastructure.services.coinglass_client import (
 )
 from finbar.infrastructure.services.hyperliquid_fetcher import _parse_hl_funding
 
-
 # ---------------------------------------------------------------------------
 # Unit tests for parsers (no network)
 # ---------------------------------------------------------------------------

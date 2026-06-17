@@ -1,10 +1,13 @@
 """Regression tests for bugs found during correctness review."""
 
-import numpy as np
 import pandas as pd
-import pytest
+from finbar_strategy_runtime.domain.services.volume_profile import (
+    compute_rolling_window_vp,
+)
+from finbar_strategy_runtime.indicators.pandas_formula_feature_calculator import (
+    _parse_operand,
+)
 
-from finbar.core.domain.services.volume_profile import compute_rolling_window_vp
 from finbar.core.domain.entities.leverage_config import LeverageConfig
 from finbar.core.domain.entities.param_range import ParamRange
 from finbar.infrastructure.services.bar_validator import validate_bar
@@ -13,9 +16,6 @@ from finbar.infrastructure.services.coinglass_client import (
     _parse_cvd,
     _parse_funding,
     _parse_oi,
-)
-from finbar_strategy_runtime.indicators.pandas_formula_feature_calculator import (
-    _parse_operand,
 )
 
 

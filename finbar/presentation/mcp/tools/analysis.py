@@ -15,7 +15,6 @@ from finbar.core.application.dto.apply_indicators_request import (
     ApplyIndicatorsRequest,
 )
 from finbar.core.application.dto.backtest_request import BacktestRequest
-from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.presentation.mcp.tools._execution_fields import (
     ALLOW_NEGATIVE_CASH,
     BORROW_FEE_ANNUAL_PCT,
@@ -31,6 +30,7 @@ from finbar.presentation.mcp.tools._execution_fields import (
     RISK_MODE,
     RISK_PER_TRADE,
     SLIPPAGE_PCT,
+    build_execution_config,
 )
 from finbar.startup.service_factory import (
     _get_db,
@@ -180,7 +180,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 }
                 for meta in use_case.list_strategies()
             ]
-            error = _search_filter(
+            strategies, error = _search_filter(
                 strategies,
                 search,
                 match_keys=("name", "description"),
@@ -282,15 +282,13 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                 BacktestRequest(
                     bars=bars,
                     strategy_name=strategy_name,
-                    execution=ExecutionConfig(
+                    execution=build_execution_config(
                         leverage_multiplier=leverage,
                         risk_mode=risk_mode,
                         commission_pct=commission_pct,
                         slippage_pct=slippage_pct,
                         cap_explicit_size=cap_explicit_size,
-                        reject_oversized_explicit_orders=(
-                            reject_oversized_explicit_orders
-                        ),
+                        reject_oversized_explicit_orders=reject_oversized_explicit_orders,
                         allow_negative_cash=allow_negative_cash,
                         market_calendar=market_calendar,
                         borrow_fee_annual_pct=borrow_fee_annual_pct,
@@ -372,7 +370,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             assets=assets,
             initial_cash=initial_cash,
             interval=interval,
-            execution=ExecutionConfig(
+            execution=build_execution_config(
                 leverage_multiplier=leverage,
                 risk_mode=risk_mode,
                 commission_pct=commission_pct,
@@ -549,43 +547,7 @@ def _store_backtest_response(result: dict, detail_level: str) -> str:
 
 
 def _backtest_result_to_dict(result) -> dict:
-    """Serialize a BacktestResultDTO into a plain dictionary."""
-    return {
-        "strategy_name": result.strategy_name,
-        "symbol": result.symbol,
-        "interval": result.interval,
-        "start_date": result.start_date,
-        "end_date": result.end_date,
-        "bar_count": result.bar_count,
-        "initial_cash": result.initial_cash,
-        "final_value": result.final_value,
-        "total_return": result.total_return,
-        "annualized_return": result.annualized_return,
-        "annualization_factor": result.annualization_factor,
-        "annualization_warning": result.annualization_warning,
-        "total_trades": result.total_trades,
-        "winning_trades": result.winning_trades,
-        "losing_trades": result.losing_trades,
-        "win_rate": result.win_rate,
-        "max_drawdown": result.max_drawdown,
-        "sharpe_ratio": result.sharpe_ratio,
-        "sortino_ratio": result.sortino_ratio,
-        "profit_factor": result.profit_factor,
-        "calmar_ratio": result.calmar_ratio,
-        "total_commission": result.total_commission,
-        "total_borrow_cost": result.total_borrow_cost,
-        "total_fees": result.total_fees,
-        "total_slippage": result.total_slippage,
-        "realized_pnl": result.realized_pnl,
-        "cash": result.cash,
-        "ending_position_size": result.ending_position_size,
-        "reconciliation_error": result.reconciliation_error,
-        "commission_pct": result.commission_pct,
-        "slippage_pct": result.slippage_pct,
-        "trust_diagnostics": result.trust_diagnostics,
-        "diagnostics": result.diagnostics,
-        "analytics": result.analytics,
-        "trades": result.trades,
-        "equity_curve": result.equity_curve,
-        "error": result.error,
-    }
+    """Serialize a BacktestResultDTO into a plain dictionary via dataclasses.asdict."""
+    from dataclasses import asdict
+
+    return asdict(result)

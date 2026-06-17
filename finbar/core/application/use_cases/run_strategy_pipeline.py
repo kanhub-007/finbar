@@ -7,6 +7,10 @@ from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any
 
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser,
+)
+
 from finbar.core.application.dto.compute_strategy_indicators_result import (
     ComputeStrategyIndicatorsResult,
 )
@@ -29,9 +33,6 @@ from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobMana
 from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
-)
-from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
-    StrategyDefinitionParser,
 )
 
 _POLL_INTERVAL = 0.5

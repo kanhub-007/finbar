@@ -7,11 +7,12 @@ from finbar_strategy_runtime.domain.entities.strategy_meta import DataMode, Stra
 from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
+from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
+
 from finbar.core.domain.interfaces.strategy_document_repository import (
     StrategyDocumentRepository,
 )
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
-from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 from finbar.infrastructure.services.strategy_definition_factory import (
     StrategyDefinitionFactory,
 )

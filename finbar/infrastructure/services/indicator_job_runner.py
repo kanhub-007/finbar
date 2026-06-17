@@ -8,34 +8,36 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy.orm import Session
-
-from finbar.core.domain.entities.indicator_job import IndicatorJob
-from finbar.core.domain.entities.price_bar import PriceBar
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar_strategy_runtime.domain.interfaces.indicator_calculator import IndicatorCalculator
-from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
-from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
+)
+from finbar_strategy_runtime.domain.interfaces.indicator_calculator import (
+    IndicatorCalculator,
+)
 from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
 from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
 )
+from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+    FAILED_INDICATORS_ATTR,
+)
+from sqlalchemy.orm import Session
+
+from finbar.core.domain.entities.derivatives_metrics import (
+    DERIVATIVES_FIELDS,
+)
+from finbar.core.domain.entities.indicator_job import IndicatorJob
+from finbar.core.domain.entities.price_bar import PriceBar
+from finbar.core.domain.interfaces.indicator_job_manager import IndicatorJobManager
+from finbar.core.domain.interfaces.indicator_job_runner import IndicatorJobRunner
 from finbar.infrastructure.repositories.sql_indicator_artifact_repository import (
     SqlIndicatorArtifactRepository,
 )
 from finbar.infrastructure.repositories.sql_price_cache_repository import (
     SqlPriceCacheRepository,
 )
-
-from finbar.core.domain.entities.derivatives_metrics import (
-    DERIVATIVES_FIELDS,
-)
-from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-    FAILED_INDICATORS_ATTR,
-)
-
 
 # Derivatives metric names that require pre-merged data from the repository.
 # Sourced from the canonical DERIVATIVES_FIELDS on the entity.

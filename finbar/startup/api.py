@@ -31,7 +31,9 @@ def create_app() -> FastAPI:
         router as optimization_router,
     )
     from finbar.presentation.api.routes.prices import router as prices_router
-    from finbar.presentation.api.routes.strategy_definition import router as strategy_router
+    from finbar.presentation.api.routes.strategy_definition import (
+        router as strategy_router,
+    )
     from finbar.presentation.api.routes.symbols import router as symbols_router
 
     app.include_router(strategy_router)

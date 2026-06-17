@@ -14,17 +14,6 @@ the outcome (job state + progress DTO).
 import numpy as np
 import pandas as pd
 import pytest
-
-from finbar.core.application.use_cases.get_indicator_job_progress import (
-    GetIndicatorJobProgressUseCase,
-)
-from finbar.core.domain.entities.indicator_job import IndicatorJob
-from finbar.infrastructure.services.indicator_job_runner import (
-    CachedPriceIndicatorJobRunner,
-)
-from finbar.infrastructure.services.in_memory_indicator_job_manager import (
-    InMemoryIndicatorJobManager,
-)
 from finbar_strategy_runtime.indicators._handler_registry import (
     _INDICATOR_HANDLERS,
 )
@@ -33,6 +22,17 @@ from finbar_strategy_runtime.indicators.pandas_bar_frame_converter import (
 )
 from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
+)
+
+from finbar.core.application.use_cases.get_indicator_job_progress import (
+    GetIndicatorJobProgressUseCase,
+)
+from finbar.core.domain.entities.indicator_job import IndicatorJob
+from finbar.infrastructure.services.in_memory_indicator_job_manager import (
+    InMemoryIndicatorJobManager,
+)
+from finbar.infrastructure.services.indicator_job_runner import (
+    CachedPriceIndicatorJobRunner,
 )
 
 

@@ -144,6 +144,12 @@ class BacktestResultDTO:
     error: str | None = None
     """Error message if the backtest failed."""
 
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable dict via dataclasses.asdict."""
+        from dataclasses import asdict
+
+        return asdict(self)
+
     @property
     def is_profitable(self) -> bool:
         """True if the strategy produced a positive total return."""

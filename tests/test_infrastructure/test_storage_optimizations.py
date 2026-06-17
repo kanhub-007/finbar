@@ -1,11 +1,11 @@
 """Tests for Phase 4 storage optimizations."""
 
 import pytest
+from finbar_strategy_runtime.domain.services.content_hash import compute_artifact_hash
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from finbar.core.domain.entities.indicator_job import IndicatorJob
-from finbar.core.domain.services.content_hash import compute_artifact_hash
 from finbar.infrastructure.data.connection import Base
 from finbar.infrastructure.repositories.sql_backtest_result_repository import (
     SqlBacktestResultRepository,

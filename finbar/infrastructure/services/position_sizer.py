@@ -30,7 +30,7 @@ class PositionSizer:
         portfolio_value: float,
     ) -> float:
         """Compute size and apply affordability cap. Returns filled size."""
-        size = self._raw_size(entry, portfolio_value, entry_price)
+        size = self._raw_size(entry, portfolio_value, entry_price, state)
         if size <= 0:
             return 0.0
         return self._apply_affordability_cap(state, entry, size, entry_price)
@@ -42,6 +42,7 @@ class PositionSizer:
         entry: PendingEntry,
         portfolio_value: float,
         entry_price: float,
+        state: BacktestLoopState | None = None,
     ) -> float:
         """Compute position size before the affordability cap."""
         if entry.explicit_size and entry.position_size > 0:
@@ -55,6 +56,20 @@ class PositionSizer:
             risk_per_share = abs(entry_price - entry.stop_price)
             if risk_per_share > 0.001:
                 return risk_amount / risk_per_share
+            # Stop distance is too small for meaningful risk-based sizing;
+            # emit a diagnostic so the operator knows we fell back.
+            if state is not None:
+                self._add_diagnostic(
+                    state,
+                    "warning",
+                    "stop_distance_too_small",
+                    (
+                        f"Stop distance {risk_per_share:.6f} is below the "
+                        f"minimum threshold (0.001). Falling back to default "
+                        f"position size of {_DEFAULT_POSITION_SIZE}."
+                    ),
+                    {"risk_per_share": risk_per_share},
+                )
         return _DEFAULT_POSITION_SIZE  # no stop/explicit size
 
     # -- Affordability cap -------------------------------------------------

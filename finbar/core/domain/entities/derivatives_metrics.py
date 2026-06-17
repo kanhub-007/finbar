@@ -7,7 +7,6 @@ Fields represent universal derivatives concepts that any provider
 
 from dataclasses import dataclass, field
 
-
 # All nullable float fields on DerivativesMetrics that can be merged onto
 # OHLCV frames. This is the single source of truth — the indicator job
 # runner, the derivatives merger, and the pass-through handlers all

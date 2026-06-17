@@ -158,7 +158,7 @@ class TestFinbarConsumesPackage:
                             )
 
         assert len(violations) == 0, (
-            f"Files still importing extracted types from finbar instead of "
-            f"finbar_strategy_runtime:\n" + "\n".join(violations[:30])
+            "Files still importing extracted types from finbar instead of "
+            "finbar_strategy_runtime:\n" + "\n".join(violations[:30])
             + (f"\n... and {len(violations) - 30} more" if len(violations) > 30 else "")
         )

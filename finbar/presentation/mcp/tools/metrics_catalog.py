@@ -12,13 +12,13 @@ metrics report ``computable=False`` when data hasn't been fetched.
 import json
 
 from fastmcp import FastMCP
+from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
+from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 from finbar.core.application.use_cases.check_metric_capability import (
     CheckMetricCapabilityUseCase,
 )
 from finbar.presentation.dto.metric_serializers import metric_to_dict, result_to_dict
-from finbar_strategy_runtime.domain.entities.metric_family import MetricFamily
-from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 
 def register_metric_catalog_tools(mcp: FastMCP) -> None:
@@ -142,11 +142,10 @@ def _make_check_metric_capability_use_case() -> CheckMetricCapabilityUseCase:
     hard-depend on infrastructure factories at import time).
     """
     try:
-        from finbar.presentation.mcp.tools._shared import _get_db
-
         from finbar.infrastructure.repositories.sql_coinglass_repository import (
             SqlCoinGlassRepository,
         )
+        from finbar.presentation.mcp.tools._shared import _get_db
 
         db = _get_db()
         repository = SqlCoinGlassRepository(db)

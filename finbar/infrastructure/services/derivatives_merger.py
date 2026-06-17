@@ -10,12 +10,12 @@ invariant.
 from __future__ import annotations
 
 import pandas as pd
+from finbar_strategy_runtime.indicators.bar_merger import interval_offset
 
 from finbar.core.domain.entities.derivatives_metrics import (
     DERIVATIVES_FIELDS,
     DerivativesMetrics,
 )
-from finbar_strategy_runtime.indicators.bar_merger import interval_offset
 
 # Use the canonical field list from the entity (single source of truth).
 _DERIVATIVES_COLUMNS: list[str] = list(DERIVATIVES_FIELDS)

@@ -162,6 +162,12 @@ def _time_held(entry_date: str, exit_date: str, time_basis: str) -> float:
         exit_ = _parse_timestamp(exit_date, time_basis)
         return max(0.0, (exit_ - entry).total_seconds() / 86400.0)
     except (ValueError, TypeError, OSError):
+        logger.warning(
+            "Could not compute borrow holding period from dates: "
+            "entry=%r exit=%r — borrow cost set to 0.0",
+            entry_date,
+            exit_date,
+        )
         return 0.0
 
 

@@ -120,8 +120,16 @@ class BacktestResultBuilder:
             else 0.0
         )
 
-        gross_profit = sum(t["pnl"] for t in state.trades if t["pnl"] > 0)
-        gross_loss = abs(sum(t["pnl"] for t in state.trades if t["pnl"] <= 0))
+        # Exclude non-finite PnL (should not happen; defensive guard)
+        import math
+
+        finite_trades = [
+            t
+            for t in state.trades
+            if math.isfinite(float(t.get("pnl", 0.0)))
+        ]
+        gross_profit = sum(t["pnl"] for t in finite_trades if t["pnl"] > 0)
+        gross_loss = abs(sum(t["pnl"] for t in finite_trades if t["pnl"] <= 0))
         profit_factor = calculate_profit_factor(gross_profit, gross_loss)
 
         trading_days = len(state.equity_curve)
@@ -132,9 +140,9 @@ class BacktestResultBuilder:
         )
         calmar = calculate_calmar_ratio(annualised_return, max_dd)
 
-        winning = sum(1 for t in state.trades if t["pnl"] > 0)
-        losing = sum(1 for t in state.trades if t["pnl"] <= 0)
-        total_trades = len(state.trades)
+        winning = sum(1 for t in finite_trades if t["pnl"] > 0)
+        losing = sum(1 for t in finite_trades if t["pnl"] <= 0)
+        total_trades = len(finite_trades)
         win_rate = winning / total_trades if total_trades > 0 else 0.0
 
         return {
@@ -162,9 +170,15 @@ class BacktestResultBuilder:
         initial_cash: float,
     ) -> dict:
         """Compute accounting reconciliation fields."""
+        import math
+
         equity_values = [e["value"] for e in state.equity_curve]
         final_value = equity_values[-1] if equity_values else initial_cash
-        realized_pnl = sum(t["pnl"] for t in state.trades)
+        realized_pnl = sum(
+            t["pnl"]
+            for t in state.trades
+            if math.isfinite(float(t.get("pnl", 0.0)))
+        )
         # Funding is a per-bar cash drain (full-margin mode) that is not part
         # of any trade's realized PnL, so it is added back here to keep the
         # reconciliation zero when funding is applied. ``total_funding`` is
@@ -202,6 +216,7 @@ class BacktestResultBuilder:
             "entry_slippage_accounted": True,
             "entry_model": "next_bar_open",
             "exit_model": "next_bar_open",
+            "equity_valuation": "bar_close",
             "cost_model": (
                 "commission_and_slippage"
                 if config.commission_pct > 0 or config.slippage_pct > 0
@@ -239,7 +254,7 @@ class BacktestResultBuilder:
         """Compute rolling and distribution analytics."""
         equity_values = [e["value"] for e in state.equity_curve]
         if not equity_values:
-            return _ANALYTICS_EMPTY
+            return _empty_analytics()
 
         return {
             "rolling_sharpe_60": calculate_rolling_sharpe(
@@ -261,25 +276,27 @@ class BacktestResultBuilder:
         }
 
 
-_ANALYTICS_EMPTY: dict = {
-    "rolling_sharpe_60": [],
-    "rolling_win_rate_60": [],
-    "rolling_drawdown": [],
-    "rolling_pnl_60": [],
-    "monthly_returns": {},
-    "yearly_returns": {},
-    "exposure": [],
-    "trade_distribution": {
-        "pnl_bins": [],
-        "pnl_counts": [],
-        "pnl_percentiles": {},
-        "duration_bins": [],
-        "duration_counts": [],
-        "duration_percentiles": {},
-        "avg_pnl": 0.0,
-        "avg_duration": 0.0,
-    },
-}
+def _empty_analytics() -> dict:
+    """Return a fresh empty analytics dict (safe against mutation)."""
+    return {
+        "rolling_sharpe_60": [],
+        "rolling_win_rate_60": [],
+        "rolling_drawdown": [],
+        "rolling_pnl_60": [],
+        "monthly_returns": {},
+        "yearly_returns": {},
+        "exposure": [],
+        "trade_distribution": {
+            "pnl_bins": [],
+            "pnl_counts": [],
+            "pnl_percentiles": {},
+            "duration_bins": [],
+            "duration_counts": [],
+            "duration_percentiles": {},
+            "avg_pnl": 0.0,
+            "avg_duration": 0.0,
+        },
+    }
 
 
 def _diagnostics_to_dicts(items: list[BacktestDiagnostic]) -> list[dict]:

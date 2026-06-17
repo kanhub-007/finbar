@@ -60,15 +60,14 @@ def _search_filter(
     *,
     match_keys: tuple[str, ...],
     label: str,
-) -> str | None:
+) -> tuple[list[dict], str | None]:
     """Filter a list of dicts by case-insensitive search.
 
-    Returns a JSON error string if no matches, or None if items were
-    filtered successfully (mutates in-place by reassigning).
-    Use pattern: filter_items = items; on match, items = match_list.
+    Returns (filtered_list, error_json_string_or_None).
+    The original list is NEVER mutated — callers must use the returned list.
     """
     if not search:
-        return None
+        return items, None
     query = search.lower()
     matched = [
         item
@@ -76,7 +75,7 @@ def _search_filter(
         if any(query in str(item.get(key, "")).lower() for key in match_keys)
     ]
     if not matched:
-        return json.dumps(
+        return [], json.dumps(
             {
                 "message": (
                     f"No {label} matched '{search}'. "
@@ -88,6 +87,4 @@ def _search_filter(
             },
             indent=2,
         )
-    items.clear()
-    items.extend(matched)
-    return None
+    return matched, None

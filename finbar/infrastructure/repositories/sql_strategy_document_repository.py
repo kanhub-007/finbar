@@ -4,9 +4,9 @@ import json
 import logging
 from datetime import UTC, datetime
 
+from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
 from sqlalchemy.orm import Session
 
-from finbar_strategy_runtime.domain.entities.strategy_document import StrategyDocument
 from finbar.core.domain.interfaces.strategy_document_repository import (
     StrategyDocumentRepository,
 )

@@ -7,15 +7,18 @@ returns enriched bars as JSON-serializable dicts.
 
 import logging
 
+from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
+    BarFrameConverter,
+)
+from finbar_strategy_runtime.domain.interfaces.indicator_calculator import (
+    IndicatorCalculator,
+)
+
 from finbar.core.application.dto.apply_indicators_request import (
     ApplyIndicatorsRequest,
 )
 from finbar.core.application.dto.apply_indicators_result import (
     ApplyIndicatorsResult,
-)
-from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import BarFrameConverter
-from finbar_strategy_runtime.domain.interfaces.indicator_calculator import (
-    IndicatorCalculator,
 )
 
 logger = logging.getLogger(__name__)

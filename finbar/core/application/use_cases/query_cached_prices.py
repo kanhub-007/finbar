@@ -5,9 +5,10 @@ Thin wrapper over PriceCacheRepository.query_bars().
 
 import logging
 
+from finbar_strategy_runtime.domain.entities.interval import Interval
+
 from finbar.core.application.dto.cached_prices_result import CachedPricesResult
 from finbar.core.domain.entities.data_source import DataSource
-from finbar_strategy_runtime.domain.entities.interval import Interval
 from finbar.core.domain.interfaces.price_cache_repository import (
     PriceCacheRepository,
 )

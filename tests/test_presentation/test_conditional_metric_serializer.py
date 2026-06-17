@@ -9,9 +9,9 @@ Classical school: real ``UnifiedMetricCatalog`` + real serializer. No mocks.
 """
 
 import pytest
+from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 from finbar.presentation.dto.metric_serializers import metric_to_dict
-from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 
 @pytest.fixture

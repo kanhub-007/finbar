@@ -10,7 +10,6 @@ bars.
 import numpy as np
 import pandas as pd
 import pytest
-
 from finbar_strategy_runtime.indicators.bar_merger import (
     interval_offset,
     merge_timeframes,

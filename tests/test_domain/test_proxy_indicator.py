@@ -1,7 +1,6 @@
 """Tests for proxy indicator functions — pure math, no I/O."""
 
 import pandas as pd
-
 from finbar_strategy_runtime.domain.services.proxy_indicator import (
     atr_to_iv_proxy,
     daily_expected_move,

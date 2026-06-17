@@ -10,8 +10,6 @@ counts and per-proxy row presence. No mocks.
 
 from pathlib import Path
 
-import pytest
-
 CATALOG_PATH = (
     Path(__file__).resolve().parents[2] / "docs" / "METRIC_CATALOG.md"
 )

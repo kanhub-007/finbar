@@ -83,7 +83,7 @@ def register_symbol_tools(mcp: FastMCP) -> None:
     ) -> str:
         """Return Hyperliquid tickers as JSON, optionally filtered."""
         tickers = _get_hl_tickers(market_type)
-        error = _search_filter(
+        tickers, error = _search_filter(
             tickers, search, match_keys=("symbol", "name"), label="tickers"
         )
         if error:
