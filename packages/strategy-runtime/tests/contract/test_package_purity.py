@@ -75,3 +75,12 @@ class TestPackagePurity:
             "Package modules must not import from finbar/finbot/"
             "Hyperliquid/SQLAlchemy/yfinance:\n" + "\n".join(violations)
         )
+
+    def test_s8_simulation_subpackage_pure(self):
+        """Simulation subpackage imports nothing from finbar/finbot/etc."""
+        sim_dir = _SRC_DIR / "simulation"
+        violations = _scan_imports(sim_dir)
+        assert not violations, (
+            "Simulation subpackage must not import from finbar/finbot/"
+            "Hyperliquid/SQLAlchemy/yfinance:\n" + "\n".join(violations)
+        )
