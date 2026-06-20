@@ -25,6 +25,12 @@ from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator impor
 from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import (
     TimeframeBarMerger,
 )
+from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
+    MultiTimeframeBarEnricher,
+)
+from finbar_strategy_runtime.indicators.required_data_validator import (
+    RequiredDataValidator,
+)
 
 from finbar.core.application.backtest_result_mapper import result_dto_from_raw
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
@@ -61,6 +67,8 @@ class BacktestStrategyDefinitionUseCase:
         timeframe_merger: TimeframeBarMerger | None = None,
         artifact_provider: IndicatorArtifactProvider | None = None,
         feature_calculator: StrategyFeatureCalculator | None = None,
+        enricher: MultiTimeframeBarEnricher | None = None,
+        data_validator: RequiredDataValidator | None = None,
     ):
         """Create the use case with injected engine/converter/factory."""
         self._engine = engine
@@ -70,6 +78,8 @@ class BacktestStrategyDefinitionUseCase:
         self._timeframe_merger = timeframe_merger
         self._artifact_provider = artifact_provider
         self._feature_calculator = feature_calculator
+        self._enricher = enricher
+        self._data_validator = data_validator
 
     def execute(
         self,
@@ -102,7 +112,20 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         try:
-            frame = self._prepare_frame(request, validation)
+            if self._enricher is not None:
+                frame = self._enricher.enrich(
+                    primary_bars=request.bars,
+                    informative_bars=request.informative_bars or {},
+                    definition=validation.definition,
+                    primary_required_indicators=(
+                        validation.primary_required_indicators
+                    ),
+                    informative_required_indicators=(
+                        validation.informative_required_indicators
+                    ),
+                )
+            else:
+                frame = self._prepare_frame(request, validation)
         except ValueError as exc:
             return BacktestStrategyDefinitionResult(
                 valid=False,
@@ -125,7 +148,10 @@ class BacktestStrategyDefinitionUseCase:
                 ),
             )
 
-        frame = self._resolve_and_compute_signals(frame, validation.definition)
+        if self._enricher is None:
+            frame = self._resolve_and_compute_signals(
+                frame, validation.definition
+            )
         missing = [c for c in validation.required_columns if c not in frame.columns]
         if missing:
             return BacktestStrategyDefinitionResult(
@@ -146,7 +172,14 @@ class BacktestStrategyDefinitionUseCase:
                 missing_columns=missing,
             )
 
-        warmup = validate_required_data(frame, validation.required_columns)
+        if self._data_validator is not None:
+            warmup = self._data_validator.validate(
+                frame, validation.required_columns
+            )
+        else:
+            warmup = validate_required_data(
+                frame, validation.required_columns
+            )
         warmup_errors = _warmup_errors(warmup)
         if warmup_errors:
             return BacktestStrategyDefinitionResult(
