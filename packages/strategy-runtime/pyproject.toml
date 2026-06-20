@@ -1,6 +1,6 @@
 [project]
 name = "finbar-strategy-runtime"
-version = "0.1.0"
+version = "0.3.0"
 description = "Finbar strategy runtime — parser, evaluator, indicator calculator for strategy definitions"
 requires-python = ">=3.12"
 dependencies = [
