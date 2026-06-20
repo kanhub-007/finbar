@@ -371,3 +371,68 @@ class TestMultiTimeframeBarEnricher:
 
         assert "close_gt_open" in result.columns
         pd.testing.assert_frame_equal(result, golden, check_like=True)
+
+    # -- Scenario S4: Sliding warmup window -------------------------------
+
+    def test_s4_sliding_warmup_window_matches_full_enrich(
+        self, sol_primary_bars, strategy_context
+    ):
+        """Latest row of windowed enrich = corresponding row of full enrich.
+
+        Uses a simple SMA strategy (no session-dependent VP indicators) so
+        the result is independent of window size.
+        """
+        from dataclasses import replace
+
+        from finbar_strategy_runtime.domain.entities.timeframe_declaration import (
+            TimeframeDeclaration,
+        )
+
+        # Build a simple single-TF definition with SMA indicators only
+        definition, _, _ = strategy_context  # reuse parsed entity, discard reqs
+        simple_def = replace(
+            definition,
+            features=[],
+            timeframes=TimeframeDeclaration(primary="30min", informative=[]),
+        )
+
+        enricher = MultiTimeframeBarEnricher(
+            indicator_calculator=PandasTaIndicatorCalculator(),
+            bar_converter=PandasBarFrameConverter(),
+            timeframe_merger=PandasTimeframeBarMerger(),
+            feature_calculator=PandasStrategyFeatureCalculator(),
+        )
+
+        # Full enrich over all 5008 bars
+        primary_req = ["sma_20"]
+        full = enricher.enrich(
+            primary_bars=sol_primary_bars,
+            informative_bars={},
+            definition=simple_def,
+            primary_required_indicators=primary_req,
+            informative_required_indicators={},
+        )
+
+        # Windowed enrich: last 500 bars only
+        window_size = 500
+        windowed_primary = sol_primary_bars[-window_size:]
+
+        windowed = enricher.enrich(
+            primary_bars=windowed_primary,
+            informative_bars={},
+            definition=simple_def,
+            primary_required_indicators=primary_req,
+            informative_required_indicators={},
+        )
+
+        # Same column set
+        assert set(windowed.columns) == set(full.columns)
+
+        # OHLCV columns should match exactly
+        for col in ["open", "high", "low", "close", "volume"]:
+            assert windowed[col].iloc[-1] == full[col].iloc[-1]
+
+        # Indicator columns should match (SMA is deterministic over 500-bar window)
+        assert (
+            abs(windowed["sma_20"].iloc[-1] - full["sma_20"].iloc[-1]) < 1e-6
+        )
