@@ -217,13 +217,18 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         )
 
     def _build_windowed_state(self, name: str) -> object:
-        """Build a WindowedIndicatorState with the appropriate window size."""
-        from finbar_strategy_runtime.indicators.streaming.windowed_indicator_state import (
-            WindowedIndicatorState,
+        """Build the appropriate state for a windowed indicator."""
+        from finbar_strategy_runtime.indicators.streaming import (
+            rolling_volume_profile_state as rvp_state,
+        )
+        from finbar_strategy_runtime.indicators.streaming import (
+            windowed_indicator_state,
         )
 
+        if rvp_state.is_rolling_volume_profile_metric(name):
+            return rvp_state.RollingVolumeProfileState(name)
         window = self._resolve_window(name)
-        return WindowedIndicatorState(name=name, maxlen=window)
+        return windowed_indicator_state.WindowedIndicatorState(name=name, maxlen=window)
 
     @staticmethod
     def _resolve_window(name: str) -> int:
@@ -327,9 +332,9 @@ def _parse_vp_window(name: str) -> int:
         ``cvp_poc_5d`` → 5
     """
     from finbar_strategy_runtime.indicators._dynamic_dispatch import (
-        _RVP_PREFIXES,
-        _ROLLING_VP_PREFIXES,
         _CVP_PREFIXES,
+        _ROLLING_VP_PREFIXES,
+        _RVP_PREFIXES,
     )
 
     for prefix in _RVP_PREFIXES:
