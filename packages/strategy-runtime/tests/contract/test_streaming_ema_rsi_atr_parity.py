@@ -10,7 +10,11 @@ import math
 import numpy as np
 import pytest
 
-from .test_streaming_sma_parity import _make_deterministic_bars, _bars_to_frame
+from .test_streaming_sma_parity import (
+    _BAR_SPACING_S,
+    _bars_to_frame,
+    _make_deterministic_bars,
+)
 
 
 class TestStreamingEmaParity:
@@ -180,9 +184,11 @@ class TestStreamingAtrParity:
         warmup = _make_deterministic_bars(50, seed=1)
         flat = []
         last_close = warmup[-1]["close"]
+        last_ts = warmup[-1]["timestamp"]
         for i in range(50):
             flat.append(
                 {
+                    "timestamp": last_ts + (i + 1) * _BAR_SPACING_S,
                     "open": last_close,
                     "high": last_close,
                     "low": last_close,

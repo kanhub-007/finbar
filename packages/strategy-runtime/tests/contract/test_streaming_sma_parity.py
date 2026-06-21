@@ -13,9 +13,20 @@ import pytest
 import numpy as np
 import pandas as pd
 
+# Fixed int-second origin (2024-07-01 00:00:00 UTC) with 1-hour spacing.
+# Real timestamps are required so session/date-sensitive indicators
+# (vp_*, mp_*, AMT) compute against real calendar dates instead of a
+# fabricated index. Non-session indicators ignore the field.
+_BAR_ORIGIN_TS = 1719792000
+_BAR_SPACING_S = 3600
+
 
 def _make_deterministic_bars(length: int, seed: int = 1) -> list[dict]:
-    """Generate deterministic OHLCV bars as list of dicts."""
+    """Generate deterministic OHLCV bars as list of dicts.
+
+    Each bar carries a real int-second ``timestamp`` (1 hour apart) so
+    session-sensitive indicators can be exercised correctly.
+    """
     rng = np.random.default_rng(seed)
     close = 100 + np.cumsum(rng.normal(0, 1.5, length))
     high = np.maximum(close + np.abs(rng.normal(0, 1, length)), close)
@@ -27,6 +38,7 @@ def _make_deterministic_bars(length: int, seed: int = 1) -> list[dict]:
     for i in range(length):
         bars.append(
             {
+                "timestamp": _BAR_ORIGIN_TS + i * _BAR_SPACING_S,
                 "open": float(open_[i]),
                 "high": float(high[i]),
                 "low": float(low[i]),
@@ -38,7 +50,24 @@ def _make_deterministic_bars(length: int, seed: int = 1) -> list[dict]:
 
 
 def _bars_to_frame(bars: list[dict]) -> pd.DataFrame:
-    """Convert list of bar dicts to a DataFrame with datetime index."""
+    """Convert list of bar dicts to a DataFrame with a datetime index.
+
+    When every bar carries a ``timestamp`` field, it is used as the (UTC)
+    index and dropped from the columns; otherwise a deterministic
+    synthetic hourly index is fabricated.
+    """
+    if not bars:
+        return pd.DataFrame()
+    if all("timestamp" in b for b in bars):
+        ts = [b["timestamp"] for b in bars]
+        first = ts[0]
+        if isinstance(first, (int, float)) and not isinstance(first, bool):
+            unit = "ms" if abs(float(first)) >= 1e11 else "s"
+            idx = pd.DatetimeIndex(pd.to_datetime(ts, unit=unit, utc=True))
+        else:
+            idx = pd.DatetimeIndex(pd.to_datetime(ts, utc=True))
+        data = [{k: v for k, v in b.items() if k != "timestamp"} for b in bars]
+        return pd.DataFrame(data, index=idx)
     dates = pd.date_range("2024-01-01", periods=len(bars), freq="h")
     return pd.DataFrame(bars, index=dates)
 

@@ -11,7 +11,11 @@ import timeit
 
 import pytest
 
-from .test_streaming_sma_parity import _make_deterministic_bars
+from .test_streaming_sma_parity import (
+    _BAR_ORIGIN_TS,
+    _BAR_SPACING_S,
+    _make_deterministic_bars,
+)
 
 
 # Representative indicator set with ~15 streaming + 2 windowed + 2 windowed-default
@@ -40,13 +44,19 @@ REPRESENTATIVE_SET = [
 ]
 
 
-def _make_single_bar(seed: int = 999) -> dict:
-    """Make a single random bar for steady-state timing."""
+def _make_single_bar(seq: int = 0, origin_ts: int = 0) -> dict:
+    """Make a single random bar for steady-state timing.
+
+    ``seq`` derives a real int-second timestamp so session-sensitive
+    windowed indicators in the representative set receive parseable
+    timestamps.
+    """
     import numpy as np
 
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(999)
     close = 100.0 + rng.normal(0, 0.5)
     return {
+        "timestamp": origin_ts + seq * 3600,
         "open": close - rng.random() * 0.5,
         "high": close + rng.random(),
         "low": close - rng.random(),
@@ -75,9 +85,10 @@ class TestStreamingPerfBudget:
             engine.update(b)
 
         # Measure at n ≈ 300
+        origin = _BAR_ORIGIN_TS + 300 * _BAR_SPACING_S
         t_start = timeit.default_timer()
-        for _ in range(200):
-            engine.update(_make_single_bar())
+        for i in range(200):
+            engine.update(_make_single_bar(seq=i, origin_ts=origin))
         t_n300 = (timeit.default_timer() - t_start) / 200
 
         # Grow history to n ≈ 10_000
@@ -85,9 +96,10 @@ class TestStreamingPerfBudget:
         for b in extra:
             engine.update(b)
 
+        origin = _BAR_ORIGIN_TS + 10_000 * _BAR_SPACING_S
         t_start = timeit.default_timer()
-        for _ in range(200):
-            engine.update(_make_single_bar())
+        for i in range(200):
+            engine.update(_make_single_bar(seq=i, origin_ts=origin))
         t_n10000 = (timeit.default_timer() - t_start) / 200
 
         # Cost must NOT grow proportionally with n
