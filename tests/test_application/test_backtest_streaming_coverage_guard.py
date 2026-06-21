@@ -97,8 +97,8 @@ def _vwap_strategy() -> dict:
 class TestBacktestStreamingCoverageGuard:
     """Black-box tests for unsupported-metric handling in causal mode."""
 
-    def test_default_live_parity_does_not_silently_use_unsupported_metric(self):
-        """Unsupported metrics fall back or fail loudly; never marked safe."""
+    def test_default_live_parity_uses_vwap_after_metric_is_fixed(self):
+        """Formerly unsupported vwap now stays causal and live-parity safe."""
         result = _make_use_case().execute(
             BacktestStrategyDefinitionRequest(
                 definition=_vwap_strategy(),
@@ -110,9 +110,6 @@ class TestBacktestStreamingCoverageGuard:
 
         assert result.valid is True
         assert result.result is not None
-        assert result.result.live_parity_safe is False
-        assert result.result.enrichment_mode in {"batch_full_frame", "failed"}
-        assert any(
-            "vwap" in warning.lower()
-            for warning in result.result.parity_warnings
-        )
+        assert result.result.live_parity_safe is True
+        assert result.result.enrichment_mode == "live_parity_streaming"
+        assert result.result.parity_warnings == []
