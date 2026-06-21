@@ -82,7 +82,11 @@ def _build_available_informative_frame(
     availability_index = _availability_index(informative.index, informative_interval)
     data: dict[str, pd.Series] = {}
     for column in columns:
-        numeric = informative[column].map(to_numeric)
+        col = informative[column]
+        if pd.api.types.is_numeric_dtype(col):
+            numeric = col.astype(float)
+        else:
+            numeric = col.map(to_numeric)
         data[f"{column}{suffix}"] = pd.Series(
             numeric.to_numpy(),
             index=availability_index,

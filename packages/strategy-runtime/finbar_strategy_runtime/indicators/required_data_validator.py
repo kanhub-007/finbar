@@ -120,17 +120,15 @@ class RequiredDataValidator:
     def _to_numeric_subset(
         frame: pd.DataFrame, columns: list[str]
     ) -> pd.DataFrame:
-        """Return a numeric-only subset, skipping coercion for float columns.
+        """Return a numeric-only subset, avoiding unnecessary copies.
 
-        Most columns in an enriched frame are already float64 (from
-        pandas_ta). Calling pd.to_numeric on them is a no-op copy that
-        wastes time on large frames.
+        Already-numeric columns (float64 from pandas_ta) are kept as-is
+        in a single slice copy. Only non-numeric columns are coerced via
+        ``pd.to_numeric``.
         """
         numeric_cols = set(frame.select_dtypes(include=["number"]).columns)
-        parts: dict[str, pd.Series] = {}
+        subset = frame[columns].copy()
         for col in columns:
-            if col in numeric_cols:
-                parts[col] = frame[col].astype(float)
-            else:
-                parts[col] = pd.to_numeric(frame[col], errors="coerce")
-        return pd.DataFrame(parts, index=frame.index)
+            if col not in numeric_cols:
+                subset[col] = pd.to_numeric(subset[col], errors="coerce")
+        return subset
