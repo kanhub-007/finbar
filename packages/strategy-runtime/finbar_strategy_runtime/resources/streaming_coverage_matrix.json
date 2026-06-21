@@ -49,16 +49,16 @@
       "tolerance": null
     },
     "alligator_jaw": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "alligator_lips": {
       "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
       "reason": "",
-      "tolerance": null
+      "tolerance": 1e-07
     },
     "alligator_status": {
       "label": "STREAMING_CORRECT",
@@ -67,10 +67,10 @@
       "tolerance": null
     },
     "alligator_teeth": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "amihud_illiq": {
       "label": "STREAMING_CORRECT",
@@ -931,10 +931,10 @@
       "tolerance": null
     },
     "parametric_u_shape": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "parkinson_vol": {
       "label": "STREAMING_CORRECT",
@@ -979,16 +979,16 @@
       "tolerance": null
     },
     "proxy_atr": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "proxy_expected_move": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "proxy_garman_klass": {
       "label": "STREAMING_CORRECT",
@@ -1015,10 +1015,10 @@
       "tolerance": null
     },
     "proxy_iv": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "proxy_ohlc4": {
       "label": "STREAMING_CORRECT",

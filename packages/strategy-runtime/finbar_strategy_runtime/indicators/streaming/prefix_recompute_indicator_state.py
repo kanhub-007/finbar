@@ -43,6 +43,13 @@ _PREFIX_RECOMPUTE_NAMES = frozenset(
         "premium_discount_zone",
         "price_vs_sma20",
         "balance_status",
+        "alligator_jaw",
+        "alligator_teeth",
+        "alligator_lips",
+        "proxy_atr",
+        "proxy_iv",
+        "proxy_expected_move",
+        "parametric_u_shape",
     }
 )
 
