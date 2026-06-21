@@ -16,6 +16,9 @@ import math
 
 import pandas as pd
 
+from finbar_strategy_runtime.evaluation.json_rule_based_strategy import (
+    JsonRuleBasedStrategy,
+)
 from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
     MultiTimeframeBarEnricher,
 )
@@ -30,6 +33,9 @@ from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
 )
 from finbar_strategy_runtime.indicators.pandas_timeframe_bar_merger import (
     PandasTimeframeBarMerger,
+)
+from finbar_strategy_runtime.indicators.required_data_validator import (
+    RequiredDataValidator,
 )
 
 from .conftest import (
@@ -190,4 +196,177 @@ class TestFullFrameVsPrefixDivergence:
             expanding["vp_vah"].iloc[_ROW],
             rel_tol=1e-9,
             abs_tol=1e-9,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Scenario 2: streaming-prefix reference signal matches Finbot live/replay
+# ---------------------------------------------------------------------------
+#
+# The prefix-recompute loop below is the O(n^2) reference oracle explicitly
+# allowed by the spec for red/green diagnostics. It is NOT the production
+# design — Scenario 3 delivers the stateful streaming enricher that must
+# reproduce this oracle's row 17 result.
+
+
+def _info_prefix(info_bars: list[dict], close_ts: int) -> list[dict]:
+    """Informative bars closed at or before the primary close timestamp."""
+    return [b for b in info_bars if b["timestamp"] <= close_ts]
+
+
+def _is_tradable(readiness: dict, row: int) -> bool:
+    """True when *row* is past warmup and the frame has tradable bars."""
+    if readiness.get("no_tradable_bars"):
+        return False
+    return row >= readiness.get("warmup_bars", 0)
+
+
+def _run_streaming_reference(
+    primary: list[dict],
+    info: dict[str, list[dict]],
+    definition,
+    primary_req: list[str],
+    info_req: dict[str, list[str]],
+    required_cols: list[str],
+    max_rows: int,
+) -> tuple[int, str, str] | None:
+    """Run the streaming-prefix reference loop; return first non-HOLD signal.
+
+    For each primary bar ``i``, enrich only the prefix available at that bar
+    (primary[:i+1], informative bars closed at or before primary[i]). Feed
+    every bar to ``on_bar`` for crossover/state building; take a signal only
+    once the row is tradable per the RequiredDataValidator.
+    """
+    enricher = _build_enricher()
+    validator = RequiredDataValidator()
+    strategy = JsonRuleBasedStrategy(definition)
+    flat = {"direction": "", "size": 0}
+
+    for i in range(min(max_rows, len(primary))):
+        enriched = enricher.enrich(
+            primary[: i + 1],
+            {"h1": _info_prefix(info["h1"], primary[i]["timestamp"])},
+            definition,
+            primary_req,
+            info_req,
+        )
+        readiness = validator.validate(enriched, required_cols)
+        latest = enriched.iloc[-1].to_dict()
+        signal = strategy.on_bar(latest, flat)
+        if not _is_tradable(readiness, len(enriched) - 1):
+            continue
+        if signal.action != "hold":
+            return (i, signal.action, signal.direction)
+    return None
+
+
+def _run_batch_reference(
+    primary: list[dict],
+    info: dict[str, list[dict]],
+    definition,
+    primary_req: list[str],
+    info_req: dict[str, list[str]],
+    required_cols: list[str],
+) -> tuple[int, str, str] | None:
+    """Run the full-frame batch reference; return first non-HOLD signal."""
+    enricher = _build_enricher()
+    validator = RequiredDataValidator()
+    strategy = JsonRuleBasedStrategy(definition)
+    flat = {"direction": "", "size": 0}
+
+    full = enricher.enrich(primary, info, definition, primary_req, info_req)
+    readiness = validator.validate(full, required_cols)
+    warmup = readiness.get("warmup_bars", 0)
+
+    for i in range(len(full)):
+        latest = full.iloc[i].to_dict()
+        signal = strategy.on_bar(latest, flat)
+        if i < warmup:
+            continue
+        if signal.action != "hold":
+            return (i, signal.action, signal.direction)
+    return None
+
+
+@needs_parity_fixtures
+class TestStreamingPrefixReferenceSignal:
+    """Scenario 2: streaming-prefix first signal matches Finbot live/replay."""
+
+    def test_streaming_prefix_first_signal_is_row_17_short(self):
+        """First streaming-prefix non-HOLD signal is row 17, a short entry."""
+        primary = load_parity_bars("30min")
+        info = {"h1": load_parity_bars("1h")}
+        definition, primary_req, info_req, required_cols = parse_production_strategy()
+
+        result = _run_streaming_reference(
+            primary,
+            info,
+            definition,
+            primary_req,
+            info_req,
+            required_cols,
+            max_rows=40,
+        )
+
+        assert result is not None, "No non-HOLD signal produced in 40 rows"
+        row, action, direction = result
+        assert row == 17, f"Expected first streaming signal at row 17, got {row}"
+        assert action == "sell", f"Expected sell, got {action}"
+        assert direction == "short", f"Expected short, got {direction}"
+
+    def test_batch_full_frame_first_signal_documented_as_row_95(self):
+        """Full-frame batch first signal is row 95 — documents the defect.
+
+        The batch oracle (completed-session VP broadcast) fires later than
+        the streaming oracle because future session bars dilute the early
+        VP/AMT values. This is the divergence source the causal enricher
+        (Scenario 3) must eliminate for live parity.
+        """
+        primary = load_parity_bars("30min")
+        info = {"h1": load_parity_bars("1h")}
+        definition, primary_req, info_req, required_cols = parse_production_strategy()
+
+        result = _run_batch_reference(
+            primary,
+            info,
+            definition,
+            primary_req,
+            info_req,
+            required_cols,
+        )
+
+        assert result is not None
+        row, action, direction = result
+        assert row == 95, f"Expected batch first signal at row 95, got {row}"
+        assert action == "sell"
+        assert direction == "short"
+
+    def test_streaming_and_batch_first_signals_differ(self):
+        """Streaming (17) and batch (95) first signals differ — the proof."""
+        primary = load_parity_bars("30min")
+        info = {"h1": load_parity_bars("1h")}
+        definition, primary_req, info_req, required_cols = parse_production_strategy()
+
+        streaming = _run_streaming_reference(
+            primary,
+            info,
+            definition,
+            primary_req,
+            info_req,
+            required_cols,
+            max_rows=40,
+        )
+        batch = _run_batch_reference(
+            primary,
+            info,
+            definition,
+            primary_req,
+            info_req,
+            required_cols,
+        )
+
+        assert streaming is not None and batch is not None
+        assert streaming[0] != batch[0], (
+            f"Streaming ({streaming[0]}) and batch ({batch[0]}) first signal "
+            f"rows must differ — otherwise there is no parity defect."
         )
