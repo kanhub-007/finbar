@@ -11,7 +11,9 @@ always from a single source of truth.
 
 from __future__ import annotations
 
-from math import isnan
+from typing import Any
+
+import pandas as pd
 
 from finbar_strategy_runtime.domain.entities.latest_bar import LatestBar
 from finbar_strategy_runtime.domain.interfaces.streaming_indicator_calculator import (
@@ -85,11 +87,11 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
             state.update(bar)
 
         # Read the output for each requested indicator name
-        values: dict[str, float] = {}
+        values: dict[str, Any] = {}
         for name in self._indicators:
             state = self._states[name]
             val = self._read_output(name, state)
-            if not isnan(val):
+            if not _is_missing_value(val):
                 values[name] = val
 
         self._latest = LatestBar(
@@ -114,7 +116,7 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
     # ── output reading ──────────────────────────────────────────────────
 
     @staticmethod
-    def _read_output(name: str, state: object) -> float:
+    def _read_output(name: str, state: object) -> Any:
         """Read the scalar output for *name* from *state*.
 
         Single-output states use their ``.value`` property.
@@ -332,6 +334,19 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
 
 
 # ── module-level helpers ────────────────────────────────────────────────────
+
+
+def _is_missing_value(value: Any) -> bool:
+    """Return True for scalar missing/NaN values."""
+    try:
+        missing = pd.isna(value)
+    except (TypeError, ValueError):
+        return False
+    try:
+        return bool(missing)
+    except ValueError:
+        return False
+
 
 
 def _parse_vp_window(name: str) -> int:

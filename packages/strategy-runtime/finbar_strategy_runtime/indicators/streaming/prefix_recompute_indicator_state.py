@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from finbar_strategy_runtime.indicators.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
@@ -29,6 +30,19 @@ _PREFIX_RECOMPUTE_NAMES = frozenset(
         "daily_return_kurtosis",
         "daily_return_skewness",
         "realized_vol_5m",
+        "hurst_exponent",
+        "bipower_variation",
+        "realized_kurtosis",
+        "realized_skewness",
+        "return_volume_correlation",
+        "market_regime",
+        "fractal_regime",
+        "day_type_classification",
+        "breakout_quality",
+        "breakout_signal",
+        "premium_discount_zone",
+        "price_vs_sma20",
+        "balance_status",
     }
 )
 
@@ -51,11 +65,11 @@ class PrefixRecomputeIndicatorState:
         """
         self._name = name
         self._bars: list[dict] = []
-        self._current = math.nan
+        self._current: Any = math.nan
         self._converter = PandasBarFrameConverter()
         self._calculator = PandasTaIndicatorCalculator()
 
-    def update(self, bar: dict) -> float:
+    def update(self, bar: dict) -> Any:
         """Ingest one bar and return the latest prefix-recomputed value."""
         self._bars.append(bar)
         if len(self._bars) < 2:
@@ -66,7 +80,7 @@ class PrefixRecomputeIndicatorState:
         if self._name not in enriched.columns:
             self._current = math.nan
             return self._current
-        self._current = float(enriched[self._name].iloc[-1])
+        self._current = enriched[self._name].iloc[-1]
         return self._current
 
     def reset(self) -> None:
@@ -75,7 +89,7 @@ class PrefixRecomputeIndicatorState:
         self._current = math.nan
 
     @property
-    def value(self) -> float:
+    def value(self) -> Any:
         """Most recently computed value."""
         return self._current
 

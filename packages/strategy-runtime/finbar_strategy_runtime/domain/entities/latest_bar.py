@@ -1,6 +1,7 @@
 """LatestBar — immutable snapshot of streaming indicator values."""
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -10,8 +11,8 @@ class LatestBar:
     Returned by ``StreamingIndicatorCalculator.update()`` and ``latest()``.
     """
 
-    values: dict[str, float] = field(default_factory=dict)
-    """Indicator name → scalar value (e.g. ``{"sma_20": 100.5, "rsi_14": 55.0}``)."""
+    values: dict[str, Any] = field(default_factory=dict)
+    """Indicator name → scalar value (number, string classifier, or bool)."""
 
     is_ready: bool = False
     """True once at least MIN_BARS bars have been ingested."""
