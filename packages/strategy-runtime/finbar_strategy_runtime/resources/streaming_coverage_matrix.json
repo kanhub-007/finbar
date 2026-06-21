@@ -343,58 +343,58 @@
       "tolerance": null
     },
     "cvp_poc_10d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_poc_20d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_poc_5d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_vah_10d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_vah_20d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_vah_5d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_val_10d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_val_20d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cvp_val_5d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "daily_return_kurtosis": {
       "label": "STREAMING_UNSUPPORTED",
@@ -1369,16 +1369,16 @@
       "tolerance": null
     },
     "vp_poc_20d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "vp_poc_5d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "vp_vah": {
       "label": "STREAMING_CORRECT",
@@ -1387,16 +1387,16 @@
       "tolerance": null
     },
     "vp_vah_20d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "vp_vah_5d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "vp_val": {
       "label": "STREAMING_CORRECT",
@@ -1405,16 +1405,16 @@
       "tolerance": null
     },
     "vp_val_20d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "vp_val_5d": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "vsa_test_signal": {
       "label": "STREAMING_CORRECT",

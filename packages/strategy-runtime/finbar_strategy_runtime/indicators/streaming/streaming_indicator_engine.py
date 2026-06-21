@@ -219,6 +219,9 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
     def _build_windowed_state(self, name: str) -> object:
         """Build the appropriate state for a windowed indicator."""
         from finbar_strategy_runtime.indicators.streaming import (
+            prefix_recompute_indicator_state as prefix_state,
+        )
+        from finbar_strategy_runtime.indicators.streaming import (
             rolling_volume_profile_state as rvp_state,
         )
         from finbar_strategy_runtime.indicators.streaming import (
@@ -227,6 +230,8 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
 
         if rvp_state.is_rolling_volume_profile_metric(name):
             return rvp_state.RollingVolumeProfileState(name)
+        if prefix_state.is_prefix_recompute_vp_metric(name):
+            return prefix_state.PrefixRecomputeIndicatorState(name)
         window = self._resolve_window(name)
         return windowed_indicator_state.WindowedIndicatorState(name=name, maxlen=window)
 
