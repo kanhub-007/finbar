@@ -331,10 +331,10 @@
       "tolerance": null
     },
     "cumulative_signed_volume_ofi": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "cumulative_volume_delta": {
       "label": "STREAMING_CORRECT",
@@ -397,22 +397,22 @@
       "tolerance": 1e-07
     },
     "daily_return_kurtosis": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "daily_return_skewness": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "daily_vpin": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "day_type_classification": {
       "label": "STREAMING_CORRECT",
@@ -511,10 +511,10 @@
       "tolerance": null
     },
     "empirical_volume_curve": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "extreme_return_flag": {
       "label": "STREAMING_CORRECT",
@@ -661,10 +661,10 @@
       "tolerance": null
     },
     "intraday_volume_curve": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "inverse_amihud_resiliency": {
       "label": "STREAMING_CORRECT",
@@ -1075,10 +1075,10 @@
       "tolerance": null
     },
     "realized_vol_5m": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "nan_or_raise_mismatch",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "rejection_from_edge": {
       "label": "STREAMING_CORRECT",
@@ -1423,10 +1423,10 @@
       "tolerance": null
     },
     "vwap": {
-      "label": "STREAMING_UNSUPPORTED",
+      "label": "STREAMING_CORRECT",
       "last_verified_at": "2026-06-21",
-      "reason": "silent_wrong_value",
-      "tolerance": null
+      "reason": "",
+      "tolerance": 1e-07
     },
     "vwap_lower_1": {
       "label": "STREAMING_CORRECT",

@@ -207,6 +207,12 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
 
     def _build_state(self, name: str) -> object:
         """Build the per-indicator state object for *name*."""
+        from finbar_strategy_runtime.indicators.streaming import (
+            prefix_recompute_indicator_state as prefix_state,
+        )
+
+        if prefix_state.is_prefix_recompute_metric(name):
+            return prefix_state.PrefixRecomputeIndicatorState(name)
         kind = classify_indicator(name)
         if kind == IndicatorKind.STREAMING:
             return self._build_streaming_state(name)
@@ -230,7 +236,7 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
 
         if rvp_state.is_rolling_volume_profile_metric(name):
             return rvp_state.RollingVolumeProfileState(name)
-        if prefix_state.is_prefix_recompute_vp_metric(name):
+        if prefix_state.is_prefix_recompute_metric(name):
             return prefix_state.PrefixRecomputeIndicatorState(name)
         window = self._resolve_window(name)
         return windowed_indicator_state.WindowedIndicatorState(name=name, maxlen=window)

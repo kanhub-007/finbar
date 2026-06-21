@@ -19,6 +19,18 @@ _PREFIX_RECOMPUTE_VP_PREFIXES = (
     "vp_vah_",
     "vp_val_",
 )
+_PREFIX_RECOMPUTE_NAMES = frozenset(
+    {
+        "vwap",
+        "daily_vpin",
+        "intraday_volume_curve",
+        "empirical_volume_curve",
+        "cumulative_signed_volume_ofi",
+        "daily_return_kurtosis",
+        "daily_return_skewness",
+        "realized_vol_5m",
+    }
+)
 
 
 class PrefixRecomputeIndicatorState:
@@ -66,6 +78,11 @@ class PrefixRecomputeIndicatorState:
     def value(self) -> float:
         """Most recently computed value."""
         return self._current
+
+
+def is_prefix_recompute_metric(name: str) -> bool:
+    """Return True for metrics needing correctness-first prefix state."""
+    return name in _PREFIX_RECOMPUTE_NAMES or is_prefix_recompute_vp_metric(name)
 
 
 def is_prefix_recompute_vp_metric(name: str) -> bool:
