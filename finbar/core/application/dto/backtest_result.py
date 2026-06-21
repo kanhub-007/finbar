@@ -141,6 +141,18 @@ class BacktestResultDTO:
     trade_distribution.
     """
 
+    enrichment_mode: str = "batch_full_frame"
+    """Enrichment data horizon used: ``batch_full_frame`` or
+    ``live_parity_streaming``."""
+
+    live_parity_safe: bool = True
+    """True if the result is safe as a live-parity oracle. False when
+    ``batch_full_frame`` is used with frame-dependent indicators
+    (session VP/AMT)."""
+
+    parity_warnings: list[str] = field(default_factory=list)
+    """Live-parity warnings, e.g. naming frame-dependent indicators."""
+
     error: str | None = None
     """Error message if the backtest failed."""
 

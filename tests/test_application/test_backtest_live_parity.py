@@ -156,3 +156,52 @@ class TestBacktestLiveParityMode:
         assert str(first_entry).startswith(
             str(expected_ts)[:10]
         ), f"Batch first trade {first_entry} should match row 95 ({expected_ts})"
+
+
+@needs_finbar_data
+class TestBacktestParityMetadata:
+    """Scenario 6: batch mode labelled non-live-parity for frame-dependent
+    indicators; live-parity mode marked safe."""
+
+    def test_batch_frame_dependent_marked_not_live_parity_safe(self):
+        bars = _load_bars("30min", 500)
+        info = {"h1": _load_bars("1h", 600)}
+        result = _make_use_case().execute(_request(bars, info, "batch_full_frame"))
+        assert result.valid and result.result is not None
+
+        assert result.result.enrichment_mode == "batch_full_frame"
+        assert result.result.live_parity_safe is False
+        warning_text = " ".join(result.result.parity_warnings).lower()
+        assert (
+            "vp_poc" in warning_text or "vp_vah" in warning_text
+        ), f"Warnings should name vp_poc/vp_vah/vp_val: {result.result.parity_warnings}"
+
+    def test_live_parity_mode_marked_safe(self):
+        bars = _load_bars("30min", 500)
+        info = {"h1": _load_bars("1h", 600)}
+        result = _make_use_case().execute(_request(bars, info, "live_parity_streaming"))
+        assert result.valid and result.result is not None
+
+        assert result.result.enrichment_mode == "live_parity_streaming"
+        assert result.result.live_parity_safe is True
+
+    def test_batch_without_frame_dependent_indicators_is_safe(self):
+        """A strategy with no frame-dependent indicators is safe even in batch."""
+        from tests.test_application.test_strategy_json_sdk import (
+            _sma_strategy,
+        )
+
+        bars = _load_bars("30min", 200)
+        request = BacktestStrategyDefinitionRequest(
+            definition=_sma_strategy(),
+            bars=bars,
+            execution=ExecutionConfig(),
+            symbol="SOL",
+            interval="30min",
+            enrichment_mode="batch_full_frame",
+        )
+        result = _make_use_case().execute(request)
+        assert result.valid and result.result is not None, result.errors
+
+        assert result.result.enrichment_mode == "batch_full_frame"
+        assert result.result.live_parity_safe is True

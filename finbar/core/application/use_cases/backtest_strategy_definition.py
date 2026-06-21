@@ -136,9 +136,7 @@ class BacktestStrategyDefinitionUseCase:
                         validation.informative_required_indicators
                     ),
                 )
-                frame = self._resolve_and_compute_signals(
-                    frame, validation.definition
-                )
+                frame = self._resolve_and_compute_signals(frame, validation.definition)
             elif use_enricher:
                 frame = self._enricher.enrich(
                     primary_bars=request.bars,
@@ -176,9 +174,7 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         if not use_enricher:
-            frame = self._resolve_and_compute_signals(
-                frame, validation.definition
-            )
+            frame = self._resolve_and_compute_signals(frame, validation.definition)
         missing = [c for c in validation.required_columns if c not in frame.columns]
         if missing:
             return BacktestStrategyDefinitionResult(
@@ -200,13 +196,9 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         if self._data_validator is not None and use_enricher:
-            warmup = self._data_validator.validate(
-                frame, validation.required_columns
-            )
+            warmup = self._data_validator.validate(frame, validation.required_columns)
         else:
-            warmup = validate_required_data(
-                frame, validation.required_columns
-            )
+            warmup = validate_required_data(frame, validation.required_columns)
         warmup_errors = _warmup_errors(warmup)
         if warmup_errors:
             return BacktestStrategyDefinitionResult(
@@ -365,12 +357,56 @@ def _run_backtest(
 
     raw_result["symbol"] = request.symbol
     raw_result["interval"] = request.interval
+    result_dto = result_dto_from_raw(raw_result)
+    result_dto = _annotate_parity_metadata(result_dto, request, validation)
     return BacktestStrategyDefinitionResult(
         valid=True,
-        result=result_dto_from_raw(raw_result),
+        result=result_dto,
         required_indicators=validation.required_indicators,
         primary_required_indicators=validation.primary_required_indicators,
         informative_required_indicators=validation.informative_required_indicators,
+    )
+
+
+def _annotate_parity_metadata(
+    result_dto: BacktestResultDTO,
+    request: BacktestStrategyDefinitionRequest,
+    validation,
+) -> BacktestResultDTO:
+    """Attach enrichment_mode / live_parity_safe / warnings to the result."""
+    from dataclasses import replace
+
+    from finbar_strategy_runtime.domain.services.frame_dependency import (
+        classify_frame_dependency,
+    )
+
+    report = classify_frame_dependency(
+        list(validation.required_indicators),
+        request.enrichment_mode,
+    )
+    warnings: list[str] = []
+    if not report.live_parity_safe:
+        roots = sorted(
+            {n for n in report.indicators if n.startswith("vp_")}
+            | {n for n in report.indicators if n.startswith("mp_")}
+        )
+        named = roots or report.indicators
+        warnings.append(
+            "Session VP/AMT indicators "
+            + ", ".join(named[:6])
+            + " are frame-dependent in batch_full_frame mode;"
+            " use live_parity_streaming for live-tradable validation."
+        )
+    if report.indicators and request.enrichment_mode == "live_parity_streaming":
+        logger.info(
+            "live_parity_streaming: frame-dependent indicators %s computed causally",
+            report.indicators,
+        )
+    return replace(
+        result_dto,
+        enrichment_mode=request.enrichment_mode,
+        live_parity_safe=report.live_parity_safe,
+        parity_warnings=warnings,
     )
 
 
