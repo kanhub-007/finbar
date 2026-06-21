@@ -6,13 +6,11 @@ Pure service. The merge uses no-lookahead as-of alignment with interval_offset
 window yields correct values even in streaming.
 """
 
+from __future__ import annotations
+
 from typing import Any
 
-
-def _is_empty(frame: Any) -> bool:
-    """Return True if the frame has no rows (duck-typed for pandas)."""
-    return len(frame) == 0
-
+import pandas as pd
 
 from finbar_strategy_runtime.domain.entities.strategy_definition import (
     StrategyDefinition,
@@ -65,7 +63,7 @@ class MultiTimeframeBarEnricher:
         definition: StrategyDefinition,
         primary_required_indicators: list[str],
         informative_required_indicators: dict[str, list[str]],
-    ) -> Any:
+    ) -> pd.DataFrame:
         """Enrich bars with indicators, merge timeframes, and compute features.
 
         Args:
@@ -97,7 +95,7 @@ class MultiTimeframeBarEnricher:
         )
 
         # If primary is empty, skip informative processing
-        if _is_empty(primary):
+        if len(primary) == 0:
             return primary
 
         # 2. Handle informative timeframes
@@ -126,14 +124,16 @@ class MultiTimeframeBarEnricher:
 
     def _frame_and_compute(
         self, bars: list[dict], indicators: list[str]
-    ) -> Any:
+    ) -> pd.DataFrame:
         """Convert bars to a frame and compute requested indicators."""
         frame = self._bar_converter.bars_to_frame(bars)
         if indicators:
             frame = self._indicator_calculator.calculate(frame, indicators)
         return frame
 
-    def _compute_features(self, frame: Any, definition: StrategyDefinition) -> Any:
+    def _compute_features(
+        self, frame: pd.DataFrame, definition: StrategyDefinition
+    ) -> pd.DataFrame:
         """Apply the feature calculator if features are declared."""
         if self._feature_calculator is not None and definition.features:
             return self._feature_calculator.calculate(

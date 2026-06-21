@@ -104,76 +104,17 @@ def validate_required_data(
     """Check that strategy-required indicator and feature columns are valid
     after each indicator's natural warmup.
 
+    Delegates to the shared ``RequiredDataValidator`` in the strategy
+    runtime package so finbar and finbot use the same implementation.
+
     Returns:
         Dict with warmup_bars, first_tradable, and per-column diagnostics.
     """
-    bars = len(frame)
-    missing_after_warmup: list[str] = []
-    warmup_bars = 0
-    first_tradable = ""
+    from finbar_strategy_runtime.indicators.required_data_validator import (
+        RequiredDataValidator,
+    )
 
-    if not required_columns or bars == 0:
-        return {
-            "warmup_bars": 0,
-            "first_tradable": "",
-            "skipped_bars_due_to_warmup": 0,
-            "skipped_bars_due_to_missing": 0,
-            "missing_after_warmup": [],
-            "no_tradable_bars": False,
-        }
-
-    unknown = [column for column in required_columns if column not in frame.columns]
-    if unknown:
-        return {
-            "warmup_bars": 0,
-            "first_tradable": "",
-            "skipped_bars_due_to_warmup": 0,
-            "skipped_bars_due_to_missing": bars,
-            "missing_after_warmup": unknown,
-            "no_tradable_bars": True,
-        }
-
-    subset = _to_numeric_subset(frame, required_columns)
-    valid_mask = subset.notna().all(axis=1)
-
-    first_valid_idx = valid_mask.idxmax() if valid_mask.any() else None
-    if first_valid_idx is not None:
-        from datetime import datetime
-
-        warmup_bars = frame.index.get_loc(first_valid_idx)
-        ts = frame.index[warmup_bars]
-        if isinstance(ts, datetime):
-            first_tradable = ts.strftime("%Y-%m-%dT%H:%M:%S")
-        else:
-            first_tradable = str(ts)
-
-        post_mask = valid_mask.iloc[warmup_bars:]
-        if not post_mask.all():
-            for column in required_columns:
-                col_valid = subset[column].iloc[warmup_bars:].notna()
-                if not col_valid.all():
-                    missing_after_warmup.append(column)
-    else:
-        warmup_bars = bars
-        never_valid = [
-            column for column in required_columns if subset[column].notna().sum() == 0
-        ]
-        missing_after_warmup = never_valid
-
-    no_tradable = warmup_bars >= bars
-    skipped_missing = 0
-    if missing_after_warmup:
-        col_subset = subset[missing_after_warmup]
-        skipped_missing = int(col_subset.iloc[warmup_bars:].isna().any(axis=1).sum())
-
-    return {
-        "warmup_bars": warmup_bars,
-        "first_tradable": first_tradable,
-        "skipped_bars_due_to_warmup": warmup_bars,
-        "skipped_bars_due_to_missing": skipped_missing,
-        "missing_after_warmup": missing_after_warmup,
-        "no_tradable_bars": no_tradable,
-    }
+    return RequiredDataValidator().validate(frame, required_columns)
 
 
 def _to_numeric_subset(

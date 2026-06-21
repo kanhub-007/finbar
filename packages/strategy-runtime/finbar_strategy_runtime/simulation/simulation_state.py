@@ -12,6 +12,7 @@ class SimulationState:
     """Mutable state carried through the backtest bar loop."""
 
     __slots__ = (
+        "initial_cash",
         "cash",
         "position",
         "trades",
@@ -29,6 +30,7 @@ class SimulationState:
 
     def __init__(self, initial_cash: float) -> None:
         """Initialize loop state with starting cash and no open position."""
+        self.initial_cash = initial_cash
         self.cash = initial_cash
         self.position = SimulatedPosition()
         self.trades: list[dict] = []
