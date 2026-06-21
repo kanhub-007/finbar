@@ -10,14 +10,14 @@ from finbar_strategy_runtime.domain.entities.informative_timeframe import (
 from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
+from finbar_strategy_runtime.domain.interfaces import (
+    strategy_definition_strategy_factory as strategy_factory_interface,
+)
 from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
     BarFrameConverter,
 )
 from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
     StrategyDefinitionParser,
-)
-from finbar_strategy_runtime.domain.interfaces.strategy_definition_strategy_factory import (
-    StrategyDefinitionStrategyFactory,
 )
 from finbar_strategy_runtime.domain.interfaces.strategy_feature_calculator import (
     StrategyFeatureCalculator,
@@ -68,7 +68,7 @@ class BacktestStrategyDefinitionUseCase:
         self,
         engine: BacktestEngine,
         converter: BarFrameConverter,
-        strategy_factory: StrategyDefinitionStrategyFactory,
+        strategy_factory: strategy_factory_interface.StrategyDefinitionStrategyFactory,
         parser: StrategyDefinitionParser,
         timeframe_merger: TimeframeBarMerger | None = None,
         artifact_provider: IndicatorArtifactProvider | None = None,
@@ -117,13 +117,21 @@ class BacktestStrategyDefinitionUseCase:
                 ),
             )
 
-        try:
-            # Detect whether bars are raw OHLCV (no indicator columns) or
-            # pre-enriched (from async indicator jobs). The enricher path
-            # handles raw bars; the legacy path handles pre-enriched bars.
-            use_enricher = self._enricher is not None and _bars_are_raw(
-                request.bars, validation.required_columns
+        # Detect whether bars are raw OHLCV (no indicator columns) or
+        # pre-enriched (from async indicator jobs). The enricher path
+        # handles raw bars; the legacy path handles pre-enriched bars.
+        use_enricher = self._enricher is not None and _bars_are_raw(
+            request.bars, validation.required_columns
+        )
+        if use_enricher:
+            request, coverage_warnings, streaming_unsupported = (
+                _apply_streaming_coverage_guard(request, validation)
             )
+        else:
+            coverage_warnings = []
+            streaming_unsupported = []
+
+        try:
             if use_enricher and request.enrichment_mode == "live_parity_streaming":
                 frame = build_causal_frame(
                     primary_bars=request.bars,
@@ -219,6 +227,8 @@ class BacktestStrategyDefinitionUseCase:
             self._strategy_factory,
             self._engine,
             warmup,
+            parity_warnings=coverage_warnings,
+            streaming_unsupported=streaming_unsupported,
         )
 
     def _resolve_and_compute_signals(self, frame: Any, definition) -> Any:
@@ -271,6 +281,42 @@ class BacktestStrategyDefinitionUseCase:
         return frame
 
 
+def _apply_streaming_coverage_guard(
+    request: BacktestStrategyDefinitionRequest,
+    validation,
+) -> tuple[BacktestStrategyDefinitionRequest, list[str], list[str]]:
+    """Fallback live-parity mode when required metrics are unsupported."""
+    if request.enrichment_mode != "live_parity_streaming":
+        return request, [], []
+
+    from finbar_strategy_runtime.domain.services.streaming_coverage import (
+        classify_streaming_coverage,
+    )
+
+    report = classify_streaming_coverage(_coverage_indicator_names(validation))
+    if report.live_parity_safe:
+        return request, [], []
+
+    unsupported = sorted(report.unsupported)
+    warning = (
+        "Metrics "
+        + ", ".join(unsupported)
+        + " are not yet streaming-correct; falling back to "
+        "batch_full_frame (not live-parity safe)."
+    )
+    return replace(request, enrichment_mode="batch_full_frame"), [warning], unsupported
+
+
+
+def _coverage_indicator_names(validation) -> list[str]:
+    """Return base indicator names for streaming coverage classification."""
+    names = list(validation.primary_required_indicators)
+    for informative_names in validation.informative_required_indicators.values():
+        names.extend(informative_names)
+    return names
+
+
+
 def _resolve_artifact_bars(
     request: BacktestStrategyDefinitionRequest,
     provider: IndicatorArtifactProvider | None,
@@ -312,9 +358,11 @@ def _run_backtest(
     request: BacktestStrategyDefinitionRequest,
     validation,
     frame: Any,
-    strategy_factory: StrategyDefinitionStrategyFactory,
+    strategy_factory: strategy_factory_interface.StrategyDefinitionStrategyFactory,
     engine: BacktestEngine,
     warmup: dict | None = None,
+    parity_warnings: list[str] | None = None,
+    streaming_unsupported: list[str] | None = None,
 ) -> BacktestStrategyDefinitionResult:
     strategy = strategy_factory.create(validation.definition)
     try:
@@ -358,7 +406,13 @@ def _run_backtest(
     raw_result["symbol"] = request.symbol
     raw_result["interval"] = request.interval
     result_dto = result_dto_from_raw(raw_result)
-    result_dto = _annotate_parity_metadata(result_dto, request, validation)
+    result_dto = _annotate_parity_metadata(
+        result_dto,
+        request,
+        validation,
+        parity_warnings=parity_warnings,
+        streaming_unsupported=streaming_unsupported,
+    )
     return BacktestStrategyDefinitionResult(
         valid=True,
         result=result_dto,
@@ -372,6 +426,8 @@ def _annotate_parity_metadata(
     result_dto: BacktestResultDTO,
     request: BacktestStrategyDefinitionRequest,
     validation,
+    parity_warnings: list[str] | None = None,
+    streaming_unsupported: list[str] | None = None,
 ) -> BacktestResultDTO:
     """Attach enrichment_mode / live_parity_safe / warnings to the result."""
     from dataclasses import replace
@@ -384,7 +440,8 @@ def _annotate_parity_metadata(
         list(validation.required_indicators),
         request.enrichment_mode,
     )
-    warnings: list[str] = []
+    warnings: list[str] = list(parity_warnings or [])
+    unsupported = list(streaming_unsupported or [])
     if not report.live_parity_safe:
         roots = sorted(
             {n for n in report.indicators if n.startswith("vp_")}
@@ -405,7 +462,7 @@ def _annotate_parity_metadata(
     return replace(
         result_dto,
         enrichment_mode=request.enrichment_mode,
-        live_parity_safe=report.live_parity_safe,
+        live_parity_safe=report.live_parity_safe and not unsupported,
         parity_warnings=warnings,
     )
 
