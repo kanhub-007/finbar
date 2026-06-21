@@ -1,0 +1,1505 @@
+{
+  "entries": {
+    "above_value": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "accelerator_oscillator": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "acceptance_into_value": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "acceptance_outside_value": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "adx": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "adx_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "adx_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "adx_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "alligator_jaw": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "alligator_lips": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "alligator_status": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "alligator_teeth": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "amihud_illiq": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "amivest_liquidity": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "at_poc": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "atr": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "atr_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "atr_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "atr_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "awesome_oscillator": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bag_holding": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "balance_status": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bao_pan_zhou_cost": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_lower": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_lower_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_lower_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_lower_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_middle": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_middle_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_middle_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_middle_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_upper": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_upper_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_upper_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bb_upper_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bearish_fvg": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bearish_order_block": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "below_value": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bipower_variation": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "bos": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "breaker_block_bearish": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "breaker_block_bullish": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "breakout_level": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "breakout_quality": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "breakout_signal": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bullish_fvg": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bullish_order_block": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bvc_buy_volume": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bvc_ofi": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "bvc_sell_volume": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "cc_rs_jump_proxy": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "choch": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "climax_volume": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "close_to_close_vol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "coil_intensity": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "cumulative_signed_volume_ofi": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "cumulative_volume_delta": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "cvp_poc_10d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_poc_20d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_poc_5d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_vah_10d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_vah_20d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_vah_5d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_val_10d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_val_20d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "cvp_val_5d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "daily_return_kurtosis": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "daily_return_skewness": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "daily_vpin": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "day_type_classification": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "demand_zone_high": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "demand_zone_low": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "demand_zone_score": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "distance_to_vah_pct": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "distance_to_val_pct": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "edge_volume_building": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "effective_tick_spread": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "effort_result_divergence": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "effort_to_fall": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "effort_to_rise": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ema_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ema_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ema_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ema_5": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ema_6": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "empirical_volume_curve": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "extreme_return_flag": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "fib_1618_extension": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "fib_382_retrace": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "fib_500_retrace": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "fib_618_retrace": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "fib_confluence_score": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "first_last_hour_vol_fraction": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "florackis_lambda": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "fong_holden_tran_spread": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "fractal_regime": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "funding_rate": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "funding_rate_annualised": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "garman_klass_vol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "gk_plus_overnight_vol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "hasbrouck_daily_lambda": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "hh_hl_pattern": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "hurst_exponent": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "ib_high": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ib_low": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ib_midpoint": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ib_range": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ibs": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "inside_value": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "intraday_return": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "intraday_volume_curve": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "inverse_amihud_resiliency": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_accumulation": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_b_shape": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "is_coiled": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_d_shape": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_distribution": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_markdown": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_markup": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_neutral_shape": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "is_normal_shape": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_p_shape": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_power_zone": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "is_wyckoff_neutral": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "jump_gap_proxy": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "kama": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "ker": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "lee_mykland_jump": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "lh_ll_pattern": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "liquidations_long_1h": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "liquidations_long_24h": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "liquidations_short_1h": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "liquidations_short_24h": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "liquidity_sweep_high": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "liquidity_sweep_low": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "liu_illiq": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "long_short_ratio": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "lot_zero_return_spread": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "macd": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "macd_hist": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "macd_signal": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "market_regime": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "meilijson_vol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "mp_poc": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "mp_vah": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "mp_val": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "near_vah": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "near_val": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "no_demand": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "no_supply": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "open_interest": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "open_interest_delta_1h": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "open_interest_delta_24h": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "overnight_gap_proxy": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "overnight_return": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "parametric_u_shape": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "parkinson_vol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "poc_rejection": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "poc_slope_20": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "poc_slope_5": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "premium_discount_zone": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "price_vs_sma20": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "profile_shape": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_atr": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "proxy_expected_move": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "proxy_garman_klass": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_ib_high": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_ib_low": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_ibs": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_iv": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "proxy_ohlc4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_parkinson": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_rogers_satchell": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_typical_price": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "proxy_vwap": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "realized_kurtosis": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "realized_skewness": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "realized_vol_15m": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "realized_vol_1h": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "realized_vol_5m": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "rejection_from_edge": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "resiliency_autocorr": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "resiliency_spread_to_impact": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "return_volume_correlation": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "rogers_satchell_vol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "roll_spread": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "rsi_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "rsi_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "rsi_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "rsi_5": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "rsi_6": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "rvol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "rvp_poc_336": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_poc_48": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_poc_96": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_vah_336": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_vah_48": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_vah_96": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_val_336": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_val_48": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "rvp_val_96": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "shakeout": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "signed_sqrt_volume_ofi": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "sma_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "sma_3": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "sma_4": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "sma_5": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "sma_6": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "spread_based_pin_proxy": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "stopping_volume": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "supply_zone_high": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "supply_zone_low": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "supply_zone_score": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "swing_high_20": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "swing_high_n": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "swing_low_20": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "swing_low_n": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "trend_direction": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "trend_phase": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "trend_status": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "trend_strength": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "value_area_migration": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "value_area_width_pct": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vol_buffer_high": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vol_buffer_low": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "volume_to_trade_count_proxy": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "volume_trend_confirmation": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vp_poc": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vp_poc_20d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "vp_poc_5d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "vp_vah": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vp_vah_20d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "vp_vah_5d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "vp_val": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vp_val_20d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "vp_val_5d": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "nan_or_raise_mismatch",
+      "tolerance": null
+    },
+    "vsa_test_signal": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vwap": {
+      "label": "STREAMING_UNSUPPORTED",
+      "last_verified_at": "2026-06-21",
+      "reason": "silent_wrong_value",
+      "tolerance": null
+    },
+    "vwap_lower_1": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vwap_lower_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vwap_session": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vwap_upper_1": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "vwap_upper_2": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "williams_fractal_high": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "williams_fractal_low": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "wyckoff_phase": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "yang_zhang_vol": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "zone_failure_bearish": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "zone_failure_bullish": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    },
+    "zone_signal": {
+      "label": "STREAMING_CORRECT",
+      "last_verified_at": "2026-06-21",
+      "reason": "",
+      "tolerance": null
+    }
+  },
+  "schema_version": 1
+}
