@@ -23,12 +23,9 @@ from collections import deque
 
 import pandas as pd
 
-# Numeric values at or above this threshold are interpreted as Unix
-# milliseconds rather than seconds. Rationale: any plausible modern
-# seconds timestamp is ~1.7e9, while millisecond timestamps are ~1.7e12.
-# 1e11 seconds corresponds to year ~5138, so no realistic seconds value
-# reaches it, and no modern millisecond value falls below it.
-_MS_THRESHOLD = 1e11
+from finbar_strategy_runtime.indicators._bar_timestamp import (
+    parse_bar_timestamps,
+)
 
 # Synthetic fallback index origin for non-session indicators that lack
 # real timestamps. Documented as NOT live-parity safe for any indicator
@@ -75,28 +72,6 @@ def _is_session_sensitive(name: str) -> bool:
     if name in _SESSION_SENSITIVE_NAMES:
         return True
     return any(name.startswith(prefix) for prefix in _SESSION_SENSITIVE_PREFIXES)
-
-
-def _parse_timestamp_index(timestamps: list) -> pd.DatetimeIndex:
-    """Parse a list of timestamp values into a UTC DatetimeIndex.
-
-    Supports:
-    - int/float Unix seconds (Finbot/Hyperliquid production format)
-    - int/float Unix milliseconds (auto-detected for large values)
-    - ISO-8601 strings
-    - Python ``datetime`` / ``pandas.Timestamp``
-
-    Args:
-        timestamps: Non-empty list of timestamp values of a single kind.
-
-    Returns:
-        A timezone-aware (UTC) DatetimeIndex.
-    """
-    first = timestamps[0]
-    if isinstance(first, bool) or not isinstance(first, (int, float)):
-        return pd.DatetimeIndex(pd.to_datetime(timestamps, utc=True))
-    unit = "ms" if abs(float(first)) >= _MS_THRESHOLD else "s"
-    return pd.DatetimeIndex(pd.to_datetime(timestamps, unit=unit, utc=True))
 
 
 class WindowedIndicatorState:
@@ -179,7 +154,7 @@ class WindowedIndicatorState:
             index = pd.date_range(_FALLBACK_ORIGIN, periods=n, freq="h")
             return pd.DataFrame(list(self._buffer), index=index)
 
-        index = _parse_timestamp_index(present)
+        index = parse_bar_timestamps(present)
         return pd.DataFrame(list(self._buffer), index=index)
 
     def reset(self) -> None:

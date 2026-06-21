@@ -7,6 +7,7 @@ the monorepo; they are skipped when the package is installed standalone.
 
 from __future__ import annotations
 
+import csv
 import sqlite3
 from pathlib import Path
 
@@ -21,11 +22,23 @@ _STRATEGY_YAML = (
     / "intraday_scalper"
     / "14_amt_value_reject_30m_1h_mtf.yaml"
 )
+# Committed int-second parity fixtures (Finbot/Hyperliquid production format)
+_PARITY_DIR = Path(__file__).resolve().parents[1] / "fixtures" / "parity"
+_PARITY_FIXTURES = {
+    "30min": _PARITY_DIR / "sol_30min.csv",
+    "1h": _PARITY_DIR / "sol_1h.csv",
+}
 
 # Marker: tests that need the finbar monorepo DB and strategy YAML
 needs_finbar_data = pytest.mark.skipif(
     not _DB_PATH.exists() or not _STRATEGY_YAML.exists(),
     reason="Finbar monorepo data not found (package installed standalone)",
+)
+
+# Marker: tests that need the committed parity CSV fixtures
+needs_parity_fixtures = pytest.mark.skipif(
+    not all(p.exists() for p in _PARITY_FIXTURES.values()),
+    reason="Parity CSV fixtures not found",
 )
 
 
@@ -43,6 +56,29 @@ def load_raw_bars(interval: str, limit: int | None = None) -> list[dict]:
     rows = conn.execute(query, (interval,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def load_parity_bars(interval: str) -> list[dict]:
+    """Load OHLCV bars from a committed int-second parity CSV fixture.
+
+    Bars carry an integer ``timestamp`` (Unix seconds), matching
+    Finbot/Hyperliquid production bars. OHLCV fields are cast to float.
+    """
+    path = _PARITY_FIXTURES[interval]
+    bars: list[dict] = []
+    with path.open(newline="") as f:
+        for row in csv.DictReader(f):
+            bars.append(
+                {
+                    "timestamp": int(row["timestamp"]),
+                    "open": float(row["open"]),
+                    "high": float(row["high"]),
+                    "low": float(row["low"]),
+                    "close": float(row["close"]),
+                    "volume": float(row["volume"]),
+                }
+            )
+    return bars
 
 
 def parse_production_strategy() -> tuple:
