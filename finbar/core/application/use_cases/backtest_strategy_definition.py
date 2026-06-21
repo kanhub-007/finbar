@@ -267,6 +267,7 @@ def _resolve_artifact_bars(
     request: BacktestStrategyDefinitionRequest,
     provider: IndicatorArtifactProvider | None,
 ) -> BacktestStrategyDefinitionRequest:
+    """Resolve artifact IDs to pre-enriched bars from indicator jobs."""
     bars = request.bars
     informative_bars = request.informative_bars
     if request.bars_artifact_id:
@@ -285,6 +286,7 @@ def _artifact_bars(
     job_id: str,
     provider: IndicatorArtifactProvider | None,
 ) -> list[dict]:
+    """Fetch pre-enriched bars from a completed indicator artifact job."""
     if provider is None:
         raise ValueError("Artifact-backed backtesting is not wired")
     job = provider.get_artifact_job(job_id)
