@@ -269,6 +269,75 @@ def compute_all_session_volume_profiles(
 
 
 # ---------------------------------------------------------------------------
+# Expanding current-session Volume Profile (live-parity)
+# ---------------------------------------------------------------------------
+
+
+def compute_expanding_session_volume_profiles(
+    df: pd.DataFrame,
+    num_buckets: int = 100,
+) -> pd.DataFrame:
+    """Compute expanding current-session Volume Profile (live-parity).
+
+    For each bar ``t``, ``vp_poc`` / ``vp_vah`` / ``vp_val`` are computed
+    from the current session's bars from session open through ``t`` only.
+    No later bar in the same session influences an earlier row. This is
+    the causal definition that matches Finbot WebSocket/prefix behaviour
+    and is the required oracle for live-parity backtests.
+
+    Contrast with :func:`compute_all_session_volume_profiles`, which
+    broadcasts one completed-session profile to every row in the session
+    (batch/research behaviour, explicitly NOT live-parity safe).
+
+    Args:
+        df: DataFrame with columns ``[high, low, close, volume]`` and a
+            timezone-aware DatetimeIndex sorted ascending.
+        num_buckets: Number of price buckets per profile.
+
+    Returns:
+        DataFrame with added columns: ``vp_poc``, ``vp_vah``, ``vp_val``.
+    """
+    result = df.copy()
+    n = len(result)
+    poc_vals = np.full(n, np.nan)
+    vah_vals = np.full(n, np.nan)
+    val_vals = np.full(n, np.nan)
+
+    result["vp_poc"] = poc_vals
+    result["vp_vah"] = vah_vals
+    result["vp_val"] = val_vals
+    if n == 0:
+        return result
+
+    date_array = np.array([idx.date() for idx in result.index])
+
+    # Sessions are contiguous because the index is sorted ascending: walk
+    # runs of equal calendar date and, within each session, recompute the
+    # profile over the expanding prefix ending at each bar.
+    i = 0
+    while i < n:
+        session_start = i
+        current_date = date_array[i]
+        while i < n and date_array[i] == current_date:
+            i += 1
+        session = result.iloc[session_start:i]
+        for k in range(len(session)):
+            prefix = session.iloc[: k + 1]
+            profile = compute_session_volume_profile(
+                prefix, num_buckets=num_buckets
+            )
+            pos = session_start + k
+            poc_vals[pos] = profile.poc
+            vah_vals[pos] = profile.vah
+            val_vals[pos] = profile.val
+
+    result["vp_poc"] = poc_vals
+    result["vp_vah"] = vah_vals
+    result["vp_val"] = val_vals
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Rolling / Composite Value Areas
 # ---------------------------------------------------------------------------
 
