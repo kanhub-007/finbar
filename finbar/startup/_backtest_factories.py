@@ -109,9 +109,16 @@ def make_run_portfolio_backtest_use_case(
 
 
 def make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionUseCase:
-    """Create a use case for unsaved JSON strategy backtests."""
+    """Create a use case for unsaved JSON strategy backtests.
+
+    Wires the enricher so raw OHLCV bars can be passed directly — the
+    enricher handles indicator computation, MTF merge, and features inline.
+    Pre-enriched bars (from async indicator jobs) still work via the
+    legacy prepare_frame path.
+    """
     from finbar.startup._indicator_factories import (
         get_bar_frame_converter,
+        get_indicator_calculator,
         get_strategy_feature_calculator,
         get_timeframe_bar_merger,
     )
@@ -119,6 +126,19 @@ def make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionUs
     from finbar.startup._strategy_factories import (
         get_json_strategy_factory,
         get_parser,
+    )
+    from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
+        MultiTimeframeBarEnricher,
+    )
+    from finbar_strategy_runtime.indicators.required_data_validator import (
+        RequiredDataValidator,
+    )
+
+    enricher = MultiTimeframeBarEnricher(
+        indicator_calculator=get_indicator_calculator(),
+        bar_converter=get_bar_frame_converter(),
+        timeframe_merger=get_timeframe_bar_merger(),
+        feature_calculator=get_strategy_feature_calculator(),
     )
 
     return BacktestStrategyDefinitionUseCase(
@@ -129,6 +149,8 @@ def make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionUs
         timeframe_merger=get_timeframe_bar_merger(),
         artifact_provider=get_indicator_job_manager(),
         feature_calculator=get_strategy_feature_calculator(),
+        enricher=enricher,
+        data_validator=RequiredDataValidator(),
     )
 
 

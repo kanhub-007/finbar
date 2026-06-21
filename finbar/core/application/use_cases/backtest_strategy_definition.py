@@ -52,10 +52,15 @@ logger = logging.getLogger(__name__)
 
 
 class BacktestStrategyDefinitionUseCase:
-    """Backtest a JSON strategy against already-enriched bars.
+    """Backtest a JSON strategy against OHLCV bars.
 
-    This use case intentionally does not fetch prices or calculate indicators.
-    The MCP agent orchestrates those separate calls before invoking backtest.
+    Supports two paths:
+    - Raw bars (no indicator columns): the enricher computes indicators,
+      merges timeframes, and applies features inline.
+    - Pre-enriched bars (from async indicator jobs): the legacy
+      prepare_frame path frames and merges without recomputing indicators.
+
+    Either path produces identical results for the same strategy + data.
     """
 
     def __init__(
@@ -112,7 +117,13 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         try:
-            if self._enricher is not None:
+            # Detect whether bars are raw OHLCV (no indicator columns) or
+            # pre-enriched (from async indicator jobs). The enricher path
+            # handles raw bars; the legacy path handles pre-enriched bars.
+            use_enricher = self._enricher is not None and _bars_are_raw(
+                request.bars, validation.required_columns
+            )
+            if use_enricher:
                 frame = self._enricher.enrich(
                     primary_bars=request.bars,
                     informative_bars=request.informative_bars or {},
@@ -148,7 +159,7 @@ class BacktestStrategyDefinitionUseCase:
                 ),
             )
 
-        if self._enricher is None:
+        if not use_enricher:
             frame = self._resolve_and_compute_signals(
                 frame, validation.definition
             )
@@ -172,7 +183,7 @@ class BacktestStrategyDefinitionUseCase:
                 missing_columns=missing,
             )
 
-        if self._data_validator is not None:
+        if self._data_validator is not None and use_enricher:
             warmup = self._data_validator.validate(
                 frame, validation.required_columns
             )
@@ -392,3 +403,24 @@ def _warmup_errors(warmup: dict) -> list[StrategyValidationError]:
 
 def _err(path: str, message: str, code: str) -> StrategyValidationError:
     return StrategyValidationError(path=path, message=message, code=code)
+
+
+_OHLCV_COLUMNS = {"open", "high", "low", "close", "volume", "timestamp"}
+
+
+def _bars_are_raw(bars: list[dict], required_columns: list[str]) -> bool:
+    """Return True if *bars* contain no indicator columns — they are raw OHLCV.
+
+    Pre-enriched bars (from async indicator jobs) have indicator columns
+    like ``sma_20``, ``vp_poc``, etc. Raw bars only have OHLCV columns.
+    If any required non-OHLCV column is present in the first bar, the bars
+    are considered pre-enriched and should use the legacy frame path.
+    """
+    if not bars:
+        return False
+    indicator_cols = [c for c in required_columns if c not in _OHLCV_COLUMNS]
+    if not indicator_cols:
+        # No indicator columns required — bars are effectively raw
+        return True
+    first = bars[0]
+    return not any(c in first for c in indicator_cols)
