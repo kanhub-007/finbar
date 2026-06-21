@@ -79,7 +79,18 @@ class PositionCloser:
             or entry_price <= 0
         ):
             return 0.0
-        days = _time_held(entry_date, exit_date, self._config.borrow_time_basis)
+        try:
+            days = _time_held(
+                entry_date, exit_date, self._config.borrow_time_basis
+            )
+        except (ValueError, TypeError, OSError):
+            logger.warning(
+                "Could not compute borrow holding period from dates: "
+                "entry=%r exit=%r — borrow cost set to 0.0",
+                entry_date,
+                exit_date,
+            )
+            return 0.0
         notional = abs_size * entry_price
         return notional * self._config.borrow_fee_annual_pct * (days / 365.0)
 
@@ -156,19 +167,13 @@ def _time_held(entry_date: str, exit_date: str, time_basis: str) -> float:
     ``calendar_day`` truncates ISO timestamps to their date component, so
     intraday same-day positions report zero days. ``timestamp_delta`` uses
     the full timestamp, so hourly positions accrue proportional borrow.
+
+    Raises ValueError when a timestamp cannot be parsed, so the caller
+    gets a clear diagnostic rather than a silently-zero borrow cost.
     """
-    try:
-        entry = _parse_timestamp(entry_date, time_basis)
-        exit_ = _parse_timestamp(exit_date, time_basis)
-        return max(0.0, (exit_ - entry).total_seconds() / 86400.0)
-    except (ValueError, TypeError, OSError):
-        logger.warning(
-            "Could not compute borrow holding period from dates: "
-            "entry=%r exit=%r — borrow cost set to 0.0",
-            entry_date,
-            exit_date,
-        )
-        return 0.0
+    entry = _parse_timestamp(entry_date, time_basis)
+    exit_ = _parse_timestamp(exit_date, time_basis)
+    return max(0.0, (exit_ - entry).total_seconds() / 86400.0)
 
 
 def _parse_timestamp(raw: str, time_basis: str):
@@ -176,6 +181,10 @@ def _parse_timestamp(raw: str, time_basis: str):
 
     ``calendar_day`` truncates to the first 10 characters (YYYY-MM-DD).
     ``timestamp_delta`` uses the full string.
+
+    Raises ValueError when the string cannot be parsed as an ISO
+    date/datetime, so callers get a clear diagnostic rather than a
+    silently-zero borrow cost.
     """
     from datetime import datetime
 
@@ -184,5 +193,12 @@ def _parse_timestamp(raw: str, time_basis: str):
     if raw.endswith("Z"):
         raw = raw[:-1] + "+00:00"
     if time_basis == "calendar_day":
+        # Validate that we have at least a full date (YYYY-MM-DD, 10 chars)
+        # before slicing, so short strings raise instead of silently
+        # producing zero borrow cost.
+        if len(raw) < 10:
+            raise ValueError(
+                f"Timestamp too short for calendar_day parsing: {raw!r}"
+            )
         raw = raw[:10]
     return datetime.fromisoformat(raw)

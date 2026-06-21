@@ -40,7 +40,9 @@ class LeverageConfig:
             return entry_price * (
                 1.0 + initial_margin_fraction - self.maintenance_margin_pct
             )
-        return entry_price
+        raise ValueError(
+            f"Unknown direction {direction!r}; expected 'long' or 'short'"
+        )
 
     def max_affordable(self, cash: float, price: float) -> float:
         """Maximum position size given account equity and leverage."""
@@ -51,7 +53,9 @@ class LeverageConfig:
     def margin_required(self, position_value: float) -> float:
         """Initial margin needed for a position of given value."""
         if self.multiplier <= 0:
-            return position_value
+            raise ValueError(
+                f"Leverage multiplier must be positive, got {self.multiplier}"
+            )
         return position_value / self.multiplier
 
     def validate_stop(
@@ -68,4 +72,6 @@ class LeverageConfig:
             return stop_price > liq
         if direction == "short":
             return stop_price < liq
-        return False
+        raise ValueError(
+            f"Unknown direction {direction!r}; expected 'long' or 'short'"
+        )

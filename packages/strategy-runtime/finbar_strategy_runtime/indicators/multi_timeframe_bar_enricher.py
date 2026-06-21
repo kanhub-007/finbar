@@ -175,7 +175,12 @@ class MultiTimeframeBarEnricher:
     def _check_no_informative_supplied(
         informative_bars: dict[str, list[dict]] | list[dict],
     ) -> None:
-        """Raise if informative bars were supplied for a single-TF strategy."""
+        """Raise if informative bars were supplied for a single-TF strategy.
+
+        Both empty dict ``{}`` and empty list ``[]`` are falsy, so they
+        pass through without raising — the caller genuinely supplied no
+        informative data.
+        """
         if informative_bars:
             raise ValueError(
                 "informative_bars were supplied but strategy"
