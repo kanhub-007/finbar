@@ -236,6 +236,16 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         if _is_rolling_vp(name):
             return _parse_vp_window(name)
 
+        # Session-count-based indicators (poc_slope_N, wyckoff_phase,
+        # value_area_migration) group by calendar session and look back N
+        # sessions. A bar-count window of 50 holds only 1-2 sessions for
+        # intraday timeframes, so these indicators miscompute as 0.0. Use
+        # a window large enough to cover the session lookback at the
+        # production timeframes (30min=48 bars/session, 1h=24 bars/session).
+        session_window = _session_count_window(name)
+        if session_window is not None:
+            return session_window
+
         # Windowed-default: use UnifiedMetricCatalog min_lookback
         # Floor at 50 to ensure handlers with large internal warmup
         # (e.g. awesome_oscillator needs 34 bars) still compute correctly.
@@ -333,3 +343,23 @@ def _parse_vp_window(name: str) -> int:
             if inner.isdigit():
                 return max(int(inner), MIN_BARS)
     return MIN_BARS
+
+
+# Window floor for session-count-based indicators (poc_slope_N,
+# wyckoff_phase, value_area_migration). These look back N sessions; a
+# 50-bar window holds too few sessions at intraday timeframes. 500 bars
+# covers poc_slope_5 (6 sessions) at 30min (48 bars/session ≈ 8 sessions)
+# and 1h (24 bars/session ≈ 20 sessions). poc_slope_20 on 30min needs
+# ~1000 bars and is not used by the production strategy; documented as a
+# future timeframe-aware-window improvement.
+_SESSION_COUNT_WINDOW = 500
+_SESSION_COUNT_NAMES = frozenset({"wyckoff_phase", "value_area_migration"})
+
+
+def _session_count_window(name: str) -> int | None:
+    """Return the window for session-count-based indicators, else None."""
+    if name in _SESSION_COUNT_NAMES:
+        return _SESSION_COUNT_WINDOW
+    if name.startswith("poc_slope_"):
+        return _SESSION_COUNT_WINDOW
+    return None

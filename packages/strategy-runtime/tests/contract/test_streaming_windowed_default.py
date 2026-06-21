@@ -120,3 +120,42 @@ class TestWindowedDefaultParity:
             f"{indicator}: streaming={got}, batch={expected}, "
             f"diff={abs(got - expected)}"
         )
+
+
+class TestSessionCountIndicatorWindow:
+    """Session-count indicators (poc_slope_N) need a window covering N sessions.
+
+    These group by calendar session and look back N sessions. A 50-bar
+    window holds too few sessions at intraday timeframes, so the value
+    miscomputes as 0.0. The engine resolves a larger window for them.
+    """
+
+    def test_poc_slope_5_matches_batch_with_enough_sessions(self):
+        """poc_slope_5 streaming == batch when >=6 sessions are in window."""
+        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+            PandasTaIndicatorCalculator,
+        )
+        from finbar_strategy_runtime.indicators.streaming.streaming_indicator_engine import (
+            StreamingIndicatorEngine,
+        )
+
+        indicator = "poc_slope_5"
+        bars = _make_deterministic_bars(500, seed=3)
+        batch_last = (
+            PandasTaIndicatorCalculator()
+            .calculate(_bars_to_frame(bars), [indicator])
+            .iloc[-1]
+            .to_dict()
+        )
+
+        engine = StreamingIndicatorEngine(indicators=[indicator])
+        for b in bars:
+            engine.update(b)
+
+        got = engine.latest().values.get(indicator, float("nan"))
+        expected = batch_last.get(indicator, float("nan"))
+        if math.isnan(got) and math.isnan(expected):
+            return
+        assert math.isclose(got, expected, rel_tol=1e-9, abs_tol=1e-12), (
+            f"{indicator}: streaming={got}, batch={expected}"
+        )

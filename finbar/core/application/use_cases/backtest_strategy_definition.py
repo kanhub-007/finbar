@@ -40,6 +40,7 @@ from finbar.core.application.dto.backtest_strategy_definition_request import (
 from finbar.core.application.dto.backtest_strategy_definition_result import (
     BacktestStrategyDefinitionResult,
 )
+from finbar.core.application.live_parity_frame_builder import build_causal_frame
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.indicator_artifact_provider import (
     IndicatorArtifactProvider,
@@ -123,7 +124,22 @@ class BacktestStrategyDefinitionUseCase:
             use_enricher = self._enricher is not None and _bars_are_raw(
                 request.bars, validation.required_columns
             )
-            if use_enricher:
+            if use_enricher and request.enrichment_mode == "live_parity_streaming":
+                frame = build_causal_frame(
+                    primary_bars=request.bars,
+                    informative_bars=request.informative_bars or {},
+                    definition=validation.definition,
+                    primary_required_indicators=(
+                        validation.primary_required_indicators
+                    ),
+                    informative_required_indicators=(
+                        validation.informative_required_indicators
+                    ),
+                )
+                frame = self._resolve_and_compute_signals(
+                    frame, validation.definition
+                )
+            elif use_enricher:
                 frame = self._enricher.enrich(
                     primary_bars=request.bars,
                     informative_bars=request.informative_bars or {},

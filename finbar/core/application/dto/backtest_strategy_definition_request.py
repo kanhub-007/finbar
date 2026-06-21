@@ -1,12 +1,14 @@
 """Request DTO for backtesting an unsaved JSON strategy."""
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from finbar.core.domain.entities.execution_config import ExecutionConfig
 
 InformativeBars = list[dict] | dict[str, list[dict]]
 InformativeArtifactIds = dict[str, str]
+
+EnrichmentMode = Literal["batch_full_frame", "live_parity_streaming"]
 
 
 @dataclass(frozen=True)
@@ -45,3 +47,14 @@ class BacktestStrategyDefinitionRequest:
 
     params: dict[str, Any] = field(default_factory=dict)
     """Runtime strategy parameter overrides."""
+
+    enrichment_mode: EnrichmentMode = "batch_full_frame"
+    """Enrichment data horizon.
+
+    - ``batch_full_frame``: legacy full-frame batch enrichment. NOT
+      live-parity safe for frame-dependent indicators (session VP/AMT).
+    - ``live_parity_streaming``: each bar's enriched row is built from the
+      causal ``CausalMultiTimeframeStreamingEnricher`` using only bars
+      available at that bar's close. Required oracle for live-tradable
+      strategies and Finbot parity.
+    """
