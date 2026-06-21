@@ -105,6 +105,7 @@ def backtest_strategy_definition(
     bars_artifact_id: str = "",
     informative_bars: list[dict] | None = None,
     informative_bars_artifact_ids: dict[str, str] | None = None,
+    enrichment_mode: str = "live_parity_streaming",
 ):
     """Backtest a strategy definition against enriched bars or artifact IDs."""
     use_case = _make_backtest_strategy_definition_use_case()
@@ -135,6 +136,7 @@ def backtest_strategy_definition(
             bars_artifact_id=bars_artifact_id,
             informative_bars=informative_bars,
             informative_bars_artifact_ids=informative_bars_artifact_ids or {},
+            enrichment_mode=enrichment_mode,
         )
     )
     if not result.valid:

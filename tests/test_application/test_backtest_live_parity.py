@@ -205,3 +205,41 @@ class TestBacktestParityMetadata:
 
         assert result.result.enrichment_mode == "batch_full_frame"
         assert result.result.live_parity_safe is True
+
+
+@needs_finbar_data
+class TestBacktestDefaultIsRealistic:
+    """The backtest default is live_parity_streaming: an unspecified-mode
+    backtest reproduces what would actually occur in live trading."""
+
+    def test_request_default_enrichment_mode_is_live_parity(self):
+        """DTO default flips to live_parity_streaming."""
+        req = BacktestStrategyDefinitionRequest(definition="{}", bars=[])
+        assert req.enrichment_mode == "live_parity_streaming"
+
+    def test_unspecified_mode_backtest_is_causal_row_17(self):
+        """A backtest that does NOT pass enrichment_mode fires at row 17
+        (causal), not row 95 (lookahead) — i.e. it matches live trading."""
+        bars = _load_bars("30min", 500)
+        info = {"h1": _load_bars("1h", 600)}
+        request = BacktestStrategyDefinitionRequest(
+            definition=_STRATEGY_YAML.read_text(encoding="utf-8"),
+            bars=bars,
+            informative_bars=info,
+            execution=ExecutionConfig(),
+            symbol="SOL",
+            interval="30min",
+        )
+        result = _make_use_case().execute(request)
+        assert result.valid and result.result is not None
+
+        # Default mode is causal + flagged safe
+        assert result.result.enrichment_mode == "live_parity_streaming"
+        assert result.result.live_parity_safe is True
+
+        # First trade matches the live/causal reference (row 17), NOT batch (95)
+        first_entry = result.result.trades[0]["entry_date"]
+        expected_ts = bars[17]["timestamp"]
+        assert str(first_entry).startswith(
+            str(expected_ts)[:10]
+        ), f"Default backtest {first_entry} should be causal row 17, not batch row 95"

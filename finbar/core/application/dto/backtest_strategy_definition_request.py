@@ -48,13 +48,15 @@ class BacktestStrategyDefinitionRequest:
     params: dict[str, Any] = field(default_factory=dict)
     """Runtime strategy parameter overrides."""
 
-    enrichment_mode: EnrichmentMode = "batch_full_frame"
-    """Enrichment data horizon.
+    enrichment_mode: EnrichmentMode = "live_parity_streaming"
+    """Enrichment data horizon. Defaults to the realistic (causal) mode so
+    backtest results reproduce what would actually occur in live trading.
 
-    - ``batch_full_frame``: legacy full-frame batch enrichment. NOT
-      live-parity safe for frame-dependent indicators (session VP/AMT).
-    - ``live_parity_streaming``: each bar's enriched row is built from the
-      causal ``CausalMultiTimeframeStreamingEnricher`` using only bars
-      available at that bar's close. Required oracle for live-tradable
+    - ``live_parity_streaming`` (default): each bar's enriched row is built
+      from the causal ``CausalMultiTimeframeStreamingEnricher`` using only
+      bars available at that bar's close. Required oracle for live-tradable
       strategies and Finbot parity.
+    - ``batch_full_frame``: legacy full-frame batch enrichment. NOT
+      live-parity safe for frame-dependent indicators (session VP/AMT);
+      kept for research/repro only and flagged in result metadata.
     """

@@ -209,6 +209,7 @@ def register_strategy_definition_tools(mcp: FastMCP) -> None:
         bars_artifact_id: str = "",
         informative_bars_artifact_ids_json: str = "{}",
         detail_level: str = "summary",
+        enrichment_mode: str = "live_parity_streaming",
     ) -> str:
         """Backtest a strategy using bars supplied by the agent or artifact id."""
         bars = _loads_array(bars_json, "bars_json") if bars_json else []
@@ -255,6 +256,7 @@ def register_strategy_definition_tools(mcp: FastMCP) -> None:
                 informative_bars=informative_bars,
                 bars_artifact_id=bars_artifact_id,
                 informative_bars_artifact_ids=informative_artifacts,
+                enrichment_mode=enrichment_mode,
             )
         )
         return json.dumps(
