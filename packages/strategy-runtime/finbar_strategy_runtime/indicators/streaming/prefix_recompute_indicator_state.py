@@ -50,6 +50,9 @@ _PREFIX_RECOMPUTE_NAMES = frozenset(
         "proxy_iv",
         "proxy_expected_move",
         "parametric_u_shape",
+        "profile_shape",
+        "is_b_shape",
+        "is_neutral_shape",
     }
 )
 
