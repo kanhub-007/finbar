@@ -117,6 +117,16 @@ class TestMultiTimeframeBarEnricher:
 
         pd.testing.assert_frame_equal(result, golden, check_like=True)
 
+        # Non-silent assertion: verify MTF columns are actually present
+        # and non-NaN — guards against the tautology where both enricher
+        # and golden miss the same columns due to undeclared dependencies.
+        _mtf_cols = ["poc_slope_5_1h", "above_value_1h", "below_value_1h"]
+        for col in _mtf_cols:
+            assert col in result.columns, f"Missing MTF column: {col}"
+            assert result[col].notna().any(), (
+                f"MTF column {col} is all-NaN"
+            )
+
     def test_s1_enricher_single_tf_no_informative(self, strategy_context):
         definition, primary_req, _, _ = strategy_context
 

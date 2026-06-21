@@ -89,6 +89,8 @@ class WindowedIndicatorState:
         """Recompute the indicator over the window slice."""
         from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
             _INDICATOR_HANDLERS,
+            _expand_transitive_deps,
+            PandasTaIndicatorCalculator,
         )
         from finbar_strategy_runtime.indicators._dynamic_dispatch import (
             _is_dynamic,
@@ -101,9 +103,18 @@ class WindowedIndicatorState:
 
         if name in _INDICATOR_HANDLERS:
             handler, _requires = _INDICATOR_HANDLERS[name]
+            # Compute transitive dependencies on the window frame so the
+            # handler doesn't silently fail on missing required columns.
+            deps = [
+                d for d in _expand_transitive_deps([name], _INDICATOR_HANDLERS)
+                if d != name
+            ]
+            if deps:
+                calc = PandasTaIndicatorCalculator()
+                df = calc.calculate(df, deps)
             cache: dict = {}
             try:
-                result = handler(df.copy(), name, cache)
+                result = handler(df, name, cache)
                 col = result[name]
                 if hasattr(col, "iloc"):
                     return float(col.iloc[-1])

@@ -46,6 +46,28 @@ MIN_BARS = 10
 FAILED_INDICATORS_ATTR = "failed_indicators"
 
 
+def _expand_transitive_deps(
+    names: list[str],
+    handlers: dict[str, tuple],
+) -> list[str]:
+    """Expand *names* to include all transitive handler dependencies.
+
+    Walks ``handlers[name].requires`` recursively so that computed
+    indicators never silently fail because their undeclared dependencies
+    are missing from the requested list.
+    """
+    expanded: set[str] = set(names)
+    stack = list(names)
+    while stack:
+        name = stack.pop()
+        if name in handlers:
+            for dep in handlers[name][1]:  # requires set
+                if dep not in expanded:
+                    expanded.add(dep)
+                    stack.append(dep)
+    return list(expanded)
+
+
 def _topological_sort(
     names: list[str],
     handlers: dict[str, tuple],
@@ -176,7 +198,11 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         present_cols = set(result.columns)
         failed: list[tuple[str, str]] = []
 
-        sorted_indicators = _topological_sort(indicators, _INDICATOR_HANDLERS)
+        # Expand transitive dependencies so indicators like poc_slope_5
+        # auto-pull their undeclared deps (vp_poc) without the caller
+        # needing to know the internal dependency graph.
+        all_indicators = _expand_transitive_deps(indicators, _INDICATOR_HANDLERS)
+        sorted_indicators = _topological_sort(all_indicators, _INDICATOR_HANDLERS)
         for name in sorted_indicators:
             if name in _INDICATOR_HANDLERS:
                 handler, requires = _INDICATOR_HANDLERS[name]

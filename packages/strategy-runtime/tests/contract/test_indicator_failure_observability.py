@@ -107,19 +107,25 @@ class TestCalculatorSurfacesFailedIndicators:
     ):
         """A handler whose requires set is unsatisfied is also surfaced.
 
-        Mirrors the poc_rejection / vol_buffer_high dependency gap: the
-        dispatch writes NaN when required columns are absent. That is a
-        silent failure the user must be able to see.
+        Uses a synthetic handler that depends on a column that is neither
+        present in the frame nor a known indicator name, so transitive
+        expansion cannot auto-satisfy it. The dispatch writes NaN when
+        truly unresolvable dependencies are absent.
         """
-        _INDICATOR_HANDLERS["__test_needs_atr__"] = (
+        _INDICATOR_HANDLERS["__test_needs_absent__"] = (
             lambda df, _n, _c: df,
-            {"atr"},  # requires a column that is NOT present
+            {"absent_column_xyz"},  # not a known indicator; cannot be auto-computed
         )
         try:
             calc = PandasTaIndicatorCalculator()
-            result = calc.calculate(daily_ohlcv, ["__test_needs_atr__"])
+            result = calc.calculate(
+                daily_ohlcv, ["__test_needs_absent__"]
+            )
             failed = result.attrs[FAILED_INDICATORS_ATTR]
-            assert len(failed) == 1
-            assert failed[0][0] == "__test_needs_atr__"
+            # Expect at least the synthetic handler to be reported as failed.
+            # The unresolved dep may also appear as "Unknown indicator name".
+            assert any(
+                name == "__test_needs_absent__" for name, _ in failed
+            ), f"Expected __test_needs_absent__ in failed list, got: {failed}"
         finally:
-            _INDICATOR_HANDLERS.pop("__test_needs_atr__", None)
+            _INDICATOR_HANDLERS.pop("__test_needs_absent__", None)
