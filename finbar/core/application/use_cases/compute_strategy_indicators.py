@@ -176,6 +176,7 @@ class ComputeStrategyIndicatorsUseCase:
                 "timeframe_alias": item.timeframe_alias,
                 "start_date": start_date,
                 "end_date": end_date,
+                "enrichment_mode": "batch_full_frame",
             },
             self._runner.run,
         )

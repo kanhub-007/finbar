@@ -10,13 +10,15 @@ class FakeArtifactProvider:
         self,
         artifacts: dict[str, list[dict]],
         statuses: dict[str, str] | None = None,
+        metadata: dict[str, dict] | None = None,
     ):
-        """Create a fake provider with artifact bars and statuses."""
+        """Create a fake provider with artifact bars, statuses, and metadata."""
         self._artifacts = artifacts
         self._jobs = {
             job_id: IndicatorJob(
                 job_id=job_id,
                 status=(statuses or {}).get(job_id, "completed"),
+                metadata=(metadata or {}).get(job_id, {}),
             )
             for job_id in artifacts
         }

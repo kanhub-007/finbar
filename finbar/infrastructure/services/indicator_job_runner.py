@@ -101,6 +101,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         indicators, validation = self._resolve_indicators(job)
         if indicators is None:
             return
+        job.metadata.setdefault("enrichment_mode", "batch_full_frame")
         # Content hash is deferred until after parsing so it can include
         # mode, definition, resolved indicators, params, and features —
         # preventing reuse of an unrelated artifact that merely shares
@@ -251,6 +252,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             "mode": job.mode,
             "indicators": sorted(indicators),
             "timeframe_alias": job.timeframe_alias,
+            "enrichment_mode": job.metadata.get("enrichment_mode", "batch_full_frame"),
             "start_date": job.start_date,
             "end_date": job.end_date,
             "definition": job.metadata.get("definition"),
@@ -294,6 +296,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             total_bar_count=len(bars),
         )
         job.metadata["content_hash"] = content_hash
+        job.metadata.setdefault("enrichment_mode", "batch_full_frame")
         self._manager.store_result(job, bars)
         return True
 

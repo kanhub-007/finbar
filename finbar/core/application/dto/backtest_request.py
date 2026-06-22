@@ -1,8 +1,12 @@
 """BacktestRequest DTO — input for the run backtest use case."""
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from finbar.core.domain.entities.execution_config import ExecutionConfig
+
+EnrichmentMode = Literal["batch_full_frame", "live_parity_streaming"]
+InformativeBars = list[dict] | dict[str, list[dict]]
 
 
 @dataclass(frozen=True)
@@ -37,3 +41,9 @@ class BacktestRequest:
 
     initial_cash: float = 10000.0
     """Starting capital."""
+
+    informative_bars: InformativeBars | None = None
+    """Optional informative timeframe bars keyed by strategy alias."""
+
+    enrichment_mode: EnrichmentMode = "live_parity_streaming"
+    """Enrichment mode for saved JSON strategies. Defaults to causal."""

@@ -1,5 +1,7 @@
 """CompositeStrategyProvider — resolves strategies from multiple providers."""
 
+from typing import Any
+
 from finbar_strategy_runtime.domain.entities.strategy_meta import StrategyMeta
 from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 
@@ -35,3 +37,11 @@ class CompositeStrategyProvider(StrategyProvider):
     def exists(self, name: str) -> bool:
         """Return True if any child provider knows ``name``."""
         return any(provider.exists(name) for provider in self._providers)
+
+    def definition_for(self, name: str) -> str | dict[str, Any] | None:
+        """Return the first saved definition exposed by child providers."""
+        for provider in self._providers:
+            definition = provider.definition_for(name)
+            if definition is not None:
+                return definition
+        return None

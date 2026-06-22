@@ -37,4 +37,5 @@ def _params(request: StartIndicatorJobRequest) -> dict:
         "timeframe_alias": request.timeframe_alias or "primary",
         "start_date": request.start_date,
         "end_date": request.end_date,
+        "enrichment_mode": request.enrichment_mode,
     }

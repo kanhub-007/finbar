@@ -97,3 +97,10 @@ class DatabaseStrategyProvider(StrategyProvider):
     def exists(self, name: str) -> bool:
         """Return True if a strategy document exists with this name."""
         return self._repository.find_by_name(name) is not None
+
+    def definition_for(self, name: str) -> str | None:
+        """Return the stored JSON/YAML definition for causal backtests."""
+        document = self._repository.find_by_name(name)
+        if document is None:
+            return None
+        return document.definition_json

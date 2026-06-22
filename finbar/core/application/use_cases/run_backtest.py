@@ -8,14 +8,29 @@ state does not leak between concurrent backtests.
 import logging
 
 from finbar_strategy_runtime.domain.entities.strategy_meta import StrategyMeta
+from finbar_strategy_runtime.domain.interfaces import (
+    strategy_definition_strategy_factory as strategy_factory_interface,
+)
 from finbar_strategy_runtime.domain.interfaces.bar_frame_converter import (
     BarFrameConverter,
 )
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser,
+)
 from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
+from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
+    MultiTimeframeBarEnricher,
+)
 
 from finbar.core.application.backtest_result_mapper import result_dto_from_raw
 from finbar.core.application.dto.backtest_request import BacktestRequest
 from finbar.core.application.dto.backtest_result import BacktestResultDTO
+from finbar.core.application.dto.backtest_strategy_definition_request import (
+    BacktestStrategyDefinitionRequest,
+)
+from finbar.core.application.use_cases.backtest_strategy_definition import (
+    BacktestStrategyDefinitionUseCase,
+)
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
 
@@ -30,6 +45,11 @@ class RunBacktestUseCase:
         engine: BacktestEngine,
         strategy_provider: StrategyProvider | dict[str, TradingStrategy],
         converter: BarFrameConverter,
+        parser: StrategyDefinitionParser | None = None,
+        strategy_factory: (
+            strategy_factory_interface.StrategyDefinitionStrategyFactory | None
+        ) = None,
+        enricher: MultiTimeframeBarEnricher | None = None,
     ):
         """Constructor injection — receives engine and strategy provider.
 
@@ -38,10 +58,16 @@ class RunBacktestUseCase:
             strategy_provider: StrategyProvider that creates fresh strategies.
                 A dict registry is also accepted for backward-compatible tests.
             converter: Converts bar DTOs to the engine's frame type.
+            parser: Optional JSON strategy parser for saved strategy definitions.
+            strategy_factory: Optional factory for saved JSON strategy objects.
+            enricher: Optional package enricher for raw-bar causal enrichment.
         """
         self._engine = engine
         self._strategy_provider = strategy_provider
         self._converter = converter
+        self._parser = parser
+        self._strategy_factory = strategy_factory
+        self._enricher = enricher
 
     def list_strategies(self) -> list[StrategyMeta]:
         """Return metadata for available strategies."""
@@ -69,6 +95,10 @@ class RunBacktestUseCase:
         """
         if not request.bars:
             return BacktestResultDTO(error="No bars provided")
+
+        saved_json_result = self._try_saved_json_backtest(request)
+        if saved_json_result is not None:
+            return saved_json_result
 
         strategy = self._create_strategy(request.strategy_name, request.params)
         if strategy is None:
@@ -129,3 +159,52 @@ class RunBacktestUseCase:
         if isinstance(self._strategy_provider, dict):
             return self._strategy_provider.get(name)
         return self._strategy_provider.create(name, params or {})
+
+    def _try_saved_json_backtest(
+        self,
+        request: BacktestRequest,
+    ) -> BacktestResultDTO | None:
+        """Run saved JSON definitions through the inline causal use case.
+
+        Returns None when the provider has no saved JSON definition or when
+        this use case was constructed without JSON-enrichment dependencies.
+        """
+        if (
+            isinstance(self._strategy_provider, dict)
+            or self._parser is None
+            or self._strategy_factory is None
+            or self._enricher is None
+        ):
+            return None
+        definition = self._strategy_provider.definition_for(request.strategy_name)
+        if definition is None:
+            return None
+        inline = BacktestStrategyDefinitionUseCase(
+            engine=self._engine,
+            converter=self._converter,
+            strategy_factory=self._strategy_factory,
+            parser=self._parser,
+            enricher=self._enricher,
+        )
+        result = inline.execute(
+            BacktestStrategyDefinitionRequest(
+                definition=definition,
+                bars=request.bars,
+                informative_bars=request.informative_bars,
+                execution=request.execution,
+                symbol=request.symbol,
+                interval=request.interval,
+                params=request.params,
+                initial_cash=request.initial_cash,
+                enrichment_mode=request.enrichment_mode,
+            )
+        )
+        if result.result is not None:
+            return result.result
+        message = "; ".join(error.message for error in result.errors)
+        return BacktestResultDTO(
+            strategy_name=request.strategy_name,
+            symbol=request.symbol,
+            interval=request.interval,
+            error=message or "Saved strategy backtest failed",
+        )

@@ -325,10 +325,14 @@ def _resolve_artifact_bars(
     bars = request.bars
     informative_bars = request.informative_bars
     if request.bars_artifact_id:
-        bars = _artifact_bars(request.bars_artifact_id, provider)
+        bars = _artifact_bars(
+            request.bars_artifact_id,
+            provider,
+            request.enrichment_mode,
+        )
     if request.informative_bars_artifact_ids:
         informative_bars = {
-            alias: _artifact_bars(job_id, provider)
+            alias: _artifact_bars(job_id, provider, request.enrichment_mode)
             for alias, job_id in request.informative_bars_artifact_ids.items()
         }
     if bars is request.bars and informative_bars is request.informative_bars:
@@ -339,6 +343,7 @@ def _resolve_artifact_bars(
 def _artifact_bars(
     job_id: str,
     provider: IndicatorArtifactProvider | None,
+    requested_mode: str,
 ) -> list[dict]:
     """Fetch pre-enriched bars from a completed indicator artifact job."""
     if provider is None:
@@ -348,10 +353,28 @@ def _artifact_bars(
         raise ValueError(f"Artifact job not found: {job_id}")
     if job.status != "completed":
         raise ValueError(f"Artifact job {job_id} is not complete: {job.status}")
+    _validate_artifact_enrichment_mode(job, requested_mode)
     bars = provider.get_artifact_bars(job_id)
     if bars is None:
         raise ValueError(f"Artifact bars not found: {job_id}")
     return bars
+
+
+def _validate_artifact_enrichment_mode(job, requested_mode: str) -> None:
+    """Reject stale batch artifacts for causal live-parity backtests."""
+    if requested_mode != "live_parity_streaming":
+        return
+    artifact_mode = job.metadata.get("enrichment_mode")
+    if artifact_mode == "live_parity_streaming":
+        return
+    if artifact_mode:
+        detail = f"was created with enrichment_mode={artifact_mode!r}"
+    else:
+        detail = "does not record live-parity enrichment metadata"
+    raise ValueError(
+        f"Artifact job {job.job_id} {detail}; rerun indicator enrichment with "
+        "enrichment_mode='live_parity_streaming' for causal backtesting."
+    )
 
 
 def _run_backtest(

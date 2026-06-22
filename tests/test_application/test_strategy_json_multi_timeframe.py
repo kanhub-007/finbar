@@ -293,7 +293,12 @@ def _daily_bars() -> list[dict]:
 def test_backtest_accepts_primary_bars_artifact_id():
     """A completed enrichment artifact can supply primary backtest bars."""
     use_case = _make_artifact_use_case(
-        FakeArtifactProvider({"primary-job": _primary_hourly_bars()})
+        FakeArtifactProvider(
+            {"primary-job": _primary_hourly_bars()},
+            metadata={
+                "primary-job": {"enrichment_mode": "live_parity_streaming"}
+            },
+        )
     )
 
     result = use_case.execute(
@@ -316,7 +321,11 @@ def test_backtest_accepts_informative_artifact_ids():
         {
             "primary-job": _primary_hourly_bars(),
             "daily-job": _daily_bars(),
-        }
+        },
+        metadata={
+            "primary-job": {"enrichment_mode": "live_parity_streaming"},
+            "daily-job": {"enrichment_mode": "live_parity_streaming"},
+        },
     )
     use_case = _make_artifact_use_case(provider)
 
@@ -333,6 +342,26 @@ def test_backtest_accepts_informative_artifact_ids():
     assert result.valid is True
     assert result.result is not None
     assert result.result.error is None
+
+
+def test_backtest_rejects_stale_batch_artifact_for_causal_mode():
+    """Causal backtests do not silently reuse batch-full-frame artifacts."""
+    provider = FakeArtifactProvider(
+        {"primary-job": _primary_hourly_bars()},
+        metadata={"primary-job": {"enrichment_mode": "batch_full_frame"}},
+    )
+    use_case = _make_artifact_use_case(provider)
+
+    result = use_case.execute(
+        BacktestStrategyDefinitionRequest(
+            definition=_single_timeframe_strategy(),
+            bars_artifact_id="primary-job",
+        )
+    )
+
+    assert result.valid is False
+    assert any(error.code == "artifact_error" for error in result.errors)
+    assert "live_parity_streaming" in result.errors[0].message
 
 
 def test_backtest_rejects_incomplete_artifact_id():

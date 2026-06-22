@@ -1,7 +1,9 @@
 """Request DTO for starting an asynchronous indicator job."""
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+EnrichmentMode = Literal["batch_full_frame", "live_parity_streaming"]
 
 
 @dataclass(frozen=True)
@@ -37,3 +39,6 @@ class StartIndicatorJobRequest:
 
     end_date: str | None = None
     """Optional cached price end-date filter."""
+
+    enrichment_mode: EnrichmentMode = "batch_full_frame"
+    """Enrichment horizon represented by the produced artifact."""

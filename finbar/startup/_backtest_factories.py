@@ -84,13 +84,35 @@ def make_run_backtest_use_case(
     db: Session | None = None,
 ) -> RunBacktestUseCase:
     """Create a RunBacktestUseCase with built-in and optional DB strategies."""
-    from finbar.startup._indicator_factories import get_bar_frame_converter
-    from finbar.startup._strategy_factories import make_strategy_provider
+    from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
+        MultiTimeframeBarEnricher,
+    )
 
+    from finbar.startup._indicator_factories import (
+        get_bar_frame_converter,
+        get_indicator_calculator,
+        get_strategy_feature_calculator,
+        get_timeframe_bar_merger,
+    )
+    from finbar.startup._strategy_factories import (
+        get_json_strategy_factory,
+        get_parser,
+        make_strategy_provider,
+    )
+
+    enricher = MultiTimeframeBarEnricher(
+        indicator_calculator=get_indicator_calculator(),
+        bar_converter=get_bar_frame_converter(),
+        timeframe_merger=get_timeframe_bar_merger(),
+        feature_calculator=get_strategy_feature_calculator(),
+    )
     return RunBacktestUseCase(
         get_backtest_runner(),
         make_strategy_provider(db),
         get_bar_frame_converter(),
+        parser=get_parser(),
+        strategy_factory=get_json_strategy_factory(),
+        enricher=enricher,
     )
 
 
@@ -116,6 +138,13 @@ def make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionUs
     Pre-enriched bars (from async indicator jobs) still work via the
     legacy prepare_frame path.
     """
+    from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
+        MultiTimeframeBarEnricher,
+    )
+    from finbar_strategy_runtime.indicators.required_data_validator import (
+        RequiredDataValidator,
+    )
+
     from finbar.startup._indicator_factories import (
         get_bar_frame_converter,
         get_indicator_calculator,
@@ -126,12 +155,6 @@ def make_backtest_strategy_definition_use_case() -> BacktestStrategyDefinitionUs
     from finbar.startup._strategy_factories import (
         get_json_strategy_factory,
         get_parser,
-    )
-    from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
-        MultiTimeframeBarEnricher,
-    )
-    from finbar_strategy_runtime.indicators.required_data_validator import (
-        RequiredDataValidator,
     )
 
     enricher = MultiTimeframeBarEnricher(
