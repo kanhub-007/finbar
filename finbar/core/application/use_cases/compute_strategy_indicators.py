@@ -60,7 +60,7 @@ class ComputeStrategyIndicatorsUseCase:
         self._manager = manager
         self._runner = runner
 
-    def execute(
+    async def execute(
         self,
         definition_json: str,
         symbol: str,
@@ -68,6 +68,7 @@ class ComputeStrategyIndicatorsUseCase:
         params_json: dict[str, Any] | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
+        enrichment_mode: str = "live_parity_streaming",
     ) -> ComputeStrategyIndicatorsResult:
         """Validate the strategy, determine required indicators, and start jobs."""
         params = params_json or {}
@@ -139,7 +140,14 @@ class ComputeStrategyIndicatorsUseCase:
         primary_info: dict[str, Any] = {}
         informative_info: dict[str, dict[str, Any]] = {}
         for item in inputs:
-            info = self._start_job(item, definition_json, params, start_date, end_date)
+            info = self._start_job(
+                item,
+                definition_json,
+                params,
+                start_date,
+                end_date,
+                enrichment_mode,
+            )
             if item.timeframe_alias == "primary":
                 primary_info = info
             else:
@@ -165,18 +173,21 @@ class ComputeStrategyIndicatorsUseCase:
         params: dict[str, Any],
         start_date: str | None,
         end_date: str | None,
+        enrichment_mode: str = "batch_full_frame",
     ) -> dict[str, Any]:
         job = self._manager.start(
             {
                 "symbol": item.symbol,
                 "source": item.source,
                 "interval": item.interval,
-                "mode": "selected",
+                "mode": "strategy_required",
                 "indicators": item.indicators,
                 "timeframe_alias": item.timeframe_alias,
                 "start_date": start_date,
                 "end_date": end_date,
-                "enrichment_mode": "batch_full_frame",
+                "enrichment_mode": enrichment_mode,
+                "definition": definition_json,
+                "params": dict(params),
             },
             self._runner.run,
         )

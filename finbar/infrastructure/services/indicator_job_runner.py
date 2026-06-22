@@ -101,7 +101,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         indicators, validation = self._resolve_indicators(job)
         if indicators is None:
             return
-        job.metadata.setdefault("enrichment_mode", "batch_full_frame")
+        enrichment_mode = job.metadata.setdefault("enrichment_mode", "batch_full_frame")
         # Content hash is deferred until after parsing so it can include
         # mode, definition, resolved indicators, params, and features —
         # preventing reuse of an unrelated artifact that merely shares
@@ -110,7 +110,10 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         existing = self._try_reuse_artifact(job, content_hash)
         if existing:
             return
-        result = self._apply_indicators(job, bars, indicators)
+        if enrichment_mode == "live_parity_streaming" and validation is not None:
+            result = self._apply_causal_enrichment(job, bars, validation)
+        else:
+            result = self._apply_indicators(job, bars, indicators)
         if result is None:
             return
         indicator_bars, indicator_frame = result
@@ -137,6 +140,91 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
         self._manager.store_frame(job, frame)
         job.metadata["content_hash"] = content_hash
         self._manager.store_result(job, enriched_bars)
+
+    def _apply_causal_enrichment(
+        self,
+        job: IndicatorJob,
+        primary_bars: list[dict],
+        validation,
+    ) -> tuple[list[dict], Any] | None:
+        """Run the causal streaming enricher and return (bars, frame).
+
+        Loads any required informative bars from cache, then feeds all
+        bars through ``CausalMultiTimeframeStreamingEnricher``. The
+        resulting enriched frame carries the same schema as batch
+        enrichment, making it a drop-in replacement for artifact consumers.
+        """
+        from finbar_strategy_runtime.indicators.causal_multi_timeframe_streaming_enricher import (  # noqa: E501
+            CausalMultiTimeframeStreamingEnricher,
+        )
+
+        definition = validation.definition
+        _mark(
+            self._manager,
+            job,
+            10,
+            "causal_enrichment",
+            "Running causal streaming enrichment",
+        )
+        info_bars: dict[str, list[dict]] = {}
+        timeframes = definition.timeframes
+        if timeframes is not None and timeframes.informative:
+            for info in timeframes.informative:
+                alias = info.alias
+                interval = info.interval
+                _mark(
+                    self._manager,
+                    job,
+                    15,
+                    "causal_enrichment",
+                    f"Loading informative bars: {alias} ({interval})",
+                )
+                info_bars[alias] = _load_cached_bars_for_interval(
+                    job.symbol,
+                    job.source,
+                    interval,
+                    job.start_date,
+                    job.end_date,
+                    self._session_factory,
+                )
+                if not info_bars[alias]:
+                    _fail(
+                        self._manager,
+                        job,
+                        f"No cached {interval} bars for {alias}",
+                    )
+                    return None
+        _mark(
+            self._manager,
+            job,
+            20,
+            "causal_enrichment",
+            "Enriching bars causally",
+        )
+        try:
+            frame = CausalMultiTimeframeStreamingEnricher.causal_enrich_bars(
+                primary_bars=primary_bars,
+                informative_bars=info_bars,
+                definition=definition,
+                primary_indicators=validation.primary_required_indicators,
+                informative_indicators=validation.informative_required_indicators,
+            )
+        except Exception as exc:
+            _fail(
+                self._manager,
+                job,
+                f"Causal enrichment error: {exc}",
+            )
+            return None
+        enriched_bars = self._converter.frame_to_bars(frame)
+        _mark(
+            self._manager,
+            job,
+            50,
+            "causal_enrichment",
+            f"Causal enrichment complete ({len(enriched_bars)} rows)",
+        )
+        return enriched_bars, frame
 
     def _resolve_indicators(self, job: IndicatorJob) -> tuple[list[str] | None, Any]:
         if job.mode == "selected":
@@ -338,15 +426,33 @@ def _load_cached_bars(
     job: IndicatorJob,
     session_factory: Callable[[], Session],
 ) -> list[dict]:
+    return _load_cached_bars_for_interval(
+        job.symbol,
+        job.source,
+        job.interval,
+        job.start_date,
+        job.end_date,
+        session_factory,
+    )
+
+
+def _load_cached_bars_for_interval(
+    symbol: str,
+    source: str,
+    interval: str,
+    start_date: str | None,
+    end_date: str | None,
+    session_factory: Callable[[], Session],
+) -> list[dict]:
     db = session_factory()
     try:
         repo = SqlPriceCacheRepository(db)
         bars = repo.query_bars(
-            symbol=job.symbol,
-            source=job.source,
-            interval=job.interval,
-            start_date=job.start_date,
-            end_date=job.end_date,
+            symbol=symbol,
+            source=source,
+            interval=interval,
+            start_date=start_date,
+            end_date=end_date,
         )
         return [_bar_to_dict(bar) for bar in bars]
     finally:

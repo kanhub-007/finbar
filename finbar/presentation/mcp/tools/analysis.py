@@ -497,6 +497,7 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
         source: str = "yfinance",
         start_date: str | None = None,
         end_date: str | None = None,
+        enrichment_mode: str = "live_parity_streaming",
     ) -> str:
         result = _make_compute_strategy_indicators_use_case().execute(
             definition_json,
@@ -505,6 +506,7 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
             params_json={},
             start_date=start_date,
             end_date=end_date,
+            enrichment_mode=enrichment_mode,
         )
         return json.dumps(asdict(result), indent=2, default=str)
 

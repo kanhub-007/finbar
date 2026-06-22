@@ -124,6 +124,7 @@ class RunStrategyPipelineUseCase:
             params,
             start_date,
             end_date,
+            enrichment_mode=enrichment_mode,
         )
         if not compute_result.valid:
             return RunStrategyPipelineResult(

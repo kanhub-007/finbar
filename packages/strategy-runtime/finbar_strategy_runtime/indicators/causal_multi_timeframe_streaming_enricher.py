@@ -170,6 +170,57 @@ class CausalMultiTimeframeStreamingEnricher(
             self._info_history[alias] = []
         self._latest = None
 
+    @staticmethod
+    def causal_enrich_bars(
+        primary_bars: list[dict],
+        informative_bars: dict[str, list[dict]],
+        definition: StrategyDefinition,
+        primary_indicators: list[str],
+        informative_indicators: dict[str, list[str]],
+    ) -> "pd.DataFrame":
+        """Produce a causal enriched DataFrame from raw bars.
+
+        Package-level equivalent of ``build_causal_frame`` suitable for
+        use in indicator job runners and other infrastructure code that
+        must not import from the Finbar application layer.
+
+        Args:
+            primary_bars: Primary OHLCV bar dicts sorted by timestamp.
+            informative_bars: Informative bars keyed by timeframe alias.
+            definition: Parsed strategy definition.
+            primary_indicators: Primary indicator names.
+            informative_indicators: Informative indicators by alias.
+
+        Returns:
+            DataFrame indexed by primary bar timestamp, with OHLCV,
+            primary indicators, and suffixed informative columns.
+        """
+        enricher = CausalMultiTimeframeStreamingEnricher(
+            definition=definition,
+            primary_indicators=primary_indicators,
+            informative_indicators=informative_indicators,
+        )
+        info_ptrs = {alias: 0 for alias in informative_bars}
+        rows: list[dict] = []
+        for bar in primary_bars:
+            primary_open = _bar_open_ts(bar)
+            for alias, ibars in informative_bars.items():
+                while info_ptrs[alias] < len(ibars):
+                    candidate = ibars[info_ptrs[alias]]
+                    if _bar_open_ts(candidate) <= primary_open:
+                        enricher.update_informative(alias, candidate)
+                        info_ptrs[alias] += 1
+                    else:
+                        break
+            rows.append(enricher.update_primary(bar).values)
+
+        if not rows:
+            return pd.DataFrame()
+        frame = pd.DataFrame(rows)
+        ts = frame["timestamp"].tolist()
+        index = parse_bar_timestamps(ts)
+        return frame.drop(columns=["timestamp"]).set_index(index)
+
 
 # ── module-level helpers ────────────────────────────────────────────────────
 
