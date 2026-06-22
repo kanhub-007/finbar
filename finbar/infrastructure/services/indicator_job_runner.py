@@ -166,6 +166,51 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
             "causal_enrichment",
             "Running causal streaming enrichment",
         )
+
+        # Informative-timeframe jobs enrich their own bars with their own
+        # indicators — no MTF merge. Only the primary job does MTF.
+        is_primary = job.timeframe_alias == "primary"
+        if not is_primary:
+            alias = job.timeframe_alias
+            info_indicators = validation.informative_required_indicators.get(
+                alias, []
+            )
+            try:
+                from finbar_strategy_runtime.domain.entities.timeframe_declaration import (
+                    TimeframeDeclaration,
+                )
+                from dataclasses import replace as dc_replace
+
+                single_tf_def = dc_replace(
+                    definition,
+                    timeframes=TimeframeDeclaration(
+                        primary=job.interval, informative=[]
+                    ),
+                )
+                frame = CausalMultiTimeframeStreamingEnricher.causal_enrich_bars(
+                    primary_bars=primary_bars,
+                    informative_bars={},
+                    definition=single_tf_def,
+                    primary_indicators=info_indicators,
+                    informative_indicators={},
+                )
+            except Exception as exc:
+                _fail(
+                    self._manager,
+                    job,
+                    f"Causal enrichment error: {exc}",
+                )
+                return None
+            enriched_bars = self._converter.frame_to_bars(frame)
+            _mark(
+                self._manager,
+                job,
+                50,
+                "causal_enrichment",
+                f"Causal enrichment complete ({len(enriched_bars)} rows)",
+            )
+            return enriched_bars, frame
+
         info_bars: dict[str, list[dict]] = {}
         timeframes = definition.timeframes
         if timeframes is not None and timeframes.informative:
