@@ -181,7 +181,21 @@ def register_strategy_definition_tools(mcp: FastMCP) -> None:
             "commission, slippage, and explicit-size policy. Stores the full "
             "result server-side and returns a compact summary with result_id "
             "by default. Use get_backtest_trades() and get_backtest_equity() "
-            "for paginated details. Set detail_level='full' only for export."
+            "for paginated details. Set detail_level='full' only for export.\n\n"
+            "ENRICHMENT MODE (enrichment_mode):\n"
+            "  'live_parity_streaming' (DEFAULT, RECOMMENDED): each enriched row "
+            "is built using only bars available at that bar's close — no "
+            "future lookahead. Required for live-tradable strategies, "
+            "Finbot parity, and any strategy using session-scoped indicators "
+            "(vp_poc, vp_vah, vp_val, near_val, above_value, aucion_state, "
+            "profile_shape, wyckoff_phase, etc.). This is what would actually "
+            "occur in live trading.\n"
+            "  'batch_full_frame' (RESEARCH ONLY): legacy full-frame batch "
+            "enrichment that broadcasts completed-session volume profiles to "
+            "earlier rows. NOT live-parity safe. Only use for TA-only "
+            "strategies (sma, rsi, macd, etc.) where session boundaries "
+            "don't matter, or for comparing against old research results.\n"
+            "  When in doubt, omit this parameter — the default is always correct."
         ),
     )
     def backtest_strategy_definition(

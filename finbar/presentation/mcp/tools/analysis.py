@@ -215,7 +215,11 @@ def register_analysis_tools(mcp: FastMCP) -> None:
             "summary by default with result_id. Use get_backtest_trades() "
             "and get_backtest_equity() to page large details on demand. "
             "Set detail_level='full' only when explicitly "
-            "exporting/debugging."
+            "exporting/debugging.\n\n"
+            "Saved JSON strategies use the same causal streaming enricher "
+            "by default. Pass enrichment_mode='batch_full_frame' for "
+            "research-only TA strategies; omit for correct live-parity "
+            "results with VP/AMT strategies."
         ),
     )
     def run_backtest(
@@ -239,6 +243,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
         enable_funding: bool = ENABLE_FUNDING,
         funding_rate: float = FUNDING_RATE,
         detail_level: str = "summary",
+        enrichment_mode: str = "live_parity_streaming",
     ) -> str:
         """Run a backtest and return structured results.
 
@@ -301,6 +306,7 @@ def register_analysis_tools(mcp: FastMCP) -> None:
                     interval=interval,
                     params=params,
                     initial_cash=initial_cash,
+                    enrichment_mode=enrichment_mode,
                 )
             )
             result_dict = _backtest_result_to_dict(result)
@@ -511,7 +517,12 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
             "Accepts execution controls (initial_cash, risk_per_trade, "
             "leverage, detail_level). "
             "Use this when you want a single call instead of orchestrating "
-            "validate → compute → poll → backtest manually."
+            "validate → compute → poll → backtest manually.\n\n"
+            "DEFAULT enrichment is causal (live_parity_streaming) — safe for "
+            "all strategy types including AMT/VP session-based ones. "
+            "For TA-only strategies (sma, rsi, macd only) where batch "
+            "does not affect row values, pass enrichment_mode='batch_full_frame' "
+            "to avoid per-bar windowed recompute overhead."
         ),
     )
     async def run_strategy_pipeline(
@@ -524,6 +535,7 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
         risk_per_trade: float = RISK_PER_TRADE,
         leverage: float = LEVERAGE,
         detail_level: str = "summary",
+        enrichment_mode: str = "live_parity_streaming",
     ) -> str:
         result = await _make_run_strategy_pipeline_use_case().execute(
             definition_json,
@@ -536,6 +548,7 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
             risk_per_trade=risk_per_trade,
             leverage=leverage,
             detail_level=detail_level,
+            enrichment_mode=enrichment_mode,
         )
         return json.dumps(asdict(result), indent=2, default=str)
 

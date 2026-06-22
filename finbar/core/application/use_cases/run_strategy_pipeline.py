@@ -76,6 +76,7 @@ class RunStrategyPipelineUseCase:
         risk_per_trade: float = 0.02,
         leverage: float = 1.0,
         detail_level: str = "summary",
+        enrichment_mode: str = "live_parity_streaming",
     ) -> RunStrategyPipelineResult:
         """Run the full pipeline and return a compact result."""
         params = params_json or {}
@@ -151,6 +152,7 @@ class RunStrategyPipelineUseCase:
             risk_per_trade,
             leverage,
             detail_level,
+            enrichment_mode,
         )
 
     def _required_intervals(self, validation) -> list[tuple[str, str]]:
@@ -230,6 +232,7 @@ class RunStrategyPipelineUseCase:
         risk_per_trade: float,
         leverage: float,
         detail_level: str,
+        enrichment_mode: str = "live_parity_streaming",
     ) -> RunStrategyPipelineResult:
         from finbar.core.application.dto.backtest_strategy_definition_request import (
             BacktestStrategyDefinitionRequest,
@@ -259,6 +262,7 @@ class RunStrategyPipelineUseCase:
                 informative_bars=None,
                 bars_artifact_id=compute_result.primary["job_id"],
                 informative_bars_artifact_ids=informative_artifact_ids,
+                enrichment_mode=enrichment_mode,
             )
         )
 
