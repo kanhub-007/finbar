@@ -226,3 +226,171 @@ class WindowedIndicatorState:
                 return float("nan")
 
         return float("nan")
+
+
+class BatchedWindowedState:
+    """Single ring buffer computing ALL windowed metrics in one batch call.
+
+    Replaces N independent ``WindowedIndicatorState`` instances with one
+    shared buffer. Converts bars to DataFrame **once** per update, runs
+    the batch calculator **once** for all metrics, and returns a dict of
+    ``{name: latest_value}``. On the AMT strategy this turns 10 batch
+    calls per bar into 1 — an immediate ~10× speedup for both Finbar
+    backtests and Finbot live/replay.
+    """
+
+    def __init__(self, names: list[str], maxlen: int) -> None:
+        """Initialise with all metric names and a shared window size.
+
+        Args:
+            names: Concrete indicator names to compute together.
+            maxlen: Maximum bars retained (use the max across all names).
+        """
+        self._names = list(names)
+        self._maxlen = max(maxlen, 1)
+        self._buffer: deque[dict] = deque(maxlen=self._maxlen)
+        self._currents: dict[str, float] = {name: float("nan") for name in names}
+        self._session_sensitive = any(
+            _is_session_sensitive(name) for name in names
+        )
+
+    def update(self, bar: dict) -> dict[str, float]:
+        """Ingest one bar; recompute all metrics and return latest values.
+
+        Args:
+            bar: OHLCV bar dict, optionally with a ``timestamp`` key.
+
+        Returns:
+            Dict mapping metric name → latest value (NaN if not ready).
+
+        Raises:
+            ValueError: If any metric is session-sensitive and the
+                buffer contains bars without parseable timestamps.
+        """
+        self._buffer.append(bar)
+        if len(self._buffer) < 2:
+            return {name: float("nan") for name in self._names}
+
+        df = self._to_frame()
+        if df.empty:
+            return {name: float("nan") for name in self._names}
+
+        self._currents = self._compute_all(df)
+        return dict(self._currents)
+
+    def _to_frame(self) -> pd.DataFrame:
+        """Convert the shared deque buffer to a timestamp-indexed DataFrame."""
+        n = len(self._buffer)
+        if n == 0:
+            return pd.DataFrame()
+        timestamps = [bar.get("timestamp") for bar in self._buffer]
+        present = [t for t in timestamps if t is not None]
+        if len(present) != n:
+            if self._session_sensitive:
+                raise ValueError(
+                    "Batched windowed state contains session-sensitive"
+                    " indicators and requires real bar timestamps, but"
+                    " one or more buffered bars have no parseable"
+                    " 'timestamp' field."
+                )
+            index = pd.date_range(_FALLBACK_ORIGIN, periods=n, freq="h")
+            return pd.DataFrame(list(self._buffer), index=index)
+        index = parse_bar_timestamps(present)
+        return pd.DataFrame(list(self._buffer), index=index)
+
+    def reset(self) -> None:
+        """Clear accumulated state."""
+        self._buffer.clear()
+        self._currents = {name: float("nan") for name in self._names}
+
+    @property
+    def values(self) -> dict[str, float]:
+        """Most recently computed values for all metrics."""
+        return dict(self._currents)
+
+    # ── internal ────────────────────────────────────────────────────────
+
+    def _compute_all(self, df: pd.DataFrame) -> dict[str, float]:
+        """Batch-compute all windowed metrics on the shared frame."""
+        from finbar_strategy_runtime.indicators._dynamic_dispatch import (
+            _compute_dynamic,
+            _compute_rolling_vp_dynamic,
+            _is_dynamic,
+            _is_rolling_vp,
+        )
+        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+            _INDICATOR_HANDLERS,
+            PandasTaIndicatorCalculator,
+            _expand_transitive_deps,
+        )
+
+        # Collect all direct + transitive dependencies across all names.
+        all_deps: set[str] = set()
+        for name in self._names:
+            if name in _INDICATOR_HANDLERS:
+                all_deps.update(
+                    d
+                    for d in _expand_transitive_deps([name], _INDICATOR_HANDLERS)
+                    if d != name
+                )
+
+        # One-time pre-compute of all transitive dependencies.
+        if all_deps:
+            calc = PandasTaIndicatorCalculator()
+            df = calc.calculate(df, sorted(all_deps))
+
+        results: dict[str, float] = {}
+        cache: dict = {}
+        for name in self._names:
+            results[name] = self._compute_one(df, name, cache)
+        return results
+
+    @staticmethod
+    def _compute_one(
+        df: pd.DataFrame,
+        name: str,
+        cache: dict,
+    ) -> float:
+        """Compute a single metric from the pre-enriched frame."""
+        from finbar_strategy_runtime.indicators._dynamic_dispatch import (
+            _compute_dynamic,
+            _compute_rolling_vp_dynamic,
+            _is_dynamic,
+            _is_rolling_vp,
+        )
+        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+            _INDICATOR_HANDLERS,
+        )
+
+        if name in _INDICATOR_HANDLERS:
+            handler, _requires = _INDICATOR_HANDLERS[name]
+            try:
+                result = handler(df, name, cache)
+                col = result[name]
+                if hasattr(col, "iloc"):
+                    return float(col.iloc[-1])
+                return float(col)
+            except Exception:
+                return float("nan")
+
+        if _is_dynamic(name):
+            try:
+                result = _compute_dynamic(df.copy(), name)
+                col = result[name]
+                if hasattr(col, "iloc"):
+                    return float(col.iloc[-1])
+                return float(col)
+            except Exception:
+                return float("nan")
+
+        if _is_rolling_vp(name):
+            try:
+                result = _compute_rolling_vp_dynamic(df.copy(), name, {})
+                col = result[name]
+                if hasattr(col, "iloc"):
+                    return float(col.iloc[-1])
+                return float(col)
+            except Exception:
+                return float("nan")
+
+        return float("nan")

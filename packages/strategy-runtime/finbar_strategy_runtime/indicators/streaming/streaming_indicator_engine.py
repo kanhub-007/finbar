@@ -67,12 +67,50 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         # family_key → state (the canonical state instance; multi-output
         # names share one)
         self._family_states: dict[str, object] = {}
+        # Batched windowed state — all scalar-windowed metrics on this
+        # timeframe share ONE ring buffer + ONE batch compute pass per bar.
+        self._batched_windowed: object | None = None
         self._bars_seen: int = 0
         self._latest: LatestBar = LatestBar()
 
+        # First pass: classify indicators, collecting windowed names
+        windowed_names: list[str] = []
+        from finbar_strategy_runtime.indicators.streaming import (
+            prefix_recompute_indicator_state as _prefix_state,
+        )
+        from finbar_strategy_runtime.indicators.streaming import (
+            rolling_volume_profile_state as _rvp_state,
+        )
+
+        for name in self._indicators:
+            if _prefix_state.is_prefix_recompute_metric(name):
+                continue  # prefix-recompute is separate
+            if _rvp_state.is_rolling_volume_profile_metric(name):
+                continue  # RVP has own state
+            family = _canonical_family(name)
+            kind = classify_indicator(name)
+            if kind == IndicatorKind.WINDOWED and family == name:
+                # Scalar-windowed — candidate for batching
+                windowed_names.append(name)
+
+        if len(windowed_names) >= 2:
+            from finbar_strategy_runtime.indicators.streaming.windowed_indicator_state import (  # noqa: E501
+                BatchedWindowedState,
+            )
+
+            batched_window = max(
+                self._resolve_window(name) for name in windowed_names
+            )
+            self._batched_windowed = BatchedWindowedState(
+                names=windowed_names,
+                maxlen=batched_window,
+            )
+
         for name in self._indicators:
             family = _canonical_family(name)
-            if family not in self._family_states:
+            if self._batched_windowed is not None and name in windowed_names:
+                self._family_states[family] = self._batched_windowed
+            elif family not in self._family_states:
                 self._family_states[family] = self._build_state(name)
             self._states[name] = self._family_states[family]
 
@@ -140,7 +178,9 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
             if name == "bb_lower" or name.startswith("bb_lower"):
                 return getattr(state, "lower", float("nan"))
 
-        # Single-output: use .value property
+        # Single-output: use .value property, or .values[name] for batched state.
+        if hasattr(state, "values"):
+            return state.values.get(name, float("nan"))
         return getattr(state, "value", float("nan"))
 
     # ── internal state factory helpers ──────────────────────────────────
