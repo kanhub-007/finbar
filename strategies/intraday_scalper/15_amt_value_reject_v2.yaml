@@ -1,0 +1,141 @@
+# ⭐ AMT Value-Area Rejection V2 — improved entry filters (PRODUCTION)
+#
+# Improvements over 14_amt_value_reject_30m_1h_mtf:
+#   1. stopping_volume confirmation — only enter when rejection is volume-backed
+#      (was computed but UNUSED in v1; now an entry condition)
+#   2. Trend-direction filter on primary — longs need poc_slope_5 > 0 (not just > -4),
+#      shorts need poc_slope_5 < 0 (not just < 4). Removes counter-trend fade trades.
+#   3. Tighter long stop (2.5× ATR vs 3.0×) — long losers averaged $949 vs $799 wins;
+#      tighter stop reduces the avg loss while keeping winning trades intact.
+#   4. balance_status filter — skip choppy/balanced sessions where VP edges are weak.
+#
+# Based on causal backtest analysis of v1 (SOL, May–Jun 2026, 54 trades):
+#   - Shorts were higher quality (74% WR vs 63% for longs)
+#   - Win/loss ratio < 1.0 for both; strategy needs WR > 60% to survive
+#   - 8 long stop-losses vs 3 short stop-losses → longs are riskier
+#   - stopping_volume was computed but never used as a filter
+#
+# Run with: enrichment_mode='live_parity_streaming' (default), 10% risk, 10x leverage
+
+schema_version: "2.0"
+name: amt_value_reject_v2
+description: >
+  Improved MTF AMT value-area rejection. Adds stopping_volume confirmation,
+  trend-direction filter on primary, tighter long stop, and balance_status
+  filter to reduce low-quality entries. 30min entry filtered by 1h context.
+  Long+short.
+
+parameters:
+  poc_slope_min:
+    type: float
+    default: 0.0
+    minimum: -8.0
+    maximum: 0.0
+    description: Minimum POC slope for longs (0 = uptrend only; was -4 in v1)
+  poc_slope_max:
+    type: float
+    default: 0.0
+    minimum: 0.0
+    maximum: 8.0
+    description: Maximum POC slope for shorts (0 = downtrend only; was 4 in v1)
+  va_width_max:
+    type: float
+    default: 4.0
+    minimum: 2.0
+    maximum: 7.0
+    description: Max value area width % (wider = more trades)
+  atr_stop_mult:
+    type: float
+    default: 2.5
+    minimum: 1.5
+    maximum: 5.0
+    description: ATR multiplier for stop (tighter than v1's 3.0 to reduce long losers)
+  rr_ratio:
+    type: float
+    default: 1.5
+    minimum: 1.0
+    maximum: 3.0
+    description: Risk/reward for take profit
+
+timeframes:
+  primary: 30min
+  informative:
+    - interval: 1h
+      alias: h1
+
+indicators:
+  - {name: vp_poc, type: vp_poc, timeframe: primary}
+  - {name: vp_vah, type: vp_vah, timeframe: primary}
+  - {name: vp_val, type: vp_val, timeframe: primary}
+  - {name: near_val, type: near_val, timeframe: primary}
+  - {name: near_vah, type: near_vah, timeframe: primary}
+  - {name: above_value, type: above_value, timeframe: primary}
+  - {name: below_value, type: below_value, timeframe: primary}
+  - {name: rejection_from_edge, type: rejection_from_edge, timeframe: primary}
+  - {name: value_area_width_pct, type: value_area_width_pct, timeframe: primary}
+  - {name: poc_slope_5, type: poc_slope_5, timeframe: primary}
+  - {name: atr, type: atr, timeframe: primary}
+  - {name: stopping_volume, type: stopping_volume, timeframe: primary}
+  - {name: balance_status, type: balance_status, timeframe: primary}
+  - {name: poc_slope_5_1h, type: poc_slope_5, timeframe: h1}
+  - {name: above_value_1h, type: above_value, timeframe: h1}
+  - {name: below_value_1h, type: below_value, timeframe: h1}
+
+features: []
+
+risk:
+  stop_loss:
+    type: atr
+    multiplier: "{{ atr_stop_mult }}"
+    indicator: atr
+  take_profit:
+    type: risk_reward
+    ratio: "{{ rr_ratio }}"
+
+sides:
+  long:
+    direction: long
+    entry:
+      condition:
+        all:
+          - {operator: is_true, left: near_val}
+          - {operator: is_true, left: rejection_from_edge}
+          - {operator: is_true, left: stopping_volume}
+          - {operator: ">", left: poc_slope_5, right: "{{ poc_slope_min }}"}
+          - {operator: "<", left: value_area_width_pct, right: "{{ va_width_max }}"}
+          - {operator: is_false, left: balance_status}
+          - {operator: ">", left: poc_slope_5_1h, right: -5.0}
+          - {operator: is_false, left: above_value_1h}
+    exit:
+      condition:
+        any:
+          - {operator: is_true, left: above_value}
+          - {operator: is_true, left: near_vah}
+  short:
+    direction: short
+    entry:
+      condition:
+        all:
+          - {operator: is_true, left: near_vah}
+          - {operator: is_true, left: rejection_from_edge}
+          - {operator: is_true, left: stopping_volume}
+          - {operator: "<", left: poc_slope_5, right: "{{ poc_slope_max }}"}
+          - {operator: "<", left: value_area_width_pct, right: "{{ va_width_max }}"}
+          - {operator: is_false, left: balance_status}
+          - {operator: "<", left: poc_slope_5_1h, right: 5.0}
+          - {operator: is_false, left: below_value_1h}
+    exit:
+      condition:
+        any:
+          - {operator: is_true, left: below_value}
+          - {operator: is_true, left: near_val}
+
+metadata:
+  category: scalper_amt_value_rejection
+  primary_tf: 30min
+  version: 2
+  based_on: 14_amt_value_reject_30m_1h_mtf
+  changes: >
+    Added stopping_volume filter (was unused), trend-direction filter
+    (poc_slope_5 > 0 for longs, < 0 for shorts), tighter long stop (2.5x vs 3x),
+    balance_status filter to skip choppy sessions.

@@ -1,0 +1,146 @@
+# ⭐ AMT Value-Area Rejection — 30min primary, 1h MTF filter (PRODUCTION)
+#
+# This is the current BEST strategy in the repo. Multi-timeframe AMT value-area
+# rejection scalper with 1h structural context filter.
+#
+# ───────────────────────────────────────────────────────────────────────────
+# CAUSAL RESULTS (live_parity_streaming, zero costs, Hyperliquid SOL 30min+1h):
+#
+#   SOL (May 1 – Jun 22, 52 days):
+#     2% risk / 3x lev:  +12.6% (54 trades, 67% WR, Sharpe 1.72, DD 5.2%, PF 1.61)
+#     10% risk / 10x lev: +78.0% ($10K → $17,799, 54 trades, 67% WR, Sharpe 1.64, DD 30.8%, PF 1.48)
+#
+#   Direction breakdown (10%/10x):
+#     Long:  35 trades, 63% WR, PF 1.42, avg win $799, avg loss -$949
+#     Short: 19 trades, 74% WR, PF 1.65, avg win $467, avg loss -$795
+#     → Shorts are higher quality (higher WR, fewer stop-losses, better PF)
+#     → Win/loss ratio < 1.0 for both directions; strategy relies on WR > 60%
+#
+# ───────────────────────────────────────────────────────────────────────────
+# BATCH RESULTS (batch_full_frame / RESEARCH ONLY — lookahead-biased):
+# These numbers used the old enrichment mode that broadcasts completed-session
+# VP to earlier rows. They are NOT live-tradable. Kept for historical reference.
+#
+#   2% risk / 3x leverage (5bp+5bp costs):
+#     SOL:   +176% (78 trades, 82% WR, Sharpe 10.2, DD 5.2%)
+#     HYPE:  +109% (57 trades, 86% WR, Sharpe 10.3, DD 4.4%)
+#     GOOGL:  +31% (22 trades, 77% WR, Sharpe 6.3,  DD 2.7%)
+#     AAPL:   +16% (12 trades, 83% WR, Sharpe 7.4,  DD 1.9%)
+#     BTC:    +20% ( 9 trades, 100% WR, Sharpe 6.3, DD 2.1%)
+#     NVDA:    +3% (14 trades, 57% WR, Sharpe 1.1,  DD 6.5%)
+#
+#   10% risk / 10x leverage:
+#     SOL:   +11,409% ($10K → $1.15M, DD 23%) — LOOKAHEAD-INFLATED, not achievable live
+#
+# 1h MTF filters (currently loose — near-zero effect, identical to single-TF):
+#   - poc_slope_5_1h > -5 (long) / < 5 (short): 1h fair value not collapsing
+#   - above_value_1h is false (long): 1h price not already extended above VAH
+#   - below_value_1h is false (short): 1h price not already extended below VAL
+#
+# TRADING FREQUENCY:
+#   SOL: 0.75/day, HYPE: 0.55/day, GOOGL: 0.55/day, AAPL: 0.38/day
+#
+#
+# NOTE: stopping_volume is computed as an indicator but is NOT used in any
+# entry condition. The improved variant (15_amt_value_reject_v2) adds it as a
+# confirmation filter, tightens the long stop, and adds a trend-direction filter.
+#
+# DEPLOYMENT: compute 30m AMT indicators on primary, 1h (poc_slope_5, above_value,
+#   below_value) on informative h1. Use equity_regular_hours for stocks,
+#   crypto_24_7 for crypto.
+
+schema_version: "2.0"
+name: amt_value_reject_30m_1h_mtf
+description: >
+  MTF AMT value-area rejection. 30min entry filtered by 1h context
+  (POC slope stable, price not already at 1h edge). Long+short.
+
+parameters:
+  poc_slope_min:
+    type: float
+    default: -4.0
+    minimum: -8.0
+    maximum: 0.0
+  va_width_max:
+    type: float
+    default: 4.0
+    minimum: 2.0
+    maximum: 7.0
+  atr_stop_mult:
+    type: float
+    default: 3.0
+    minimum: 1.5
+    maximum: 5.0
+  rr_ratio:
+    type: float
+    default: 1.5
+    minimum: 1.0
+    maximum: 3.0
+
+timeframes:
+  primary: 30min
+  informative:
+    - interval: 1h
+      alias: h1
+
+indicators:
+  - {name: vp_poc, type: vp_poc, timeframe: primary}
+  - {name: vp_vah, type: vp_vah, timeframe: primary}
+  - {name: vp_val, type: vp_val, timeframe: primary}
+  - {name: near_val, type: near_val, timeframe: primary}
+  - {name: near_vah, type: near_vah, timeframe: primary}
+  - {name: above_value, type: above_value, timeframe: primary}
+  - {name: below_value, type: below_value, timeframe: primary}
+  - {name: rejection_from_edge, type: rejection_from_edge, timeframe: primary}
+  - {name: value_area_width_pct, type: value_area_width_pct, timeframe: primary}
+  - {name: poc_slope_5, type: poc_slope_5, timeframe: primary}
+  - {name: atr, type: atr, timeframe: primary}
+  - {name: stopping_volume, type: stopping_volume, timeframe: primary}
+  - {name: poc_slope_5_1h, type: poc_slope_5, timeframe: h1}
+  - {name: above_value_1h, type: above_value, timeframe: h1}
+  - {name: below_value_1h, type: below_value, timeframe: h1}
+
+features: []
+
+risk:
+  stop_loss:
+    type: atr
+    multiplier: "{{ atr_stop_mult }}"
+    indicator: atr
+  take_profit:
+    type: risk_reward
+    ratio: "{{ rr_ratio }}"
+
+sides:
+  long:
+    direction: long
+    entry:
+      condition:
+        all:
+          - {operator: is_true, left: near_val}
+          - {operator: is_true, left: rejection_from_edge}
+          - {operator: ">", left: poc_slope_5, right: "{{ poc_slope_min }}"}
+          - {operator: "<", left: value_area_width_pct, right: "{{ va_width_max }}"}
+          - {operator: ">", left: poc_slope_5_1h, right: -5.0}
+          - {operator: is_false, left: above_value_1h}
+    exit:
+      condition:
+        any:
+          - {operator: is_true, left: above_value}
+          - {operator: is_true, left: near_vah}
+  short:
+    direction: short
+    entry:
+      condition:
+        all:
+          - {operator: is_true, left: near_vah}
+          - {operator: is_true, left: rejection_from_edge}
+          - {operator: "<", left: poc_slope_5, right: 4.0}
+          - {operator: "<", left: value_area_width_pct, right: "{{ va_width_max }}"}
+          - {operator: "<", left: poc_slope_5_1h, right: 5.0}
+          - {operator: is_false, left: below_value_1h}
+    exit:
+      condition:
+        any:
+          - {operator: is_true, left: below_value}
+          - {operator: is_true, left: near_val}
