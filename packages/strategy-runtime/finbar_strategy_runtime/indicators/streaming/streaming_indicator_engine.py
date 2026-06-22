@@ -70,6 +70,8 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         # Batched windowed state — all scalar-windowed metrics on this
         # timeframe share ONE ring buffer + ONE batch compute pass per bar.
         self._batched_windowed: object | None = None
+        # Incremental session VP state — shared by vp_poc / vp_vah / vp_val.
+        self._session_vp: object | None = None
         self._bars_seen: int = 0
         self._latest: LatestBar = LatestBar()
 
@@ -82,11 +84,21 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
             rolling_volume_profile_state as _rvp_state,
         )
 
+        # Session VP metrics get an incremental state.
+        _VP_NAMES = frozenset({"vp_poc", "vp_vah", "vp_val"})
+        if any(name in _VP_NAMES for name in self._indicators):
+            from finbar_strategy_runtime.indicators.streaming.incremental_session_vp_state import (  # noqa: E501
+                IncrementalSessionVpState,
+            )
+            self._session_vp = IncrementalSessionVpState()
+
         for name in self._indicators:
             if _prefix_state.is_prefix_recompute_metric(name):
                 continue  # prefix-recompute is separate
             if _rvp_state.is_rolling_volume_profile_metric(name):
                 continue  # RVP has own state
+            if name in _VP_NAMES:
+                continue  # incremental VP, not windowed
             family = _canonical_family(name)
             kind = classify_indicator(name)
             if kind == IndicatorKind.WINDOWED and family == name:
@@ -107,6 +119,9 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
             )
 
         for name in self._indicators:
+            if name in _VP_NAMES and self._session_vp is not None:
+                self._states[name] = self._session_vp
+                continue
             family = _canonical_family(name)
             if self._batched_windowed is not None and name in windowed_names:
                 self._family_states[family] = self._batched_windowed
@@ -121,6 +136,8 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         self._bars_seen += 1
 
         # Update each unique family state once
+        if self._session_vp is not None:
+            self._session_vp.update(bar)
         for state in self._family_states.values():
             state.update(bar)
 
@@ -146,6 +163,8 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         return self._bars_seen >= MIN_BARS
 
     def reset(self) -> None:
+        if self._session_vp is not None:
+            self._session_vp.reset()
         for state in self._family_states.values():
             state.reset()
         self._bars_seen = 0
@@ -177,6 +196,14 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                 return getattr(state, "middle", float("nan"))
             if name == "bb_lower" or name.startswith("bb_lower"):
                 return getattr(state, "lower", float("nan"))
+
+        # Session VP: read from incremental state properties
+        if name == "vp_poc":
+            return getattr(state, "poc", float("nan"))
+        if name == "vp_vah":
+            return getattr(state, "vah", float("nan"))
+        if name == "vp_val":
+            return getattr(state, "val", float("nan"))
 
         # Single-output: use .value property, or .values[name] for batched state.
         if hasattr(state, "values"):
@@ -295,11 +322,7 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
             return _parse_vp_window(name)
 
         # Session-count-based indicators (poc_slope_N, wyckoff_phase,
-        # value_area_migration) group by calendar session and look back N
-        # sessions. A bar-count window of 50 holds only 1-2 sessions for
-        # intraday timeframes, so these indicators miscompute as 0.0. Use
-        # a window large enough to cover the session lookback at the
-        # production timeframes (30min=48 bars/session, 1h=24 bars/session).
+        # value_area_migration) — window is N sessions × bars/session.
         session_window = _session_count_window(name)
         if session_window is not None:
             return session_window
@@ -416,21 +439,37 @@ def _parse_vp_window(name: str) -> int:
     return MIN_BARS
 
 
-# Window floor for session-count-based indicators (poc_slope_N,
-# wyckoff_phase, value_area_migration). These look back N sessions; a
-# 50-bar window holds too few sessions at intraday timeframes. 500 bars
-# covers poc_slope_5 (6 sessions) at 30min (48 bars/session ≈ 8 sessions)
-# and 1h (24 bars/session ≈ 20 sessions). poc_slope_20 on 30min needs
-# ~1000 bars and is not used by the production strategy; documented as a
-# future timeframe-aware-window improvement.
-_SESSION_COUNT_WINDOW = 500
-_SESSION_COUNT_NAMES = frozenset({"wyckoff_phase", "value_area_migration"})
+# Bars per session for session-count-based indicator windows.
+# Crypto default (24/7): 30min=48, 1h=24. Equity (6.5h): 30min=13, 1h=7.
+# Using crypto as conservative default — always >= equity session size.
+_BARS_PER_SESSION = 48
 
 
 def _session_count_window(name: str) -> int | None:
-    """Return the window for session-count-based indicators, else None."""
-    if name in _SESSION_COUNT_NAMES:
-        return _SESSION_COUNT_WINDOW
+    """Return the minimum window size for a session-count indicator.
+
+    Session-count indicators look back N calendar sessions. The window
+    must hold enough bars to cover that many sessions at the current
+    timeframe. Returns None for non-session-count indicators.
+
+    Examples (30min crypto, 48 bars/session):
+        poc_slope_5  → (5+1) × 48 = 288
+        poc_slope_20 → (20+1) × 48 = 1008
+        wyckoff_phase → 5 × 48 = 240
+    """
+    if name == "wyckoff_phase":
+        return 5 * _BARS_PER_SESSION
+    if name == "value_area_migration":
+        return 5 * _BARS_PER_SESSION
+    # poc_slope_N needs N+1 sessions (N slope values require N+1 points).
     if name.startswith("poc_slope_"):
-        return _SESSION_COUNT_WINDOW
+        try:
+            n = int(name[len("poc_slope_"):])
+            return max((n + 1) * _BARS_PER_SESSION, MIN_BARS)
+        except ValueError:
+            return None
     return None
+
+
+# Pre-computed session-count names set for fast lookup.
+_SESSION_COUNT_NAMES = frozenset({"wyckoff_phase", "value_area_migration"})
