@@ -137,6 +137,9 @@ def run_backtest(request: ApiBacktestRequest):
         sortino_ratio=result.sortino_ratio,
         profit_factor=result.profit_factor,
         calmar_ratio=result.calmar_ratio,
+        enrichment_mode=result.enrichment_mode,
+        live_parity_safe=result.live_parity_safe,
+        parity_warnings=result.parity_warnings,
         trades=result.trades,
         equity_curve=result.equity_curve,
     )

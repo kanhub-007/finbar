@@ -198,6 +198,9 @@ class TestAnalysis:
             assert "total_return" in data
             assert "sharpe_ratio" in data
             assert "trades" in data
+            assert data["enrichment_mode"] == "live_parity_streaming"
+            assert data["live_parity_safe"] is True
+            assert data["parity_warnings"] == []
         finally:
             client.delete("/api/strategies/route_json_backtest_test")
 

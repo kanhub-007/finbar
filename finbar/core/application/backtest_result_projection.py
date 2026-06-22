@@ -39,6 +39,9 @@ _SUMMARY_FIELDS = [
     "position_sizing",
     "warmup_bars",
     "first_tradable",
+    "enrichment_mode",
+    "live_parity_safe",
+    "parity_warnings",
     "error",
 ]
 
@@ -213,6 +216,7 @@ def _warnings_from_result(result: dict[str, Any]) -> list[str]:
     annualization_warning = result.get("annualization_warning")
     if annualization_warning:
         warnings.append(str(annualization_warning))
+    warnings.extend(str(warning) for warning in result.get("parity_warnings", []))
     if result.get("diagnostics"):
         warnings.append("Execution diagnostics are available in the full result.")
     return warnings

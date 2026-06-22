@@ -1,6 +1,6 @@
 """Structured backtest results."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BacktestResponse(BaseModel):
@@ -23,5 +23,8 @@ class BacktestResponse(BaseModel):
     sortino_ratio: float
     profit_factor: float | None = None
     calmar_ratio: float
+    enrichment_mode: str = "batch_full_frame"
+    live_parity_safe: bool = True
+    parity_warnings: list[str] = Field(default_factory=list)
     trades: list[dict]
     equity_curve: list[dict]
