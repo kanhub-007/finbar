@@ -62,6 +62,11 @@ class CausalMultiTimeframeStreamingEnricher(
                 compute on each informative timeframe.
         """
         self._primary_engine = StreamingIndicatorEngine(indicators=primary_indicators)
+        self._primary_indicators = list(primary_indicators)
+        self._info_indicators = {
+            alias: list(indicators)
+            for alias, indicators in informative_indicators.items()
+        }
         self._info_engines: dict[str, StreamingIndicatorEngine] = {}
         self._info_offsets: dict[str, pd.Timedelta] = {}
         self._info_suffixes: dict[str, str] = {}
@@ -124,13 +129,22 @@ class CausalMultiTimeframeStreamingEnricher(
         """Ingest one closed informative bar for the given alias."""
         engine = self._info_engines[alias]
         latest = engine.update(bar)
-        row = _build_row(bar, latest.values)
+        row = _build_row(
+            bar,
+            _with_requested_columns(
+                latest.values,
+                self._info_indicators.get(alias, []),
+            ),
+        )
         self._info_history[alias].append((_bar_open_ts(bar), row))
 
     def update_primary(self, bar: dict) -> CausalEnrichedBar:
         """Ingest one closed primary bar; return the latest causal enriched bar."""
         latest = self._primary_engine.update(bar)
-        merged = _build_row(bar, latest.values)
+        merged = _build_row(
+            bar,
+            _with_requested_columns(latest.values, self._primary_indicators),
+        )
         primary_open = _bar_open_ts(bar)
         for alias, offset in self._info_offsets.items():
             info_row = _latest_visible(self._info_history[alias], primary_open, offset)
@@ -160,12 +174,19 @@ class CausalMultiTimeframeStreamingEnricher(
 # ── module-level helpers ────────────────────────────────────────────────────
 
 
-def _build_row(bar: dict, indicator_values: dict[str, float]) -> dict[str, Any]:
+def _build_row(bar: dict, indicator_values: dict[str, Any]) -> dict[str, Any]:
     """Build a latest-row dict from a bar's OHLCV + computed indicator values."""
     row: dict[str, Any] = {k: v for k, v in bar.items()}
     for name, value in indicator_values.items():
         row[name] = value
     return row
+
+
+def _with_requested_columns(values: dict[str, Any], names: list[str]) -> dict[str, Any]:
+    """Return indicator values with requested-but-missing names as NaN."""
+    complete = {name: float("nan") for name in names}
+    complete.update(values)
+    return complete
 
 
 def _bar_open_ts(bar: dict) -> pd.Timestamp:
