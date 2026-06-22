@@ -38,10 +38,19 @@ class InMemoryOptimizationJobManager(OptimizationJobManager):
             metric=params.get("metric", "sharpe_ratio"),
             metadata=dict(params),
         )
-        task = asyncio.create_task(runner(job))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            threading.Thread(
+                target=lambda: asyncio.run(runner(job)),
+                daemon=True,
+            ).start()
+        else:
+            task = loop.create_task(runner(job))
+            with self._lock:
+                self._tasks[job.job_id] = task
         with self._lock:
             self._jobs[job.job_id] = job
-            self._tasks[job.job_id] = task
             self._enforce_max_jobs_locked()
         return job
 

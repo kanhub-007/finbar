@@ -80,10 +80,22 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
             async with self._semaphore:
                 await runner(j)
 
-        task = asyncio.create_task(_gated_runner(job))
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running event loop (e.g. synchronous caller).
+            # Dispatch the job on a fresh daemon thread with its own loop.
+            thread = threading.Thread(
+                target=lambda: asyncio.run(_gated_runner(job)),
+                daemon=True,
+            )
+            thread.start()
+        else:
+            task = loop.create_task(_gated_runner(job))
+            with self._lock:
+                self._tasks[job.job_id] = task
         with self._lock:
             self._jobs[job.job_id] = job
-            self._tasks[job.job_id] = task
             self._enforce_max_jobs_locked()
         return job
 

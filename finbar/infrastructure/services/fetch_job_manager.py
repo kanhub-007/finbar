@@ -37,8 +37,16 @@ class FetchJobManager:
             start_date=params.get("start_date"),
             end_date=params.get("end_date"),
         )
-        task = asyncio.create_task(runner(job))
-        job.task = task
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            threading.Thread(
+                target=lambda: asyncio.run(runner(job)),
+                daemon=True,
+            ).start()
+        else:
+            task = loop.create_task(runner(job))
+            job.task = task
         with self._lock:
             self._jobs[job.job_id] = job
             self._enforce_max_jobs_locked()

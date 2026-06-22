@@ -485,7 +485,7 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
             "backtest_strategy_definition with the returned artifact IDs."
         ),
     )
-    def compute_strategy_indicators(
+    async def compute_strategy_indicators(
         definition_json: str,
         symbol: str,
         source: str = "yfinance",
