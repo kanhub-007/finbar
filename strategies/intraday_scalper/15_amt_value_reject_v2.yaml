@@ -1,43 +1,38 @@
-# ⭐ AMT Value-Area Rejection V2 — improved entry filters (PRODUCTION)
+# ⭐ AMT Value-Area Rejection V2 — improved risk management (PRODUCTION)
 #
-# Improvements over 14_amt_value_reject_30m_1h_mtf:
-#   1. stopping_volume confirmation — only enter when rejection is volume-backed
-#      (was computed but UNUSED in v1; now an entry condition)
-#   2. Trend-direction filter on primary — longs need poc_slope_5 > 0 (not just > -4),
-#      shorts need poc_slope_5 < 0 (not just < 4). Removes counter-trend fade trades.
-#   3. Tighter long stop (2.5× ATR vs 3.0×) — long losers averaged $949 vs $799 wins;
-#      tighter stop reduces the avg loss while keeping winning trades intact.
-#   4. balance_status filter — skip choppy/balanced sessions where VP edges are weak.
+# Improvements over 14_amt_value_reject_30m_1h_mtf (based on causal trade analysis):
 #
-# Based on causal backtest analysis of v1 (SOL, May–Jun 2026, 54 trades):
-#   - Shorts were higher quality (74% WR vs 63% for longs)
-#   - Win/loss ratio < 1.0 for both; strategy needs WR > 60% to survive
-#   - 8 long stop-losses vs 3 short stop-losses → longs are riskier
-#   - stopping_volume was computed but never used as a filter
+#   1. Tighter stop: 2.0× ATR (was 3.0×) — v1 long losers averaged $949 vs
+#      $799 wins; tighter stop cuts the average loss while keeping wins.
+#   2. Better R/R: 2.0 (was 1.5) — compensates for the tighter stop by
+#      demanding more from winners, improving the win/loss ratio.
+#
+# Filters that were tested but REJECTED:
+#   - stopping_volume entry filter: only True in 0.2% of bars (1/499) — too
+#     rare to use as a hard entry filter. Better as a soft signal in Finbot.
+#   - Trend-direction filter (poc_slope > 0 for longs): eliminated all trades.
+#     VP rejections rarely coincide with trend-aligned POC slopes.
+#   - balance_status filter: not compatible with incremental VP state (depends
+#     on full-window recompute). Excluded until prefix-recompute metrics
+#     support VP injection.
 #
 # Run with: enrichment_mode='live_parity_streaming' (default), 10% risk, 10x leverage
 
 schema_version: "2.0"
 name: amt_value_reject_v2
 description: >
-  Improved MTF AMT value-area rejection. Adds stopping_volume confirmation,
-  trend-direction filter on primary, tighter long stop, and balance_status
-  filter to reduce low-quality entries. 30min entry filtered by 1h context.
-  Long+short.
+  Improved MTF AMT value-area rejection with tighter risk management.
+  Same entry logic as v1 (VP rejection at session edges, 1h MTF filter)
+  but with 2× ATR stop and 2:1 R/R to fix the win/loss ratio issue.
+  30min entry filtered by 1h context. Long+short.
 
 parameters:
   poc_slope_min:
     type: float
-    default: 0.0
+    default: -4.0
     minimum: -8.0
     maximum: 0.0
-    description: Minimum POC slope for longs (0 = uptrend only; was -4 in v1)
-  poc_slope_max:
-    type: float
-    default: 0.0
-    minimum: 0.0
-    maximum: 8.0
-    description: Maximum POC slope for shorts (0 = downtrend only; was 4 in v1)
+    description: Minimum POC slope (filters falling/rising knives)
   va_width_max:
     type: float
     default: 4.0
@@ -46,16 +41,16 @@ parameters:
     description: Max value area width % (wider = more trades)
   atr_stop_mult:
     type: float
-    default: 2.5
-    minimum: 1.5
+    default: 2.0
+    minimum: 1.0
     maximum: 5.0
-    description: ATR multiplier for stop (tighter than v1's 3.0 to reduce long losers)
+    description: ATR multiplier for stop (tighter than v1's 3.0 to cut avg loss)
   rr_ratio:
     type: float
-    default: 1.5
+    default: 2.0
     minimum: 1.0
     maximum: 3.0
-    description: Risk/reward for take profit
+    description: Risk/reward for take profit (higher than v1's 1.5 for better ratio)
 
 timeframes:
   primary: 30min
@@ -76,7 +71,6 @@ indicators:
   - {name: poc_slope_5, type: poc_slope_5, timeframe: primary}
   - {name: atr, type: atr, timeframe: primary}
   - {name: stopping_volume, type: stopping_volume, timeframe: primary}
-  - {name: balance_status, type: balance_status, timeframe: primary}
   - {name: poc_slope_5_1h, type: poc_slope_5, timeframe: h1}
   - {name: above_value_1h, type: above_value, timeframe: h1}
   - {name: below_value_1h, type: below_value, timeframe: h1}
@@ -100,10 +94,8 @@ sides:
         all:
           - {operator: is_true, left: near_val}
           - {operator: is_true, left: rejection_from_edge}
-          - {operator: is_true, left: stopping_volume}
           - {operator: ">", left: poc_slope_5, right: "{{ poc_slope_min }}"}
           - {operator: "<", left: value_area_width_pct, right: "{{ va_width_max }}"}
-          - {operator: is_false, left: balance_status}
           - {operator: ">", left: poc_slope_5_1h, right: -5.0}
           - {operator: is_false, left: above_value_1h}
     exit:
@@ -118,10 +110,8 @@ sides:
         all:
           - {operator: is_true, left: near_vah}
           - {operator: is_true, left: rejection_from_edge}
-          - {operator: is_true, left: stopping_volume}
-          - {operator: "<", left: poc_slope_5, right: "{{ poc_slope_max }}"}
+          - {operator: "<", left: poc_slope_5, right: 4.0}
           - {operator: "<", left: value_area_width_pct, right: "{{ va_width_max }}"}
-          - {operator: is_false, left: balance_status}
           - {operator: "<", left: poc_slope_5_1h, right: 5.0}
           - {operator: is_false, left: below_value_1h}
     exit:
@@ -136,6 +126,5 @@ metadata:
   version: 2
   based_on: 14_amt_value_reject_30m_1h_mtf
   changes: >
-    Added stopping_volume filter (was unused), trend-direction filter
-    (poc_slope_5 > 0 for longs, < 0 for shorts), tighter long stop (2.5x vs 3x),
-    balance_status filter to skip choppy sessions.
+    Tighter stop (2.0x ATR vs 3.0x) and higher R/R (2.0 vs 1.5) to fix
+    the win/loss ratio < 1.0 issue from v1. Entry logic unchanged.
