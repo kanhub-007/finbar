@@ -117,7 +117,7 @@ class RunStrategyPipelineUseCase:
             self._manager,
             self._runner,
         )
-        compute_result = compute.execute(
+        compute_result = await compute.execute(
             definition_json,
             symbol,
             source,

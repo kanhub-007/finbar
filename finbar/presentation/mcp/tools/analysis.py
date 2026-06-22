@@ -499,7 +499,7 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
         end_date: str | None = None,
         enrichment_mode: str = "live_parity_streaming",
     ) -> str:
-        result = _make_compute_strategy_indicators_use_case().execute(
+        result = await _make_compute_strategy_indicators_use_case().execute(
             definition_json,
             symbol,
             source,
