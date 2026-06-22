@@ -26,8 +26,8 @@ from finbar_strategy_runtime.domain.entities.causal_enriched_bar import (
 from finbar_strategy_runtime.domain.entities.strategy_definition import (
     StrategyDefinition,
 )
-from finbar_strategy_runtime.domain.interfaces.multi_timeframe_streaming_enricher import (
-    MultiTimeframeStreamingEnricher,
+from finbar_strategy_runtime.domain.interfaces import (
+    multi_timeframe_streaming_enricher as mtf_enricher_interface,
 )
 from finbar_strategy_runtime.indicators._bar_timestamp import (
     parse_bar_timestamps,
@@ -40,7 +40,9 @@ from finbar_strategy_runtime.indicators.streaming.streaming_indicator_engine imp
 _OHLCV = {"open", "high", "low", "close", "volume", "timestamp"}
 
 
-class CausalMultiTimeframeStreamingEnricher(MultiTimeframeStreamingEnricher):
+class CausalMultiTimeframeStreamingEnricher(
+    mtf_enricher_interface.MultiTimeframeStreamingEnricher
+):
     """Incrementally enrich primary bars with informative context, causally."""
 
     def __init__(
@@ -77,6 +79,46 @@ class CausalMultiTimeframeStreamingEnricher(MultiTimeframeStreamingEnricher):
         self._latest: CausalEnrichedBar | None = None
 
     # ── public API ──────────────────────────────────────────────────────
+
+    @classmethod
+    def from_strategy_definition(
+        cls,
+        definition: StrategyDefinition,
+        primary_indicators: list[str],
+        informative_indicators: dict[str, list[str]],
+    ) -> CausalMultiTimeframeStreamingEnricher:
+        """Create a Finbot-ready causal enricher from parsed strategy data.
+
+        Args:
+            definition: Parsed strategy definition.
+            primary_indicators: Concrete indicator names for primary candles.
+            informative_indicators: Concrete indicator names by alias.
+
+        Returns:
+            A stateful package-owned causal MTF streaming enricher.
+        """
+        return cls(
+            definition=definition,
+            primary_indicators=primary_indicators,
+            informative_indicators=informative_indicators,
+        )
+
+    def update(self, alias: str, bar: dict) -> CausalEnrichedBar | None:
+        """Ingest one closed candle by timeframe alias.
+
+        Args:
+            alias: ``"primary"`` for the decision timeframe, otherwise an
+                informative timeframe alias.
+            bar: Closed OHLCV bar dict with a parseable ``timestamp``.
+
+        Returns:
+            Latest enriched primary row for primary updates; None for
+            informative-only updates.
+        """
+        if alias == "primary":
+            return self.update_primary(bar)
+        self.update_informative(alias, bar)
+        return None
 
     def update_informative(self, alias: str, bar: dict) -> None:
         """Ingest one closed informative bar for the given alias."""

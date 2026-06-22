@@ -1,9 +1,13 @@
 """JsonRuleBasedStrategy — execute validated JSON strategies."""
 
 from finbar_strategy_runtime.domain.entities.signal_result import SignalResult
-from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
+from finbar_strategy_runtime.domain.entities.strategy_definition import (
+    StrategyDefinition,
+)
 from finbar_strategy_runtime.domain.entities.strategy_meta import DataMode, StrategyMeta
-from finbar_strategy_runtime.domain.interfaces.risk_price_calculator import RiskPriceCalculator
+from finbar_strategy_runtime.domain.interfaces.risk_price_calculator import (
+    RiskPriceCalculator,
+)
 from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 from finbar_strategy_runtime.evaluation.condition_evaluator import (
     ConditionEvaluator,
@@ -40,10 +44,20 @@ class JsonRuleBasedStrategy(TradingStrategy):
             params=self._definition.resolved_params,
         )
 
-    def on_bar(self, bar: dict, position: dict) -> SignalResult:
-        """Evaluate the strategy rules for one enriched OHLCV bar."""
-        direction = str(position.get("direction", ""))
-        size = float(position.get("size", 0) or 0)
+    def on_bar(self, bar: dict, position: dict | None) -> SignalResult:
+        """Evaluate the strategy rules for one enriched OHLCV bar.
+
+        Args:
+            bar: Flat enriched OHLCV/indicator row.
+            position: Current position dictionary, or None for flat/no
+                position in live/replay callers.
+
+        Returns:
+            SignalResult for the current bar.
+        """
+        current_position = position or {}
+        direction = str(current_position.get("direction", ""))
+        size = float(current_position.get("size", 0) or 0)
         pending_values: PrevValues = {}
 
         # Always collect crossover state for ALL condition trees so that

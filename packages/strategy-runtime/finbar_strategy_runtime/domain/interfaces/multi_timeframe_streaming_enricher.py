@@ -25,6 +25,20 @@ class MultiTimeframeStreamingEnricher(ABC):
     """
 
     @abstractmethod
+    def update(self, alias: str, bar: dict) -> CausalEnrichedBar | None:
+        """Ingest one closed candle by timeframe alias.
+
+        Args:
+            alias: ``"primary"`` for the decision timeframe, otherwise an
+                informative timeframe alias such as ``"h1"``.
+            bar: Closed OHLCV bar dict with a parseable ``timestamp``.
+
+        Returns:
+            Latest enriched primary row for ``"primary"`` updates; None for
+            informative-only updates.
+        """
+
+    @abstractmethod
     def update_informative(self, alias: str, bar: dict) -> None:
         """Ingest one closed informative bar for the given alias.
 
