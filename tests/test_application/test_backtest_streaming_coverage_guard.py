@@ -1,8 +1,8 @@
-"""Tests for guarding Finbar's causal default with streaming coverage.
+"""Tests for Finbar JSON-strategy causal streaming integration.
 
-Scenario 3 from all-metrics causal streaming parity: a strategy requiring a
-STREAMING_UNSUPPORTED metric must not silently trade on the broken streaming
-value when the default live_parity_streaming mode is requested.
+Scenarios 3 and 11 from all-metrics causal streaming parity: default
+``live_parity_streaming`` must be safe for fixed catalog metrics, and explicit
+``batch_full_frame`` remains a labelled research opt-in.
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ def _bars(count: int = 80) -> list[dict]:
 
 
 def _vwap_strategy() -> dict:
-    """Return a valid strategy requiring the unsupported `vwap` metric."""
+    """Return a valid strategy requiring the formerly unsupported vwap metric."""
     return {
         "schema_version": "2.0",
         "name": "vwap_guard_strategy",
@@ -94,8 +94,32 @@ def _vwap_strategy() -> dict:
     }
 
 
+def _vp_poc_strategy() -> dict:
+    """Return a valid strategy requiring frame-dependent session VP."""
+    return {
+        "schema_version": "2.0",
+        "name": "vp_poc_research_strategy",
+        "indicators": [{"name": "primary_vp_poc", "type": "vp_poc"}],
+        "sides": {
+            "long": {
+                "entry": {
+                    "condition": {
+                        "all": [
+                            {
+                                "left": "close",
+                                "operator": ">",
+                                "right": "primary_vp_poc",
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+    }
+
+
 class TestBacktestStreamingCoverageGuard:
-    """Black-box tests for unsupported-metric handling in causal mode."""
+    """Black-box tests for causal default and research batch opt-in."""
 
     def test_default_live_parity_uses_vwap_after_metric_is_fixed(self):
         """Formerly unsupported vwap now stays causal and live-parity safe."""
@@ -113,3 +137,21 @@ class TestBacktestStreamingCoverageGuard:
         assert result.result.live_parity_safe is True
         assert result.result.enrichment_mode == "live_parity_streaming"
         assert result.result.parity_warnings == []
+
+    def test_explicit_batch_full_frame_is_labelled_research_opt_in(self):
+        """Batch mode remains available but warns for frame-dependent metrics."""
+        result = _make_use_case().execute(
+            BacktestStrategyDefinitionRequest(
+                definition=_vp_poc_strategy(),
+                bars=_bars(),
+                symbol="TEST",
+                interval="1h",
+                enrichment_mode="batch_full_frame",
+            )
+        )
+
+        assert result.valid is True, result.errors
+        assert result.result is not None
+        assert result.result.enrichment_mode == "batch_full_frame"
+        assert result.result.live_parity_safe is False
+        assert any("vp_poc" in warning for warning in result.result.parity_warnings)
