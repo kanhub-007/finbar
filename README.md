@@ -6,6 +6,70 @@ optimize, walk-forward, and persist trading strategies — no Python code requir
 Strategies can be authored in **YAML** (recommended for agents — less error-prone,
 no escaping hell) or JSON.
 
+## What's New (Jun 2026)
+
+### Causal Streaming Enrichment (`live_parity_streaming`)
+
+All backtests now default to **causal enrichment** — each bar's indicators are
+computed using only data available at that bar's close, with no future lookahead.
+This is the **live-tradable** mode: what Finbot would actually see in real trading.
+
+**Two enrichment modes:**
+- **`live_parity_streaming`** (DEFAULT, RECOMMENDED): Causal streaming via
+  `CausalMultiTimeframeStreamingEnricher`. Required for VP/AMT session-based
+  strategies. Safe for all strategy types.
+- **`batch_full_frame`** (RESEARCH ONLY): Legacy full-frame batch enrichment.
+  NOT live-parity safe for session VP/AMT indicators (lookahead bias). Kept for
+  TA-only strategies and historical comparison.
+
+Backtest results now include `enrichment_mode`, `live_parity_safe`, and
+`parity_warnings` metadata so you can verify the mode was applied correctly.
+
+### Async Strategy Pipeline
+
+Large causal backtests can take minutes. The new async pipeline tools eliminate
+the MCP timeout:
+
+```
+start_strategy_pipeline(definition, symbol, ...)     → job_id (instant)
+get_strategy_pipeline_progress(job_id)               → poll until "completed"
+get_strategy_pipeline_results(job_id)                → full backtest result
+```
+
+### Performance Optimizations
+
+The causal streaming engine was optimized with three techniques:
+- **Incremental session VP**: `IncrementalSessionVpState` computes VP per-session
+  (O(session_size)) instead of full-window recompute (O(500))
+- **Batched windowed metrics**: `BatchedWindowedState` computes all windowed
+  metrics in one batch call per bar (10× reduction for AMT strategies)
+- **Parallel timeframe enrichment**: Informative engines run in parallel threads
+- **VP injection**: Incremental VP values feed the batched state to avoid
+  duplicate dependency recompute
+
+Result: **~80× faster** for the AMT MTF strategy (200→14ms/bar).
+
+### Finbot-Ready Causal Enricher API
+
+The package exposes a Finbot-facing API for live candle processing:
+
+```python
+enricher = CausalMultiTimeframeStreamingEnricher.from_strategy_definition(
+    definition, primary_indicators, informative_indicators
+)
+for event in closed_candle_events:
+    latest = enricher.update(event.timeframe_alias, event.bar)
+    if latest.is_ready:
+        signal = JsonRuleBasedStrategy(definition).on_bar(latest.values, position=None)
+```
+
+### MCP Tool Improvements
+
+- Fixed `asyncio.create_task` crash when MCP runs sync tools on thread pool
+- `compute_strategy_indicators` now properly async (was blocking the event loop)
+- All enrichment mode parameters documented in tool descriptions
+- Granular progress reporting during async pipeline execution
+
 ## Quick Start
 
 ```bash
@@ -33,9 +97,9 @@ python run_mcp.py
 | **[Strategy JSON/YAML SDK](#strategy-capabilities-json-or-yaml)** | Authoring strategies in JSON or YAML — see `get_strategy_capabilities` and `get_usage_guide` |
 | **[Optimization](docs/OPTIMIZATION.md)** | Grid search, random search, walk-forward validation, diagnostics |
 | **[Architecture](docs/ARCHITECTURE.md)** | Clean architecture, layers, patterns, one class per file |
-| **[Execution Model](docs/backtest_execution_model.md)** | Fill accounting, slippage, margin, annualization, crossover determinism |
+| **[Execution Model](docs/BACKTEST_EXECUTION_MODEL.md)** | Fill accounting, slippage, margin, annualization, crossover determinism |
 
-## MCP Tools (48)
+## MCP Tools (50+)
 
 | Category | Tools |
 |----------|-------|
@@ -49,9 +113,22 @@ python run_mcp.py
 | **Strategy** | `get_strategy_capabilities`, `get_strategy_schema`, `validate_strategy_definition`, `explain_strategy_definition`, `backtest_strategy_definition`, `apply_strategy_features`, `save_strategy_definition`, `delete_strategy_definition` |
 | **Optimization** | `start_optimization_job`, `start_walk_forward_job`, `get_optimization_job_progress`, `get_optimization_job_results`, `cancel_optimization_job` |
 | **Analysis** | `run_backtest`, `list_backtest_strategies`, `run_portfolio_backtest` |
-| **Pipeline** | `compute_strategy_indicators`, `run_strategy_pipeline` |
+| **Pipeline** | `compute_strategy_indicators`, `run_strategy_pipeline`, `start_strategy_pipeline`, `get_strategy_pipeline_progress`, `get_strategy_pipeline_results`, `cancel_strategy_pipeline` |
 | **Results** | `list_backtest_results`, `get_backtest_summary`, `get_backtest_trades`, `get_backtest_equity` |
 | **Guides** | `get_usage_guide` (full workflow reference) |
+
+## Enrichment Modes
+
+| Mode | Default | Safe For | Use Case |
+|------|---------|----------|----------|
+| **`live_parity_streaming`** | ✅ Yes | All strategies | Live-tradable results; what Finbot would see |
+| `batch_full_frame` | No | TA-only (sma, rsi, macd) | Research, historical comparison |
+
+**When in doubt, omit the `enrichment_mode` parameter** — the default is always correct.
+
+The usage guide (`get_usage_guide`) documents both modes at the top. Tool
+descriptions for `backtest_strategy_definition`, `run_strategy_pipeline`, and
+`run_backtest` all explain when to use each.
 
 ## Strategy capabilities (JSON or YAML)
 
@@ -82,6 +159,9 @@ and analytics are stored server-side and retrieved on demand.
   "summary": {
     "total_return": 0.1235, "sharpe_ratio": 1.42, "max_drawdown": -0.0523,
     "win_rate": 0.625, "profit_factor": 2.31, "total_trades": 42,
+    "enrichment_mode": "live_parity_streaming",
+    "live_parity_safe": true,
+    "parity_warnings": [],
     "trade_summary": {"count": 42, "avg_pnl": 150.5, "top_winners": [...], "top_losers": [...]}
   },
   "ids": {"result_id": "bt_a1b2c3d4e5f6"},
@@ -129,9 +209,44 @@ Finbar is optimized for AI agents with limited context windows:
 - **Artifact IDs**: Compute indicators once, reuse via `list_artifacts` + `describe_artifact`
 - **Compact summaries**: Backtests return metrics + access pointers by default
 - **Paginated detail**: `get_backtest_trades` and `get_backtest_equity` fetch large arrays on demand
-- **Pipeline orchestration**: `run_strategy_pipeline` handles validate→compute→backtest in one call
+- **Async pipeline**: `start_strategy_pipeline` for long-running causal backtests — no timeout
 - **Hash-based reuse**: Identical indicator requests reuse existing artifacts
 - **Durable storage**: Artifacts and backtest results persist across MCP restarts
+
+## Strategy Runtime Package (`finbar_strategy_runtime`)
+
+The shared package owns all enrichment semantics. Both Finbar (backtests) and
+Finbot (live trading) consume the same `CausalMultiTimeframeStreamingEnricher`:
+
+```python
+from finbar_strategy_runtime.indicators.causal_multi_timeframe_streaming_enricher import (
+    CausalMultiTimeframeStreamingEnricher,
+)
+
+# One-call enrichment (backtest/replay)
+frame = CausalMultiTimeframeStreamingEnricher.causal_enrich_bars(
+    primary_bars, informative_bars, definition,
+    primary_indicators, informative_indicators,
+)
+
+# Live candle processing (Finbot)
+enricher = CausalMultiTimeframeStreamingEnricher.from_strategy_definition(
+    definition, primary_indicators, informative_indicators,
+)
+enricher.update("h1", h1_bar)         # informative → returns None
+latest = enricher.update("primary", primary_bar)  # → CausalEnrichedBar
+signal = strategy.on_bar(latest.values, position=None)
+```
+
+### Performance architecture
+
+| Component | Technique | Impact |
+|-----------|-----------|--------|
+| `IncrementalSessionVpState` | Session-scoped VP recompute (O(48) vs O(500)) | ~5× |
+| `BatchedWindowedState` | One batch compute for all windowed metrics | ~10× |
+| VP injection | Incremental VP feeds batched state (no duplicate recompute) | Eliminates O(n²) |
+| Parallel enrichment | Informative engines in parallel threads | ~1.5× |
+| `causal_enrich_bars` | Timestamps parsed in batch, not per-bar | Eliminates per-bar overhead |
 
 ## Configuration
 
@@ -147,7 +262,7 @@ FINBAR_API_PORT=8000
 
 ```bash
 ruff check finbar/ && black finbar/ && pytest tests/
-# 552 tests in finbar/ (~8s); 359 more in packages/strategy-runtime
+# ~590 tests in finbar/ (~6min); ~970 in packages/strategy-runtime (~6min)
 ```
 
 ## Architecture
