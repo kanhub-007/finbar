@@ -322,7 +322,9 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
             return _parse_vp_window(name)
 
         # Session-count-based indicators (poc_slope_N, wyckoff_phase,
-        # value_area_migration) — window is N sessions × bars/session.
+        # value_area_migration) group by calendar session and look back N
+        # sessions. Use a large fixed window. Interval-aware sizing
+        # deferred (spec: 2026-06-22_streaming-performance).
         session_window = _session_count_window(name)
         if session_window is not None:
             return session_window
@@ -439,37 +441,20 @@ def _parse_vp_window(name: str) -> int:
     return MIN_BARS
 
 
-# Bars per session for session-count-based indicator windows.
-# Crypto default (24/7): 30min=48, 1h=24. Equity (6.5h): 30min=13, 1h=7.
-# Using crypto as conservative default — always >= equity session size.
-_BARS_PER_SESSION = 48
+# Window floor for session-count-based indicators (poc_slope_N,
+# wyckoff_phase, value_area_migration). These look back N sessions; a
+# 50-bar window holds too few sessions at intraday timeframes. 500 bars
+# covers poc_slope_5 (6 sessions) at 30min (48 bars/session ~ 8 sessions)
+# and 1h (24 bars/session ~ 20 sessions). Interval-aware window sizing
+# is deferred to a follow-up (spec: 2026-06-22_streaming-performance).
+_SESSION_COUNT_WINDOW = 500
+_SESSION_COUNT_NAMES = frozenset({"wyckoff_phase", "value_area_migration"})
 
 
 def _session_count_window(name: str) -> int | None:
-    """Return the minimum window size for a session-count indicator.
-
-    Session-count indicators look back N calendar sessions. The window
-    must hold enough bars to cover that many sessions at the current
-    timeframe. Returns None for non-session-count indicators.
-
-    Examples (30min crypto, 48 bars/session):
-        poc_slope_5  → (5+1) × 48 = 288
-        poc_slope_20 → (20+1) × 48 = 1008
-        wyckoff_phase → 5 × 48 = 240
-    """
-    if name == "wyckoff_phase":
-        return 5 * _BARS_PER_SESSION
-    if name == "value_area_migration":
-        return 5 * _BARS_PER_SESSION
-    # poc_slope_N needs N+1 sessions (N slope values require N+1 points).
+    """Return the session-count window for *name*, or None."""
+    if name in _SESSION_COUNT_NAMES:
+        return _SESSION_COUNT_WINDOW
     if name.startswith("poc_slope_"):
-        try:
-            n = int(name[len("poc_slope_"):])
-            return max((n + 1) * _BARS_PER_SESSION, MIN_BARS)
-        except ValueError:
-            return None
+        return _SESSION_COUNT_WINDOW
     return None
-
-
-# Pre-computed session-count names set for fast lookup.
-_SESSION_COUNT_NAMES = frozenset({"wyckoff_phase", "value_area_migration"})

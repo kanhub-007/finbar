@@ -177,6 +177,7 @@ class CausalMultiTimeframeStreamingEnricher(
         definition: StrategyDefinition,
         primary_indicators: list[str],
         informative_indicators: dict[str, list[str]],
+        parallel: bool = True,
     ) -> "pd.DataFrame":
         """Produce a causal enriched DataFrame from raw bars.
 
@@ -184,34 +185,96 @@ class CausalMultiTimeframeStreamingEnricher(
         use in indicator job runners and other infrastructure code that
         must not import from the Finbar application layer.
 
+        When ``parallel=True`` (default), informative timeframe enrichment
+        runs in parallel threads with the primary enrichment, since each
+        engine is completely independent until the per-bar merge step.
+
         Args:
             primary_bars: Primary OHLCV bar dicts sorted by timestamp.
             informative_bars: Informative bars keyed by timeframe alias.
             definition: Parsed strategy definition.
             primary_indicators: Primary indicator names.
             informative_indicators: Informative indicators by alias.
+            parallel: Use thread-level parallelism for informative engines.
 
         Returns:
             DataFrame indexed by primary bar timestamp, with OHLCV,
             primary indicators, and suffixed informative columns.
         """
+        # Pre-compute informative enrichment in parallel (engines are independent).
+        info_enriched: dict[str, list[tuple[Any, dict]]] = {}
+        if informative_bars and parallel:
+            from concurrent.futures import ThreadPoolExecutor
+
+            def _enrich_info(alias: str) -> list[tuple[Any, dict]]:
+                engine = StreamingIndicatorEngine(
+                    indicators=informative_indicators.get(alias, [])
+                )
+                suffix = _info_suffix_from_definition(definition, alias)
+                results: list[tuple[Any, dict]] = []
+                for b in informative_bars.get(alias, []):
+                    latest = engine.update(b)
+                    row = _build_row(
+                        b,
+                        _with_requested_columns(
+                            latest.values,
+                            informative_indicators.get(alias, []),
+                        ),
+                    )
+                    results.append((_bar_open_ts(b), row))
+                return results
+
+            with ThreadPoolExecutor(
+                max_workers=len(informative_bars)
+            ) as executor:
+                futures = {
+                    alias: executor.submit(_enrich_info, alias)
+                    for alias in informative_bars
+                }
+                for alias, future in futures.items():
+                    info_enriched[alias] = future.result()
+        else:
+            # Sequential fallback: feed bars incrementally (original behaviour).
+            enricher = CausalMultiTimeframeStreamingEnricher(
+                definition=definition,
+                primary_indicators=primary_indicators,
+                informative_indicators=informative_indicators,
+            )
+            info_ptrs = {alias: 0 for alias in informative_bars}
+            rows: list[dict] = []
+            for bar in primary_bars:
+                primary_open = _bar_open_ts(bar)
+                for alias, ibars in informative_bars.items():
+                    while info_ptrs[alias] < len(ibars):
+                        candidate = ibars[info_ptrs[alias]]
+                        if _bar_open_ts(candidate) <= primary_open:
+                            enricher.update_informative(alias, candidate)
+                            info_ptrs[alias] += 1
+                        else:
+                            break
+                rows.append(enricher.update_primary(bar).values)
+            if not rows:
+                return pd.DataFrame()
+            frame = pd.DataFrame(rows)
+            ts = frame["timestamp"].tolist()
+            index = parse_bar_timestamps(ts)
+            return frame.drop(columns=["timestamp"]).set_index(index)
+
+        # Build primary enrichment (main thread) using pre-computed informative data.
         enricher = CausalMultiTimeframeStreamingEnricher(
             definition=definition,
             primary_indicators=primary_indicators,
             informative_indicators=informative_indicators,
         )
-        info_ptrs = {alias: 0 for alias in informative_bars}
+        # Seed informative history from pre-computed results.
+        for alias, enriched in info_enriched.items():
+            offset = enricher._info_offsets.get(alias)
+            if offset is None:
+                continue
+            enricher._info_history[alias] = list(enriched)
+
         rows: list[dict] = []
         for bar in primary_bars:
-            primary_open = _bar_open_ts(bar)
-            for alias, ibars in informative_bars.items():
-                while info_ptrs[alias] < len(ibars):
-                    candidate = ibars[info_ptrs[alias]]
-                    if _bar_open_ts(candidate) <= primary_open:
-                        enricher.update_informative(alias, candidate)
-                        info_ptrs[alias] += 1
-                    else:
-                        break
             rows.append(enricher.update_primary(bar).values)
 
         if not rows:
@@ -249,6 +312,19 @@ def _bar_open_ts(bar: dict) -> pd.Timestamp:
             " parseable 'timestamp' field for no-lookahead MTF merge."
         )
     return parse_bar_timestamps([ts])[0]
+
+
+def _info_suffix_from_definition(
+    definition: StrategyDefinition,
+    alias: str,
+) -> str:
+    """Return the column suffix for an informative timeframe alias."""
+    timeframes = definition.timeframes
+    if timeframes is not None:
+        for item in timeframes.informative:
+            if item.alias == alias:
+                return f"_{item.interval}"
+    return f"_{alias}"
 
 
 def _latest_visible(
