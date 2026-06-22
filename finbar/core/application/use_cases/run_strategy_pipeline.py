@@ -11,6 +11,9 @@ from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import
     StrategyDefinitionParser,
 )
 
+ProgressCallback = Callable[[int, str, str], None]
+"""Type alias for progress callbacks: (progress_pct, stage, message)."""
+
 from finbar.core.application.dto.compute_strategy_indicators_result import (
     ComputeStrategyIndicatorsResult,
 )
@@ -77,10 +80,17 @@ class RunStrategyPipelineUseCase:
         leverage: float = 1.0,
         detail_level: str = "summary",
         enrichment_mode: str = "live_parity_streaming",
+        progress_callback: ProgressCallback | None = None,
     ) -> RunStrategyPipelineResult:
         """Run the full pipeline and return a compact result."""
+        def _report(pct: int, stage: str, msg: str) -> None:
+            if progress_callback:
+                progress_callback(pct, stage, msg)
+
         params = params_json or {}
         symbol = symbol.upper()
+
+        _report(5, "validation", "Validating strategy...")
 
         validation = self._parser.parse(definition_json, params)
         if not validation.valid or validation.definition is None:
@@ -95,6 +105,7 @@ class RunStrategyPipelineUseCase:
             )
 
         definition = validation.definition
+        _report(10, "price_cache", "Checking price data...")
         intervals = self._required_intervals(validation)
         missing = self._check_price_cache(symbol, source, intervals)
         if missing:
@@ -112,6 +123,7 @@ class RunStrategyPipelineUseCase:
                 ),
             )
 
+        _report(20, "indicators", "Starting indicator computation...")
         compute = ComputeStrategyIndicatorsUseCase(
             self._parser,
             self._manager,
@@ -134,7 +146,7 @@ class RunStrategyPipelineUseCase:
                 error="Indicator jobs could not be started",
             )
 
-        await self._await_jobs(compute_result)
+        await self._await_jobs(compute_result, progress_callback=_report)
         primary_error = compute_result.primary.get("error")
         if primary_error:
             return RunStrategyPipelineResult(
@@ -143,6 +155,7 @@ class RunStrategyPipelineUseCase:
                 error=primary_error,
             )
 
+        _report(80, "backtest", "Running backtest...")
         return await self._run_backtest(
             compute_result,
             definition_json,
@@ -195,7 +208,9 @@ class RunStrategyPipelineUseCase:
         return missing
 
     async def _await_jobs(
-        self, compute_result: ComputeStrategyIndicatorsResult
+        self,
+        compute_result: ComputeStrategyIndicatorsResult,
+        progress_callback: ProgressCallback | None = None,
     ) -> None:
         job_ids = [compute_result.primary["job_id"]]
         job_ids.extend(info["job_id"] for info in compute_result.informative.values())
@@ -219,6 +234,20 @@ class RunStrategyPipelineUseCase:
             if elapsed >= _POLL_TIMEOUT:
                 compute_result.primary["error"] = "Indicator jobs timed out"
                 return
+            if progress_callback:
+                statuses = []
+                for jid in job_ids:
+                    job = self._manager.get(jid)
+                    if job:
+                        statuses.append(
+                            f"{job.timeframe_alias}:{job.status}"
+                            + (f"({job.progress_pct}%)" if job.progress_pct else "")
+                        )
+                progress_callback(
+                    20 + min(int(elapsed / _POLL_TIMEOUT * 60), 60),
+                    "indicators",
+                    f"Waiting for indicator jobs: {', '.join(statuses)}",
+                )
             await asyncio.sleep(_POLL_INTERVAL)
             elapsed += _POLL_INTERVAL
 

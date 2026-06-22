@@ -59,6 +59,15 @@ class StrategyPipelineJobRunner:
                 message="Validating strategy...",
             )
             pipeline: RunStrategyPipelineUseCase = self._pipeline_factory()
+
+            def _update_progress(pct: int, stage: str, msg: str) -> None:
+                manager.update(
+                    job,
+                    progress_pct=pct,
+                    stage=stage,
+                    message=msg,
+                )
+
             result = await pipeline.execute(
                 definition_json,
                 symbol,
@@ -71,6 +80,7 @@ class StrategyPipelineJobRunner:
                 leverage=leverage,
                 detail_level=detail_level,
                 enrichment_mode=enrichment_mode,
+                progress_callback=_update_progress,
             )
 
             if result.complete:
