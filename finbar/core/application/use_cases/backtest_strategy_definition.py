@@ -272,6 +272,16 @@ class BacktestStrategyDefinitionUseCase:
             return primary_frame
         if self._timeframe_merger is None:
             raise ValueError("multi-timeframe backtesting is not wired")
+        # If the primary frame already has informative columns (from a
+        # causal MTF enrichment artifact), the merge already happened.
+        # Detect by checking for any suffixed informative column.
+        primary_cols = set(primary_frame.columns)
+        already_merged = any(
+            any(col.endswith(f"_{item.interval}") for col in primary_cols)
+            for item in timeframes.informative
+        )
+        if already_merged:
+            return primary_frame
         _validate_informative_payload_shape(request.informative_bars, timeframes)
         frame = primary_frame
         for item in timeframes.informative:

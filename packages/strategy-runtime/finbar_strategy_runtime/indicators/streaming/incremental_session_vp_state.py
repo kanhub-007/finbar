@@ -96,7 +96,7 @@ class IncrementalSessionVpState:
             self._recompute()
 
     def _recompute(self) -> None:
-        if len(self._bars) < 2:
+        if len(self._bars) < 1:
             self._last_levels = None
             return
         frame = self._to_frame()
