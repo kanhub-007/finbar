@@ -45,6 +45,11 @@ logger = logging.getLogger(__name__)
 MIN_BARS = 10
 FAILED_INDICATORS_ATTR = "failed_indicators"
 
+# Columns that are always raw OHLCV data, never computed indicators.
+# Handler ``requires`` sets reference these as data inputs, but they must
+# never be expanded as transitive indicator dependencies.
+_RAW_BAR_COLUMNS = frozenset({"open", "high", "low", "close", "volume"})
+
 
 def _expand_transitive_deps(
     names: list[str],
@@ -54,14 +59,17 @@ def _expand_transitive_deps(
 
     Walks ``handlers[name].requires`` recursively so that computed
     indicators never silently fail because their undeclared dependencies
-    are missing from the requested list.
+    are missing from the requested list. Raw OHLCV column names are
+    **not** expanded — they are already present in every DataFrame.
     """
-    expanded: set[str] = set(names)
-    stack = list(names)
+    expanded: set[str] = set(names) - _RAW_BAR_COLUMNS
+    stack = [n for n in names if n not in _RAW_BAR_COLUMNS]
     while stack:
         name = stack.pop()
         if name in handlers:
             for dep in handlers[name][1]:  # requires set
+                if dep in _RAW_BAR_COLUMNS:
+                    continue
                 if dep not in expanded:
                     expanded.add(dep)
                     stack.append(dep)
