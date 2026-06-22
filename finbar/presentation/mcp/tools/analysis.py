@@ -34,6 +34,7 @@ from finbar.presentation.mcp.tools._execution_fields import (
 )
 from finbar.startup.service_factory import (
     _get_db,
+    _get_strategy_pipeline_job_manager,
     _make_apply_indicators_use_case,
     _make_compute_strategy_indicators_use_case,
     _make_get_backtest_equity_use_case,
@@ -43,6 +44,7 @@ from finbar.startup.service_factory import (
     _make_run_backtest_use_case,
     _make_run_portfolio_backtest_use_case,
     _make_run_strategy_pipeline_use_case,
+    _make_strategy_pipeline_job_runner,
     _make_store_backtest_result_use_case,
 )
 
