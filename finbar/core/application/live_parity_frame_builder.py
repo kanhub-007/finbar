@@ -10,12 +10,8 @@ from full-frame batch enrichment.
 
 from __future__ import annotations
 
-import pandas as pd
 from finbar_strategy_runtime.domain.entities.strategy_definition import (
     StrategyDefinition,
-)
-from finbar_strategy_runtime.indicators._bar_timestamp import (
-    parse_bar_timestamps,
 )
 from finbar_strategy_runtime.indicators.causal_multi_timeframe_streaming_enricher import (
     CausalMultiTimeframeStreamingEnricher,
@@ -45,32 +41,13 @@ def build_causal_frame(
         causal.
     """
     info = _normalise_informative(informative_bars)
-    enricher = CausalMultiTimeframeStreamingEnricher(
+    return CausalMultiTimeframeStreamingEnricher.causal_enrich_bars(
+        primary_bars=primary_bars,
+        informative_bars=info,
         definition=definition,
         primary_indicators=primary_required_indicators,
         informative_indicators=informative_required_indicators,
     )
-
-    info_ptrs = {alias: 0 for alias in info}
-    rows: list[dict] = []
-    for bar in primary_bars:
-        primary_open = parse_bar_timestamps([bar["timestamp"]])[0]
-        for alias, ibars in info.items():
-            while info_ptrs[alias] < len(ibars):
-                candidate = ibars[info_ptrs[alias]]
-                if parse_bar_timestamps([candidate["timestamp"]])[0] <= primary_open:
-                    enricher.update_informative(alias, candidate)
-                    info_ptrs[alias] += 1
-                else:
-                    break
-        rows.append(enricher.update_primary(bar).values)
-
-    if not rows:
-        return pd.DataFrame()
-    frame = pd.DataFrame(rows)
-    ts = frame["timestamp"].tolist()
-    index = parse_bar_timestamps(ts)
-    return frame.drop(columns=["timestamp"]).set_index(index)
 
 
 def _normalise_informative(

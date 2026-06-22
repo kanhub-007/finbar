@@ -253,12 +253,28 @@ class BatchedWindowedState:
         self._session_sensitive = any(
             _is_session_sensitive(name) for name in names
         )
+        # Columns provided externally (e.g. VP from incremental state).
+        # These are injected into the frame before batch compute so
+        # dependent handlers find them without recomputing.
+        self._injected_columns: dict[str, deque] = {}
 
-    def update(self, bar: dict) -> dict[str, float]:
+    def set_injected_columns(self, column_names: list[str]) -> None:
+        """Declare columns that will be injected each update.
+
+        These columns (e.g. vp_poc/vp_vah/vp_val from incremental VP)
+        are excluded from transitive dependency expansion and are
+        expected to be provided via ``update(bar, injected_values)``.
+        """
+        for col in column_names:
+            self._injected_columns[col] = deque(maxlen=self._maxlen)
+
+    def update(self, bar: dict, injected_values: dict[str, float] | None = None) -> dict[str, float]:
         """Ingest one bar; recompute all metrics and return latest values.
 
         Args:
             bar: OHLCV bar dict, optionally with a ``timestamp`` key.
+            injected_values: Pre-computed values for injected columns
+                (e.g. VP from incremental state).
 
         Returns:
             Dict mapping metric name → latest value (NaN if not ready).
@@ -268,12 +284,21 @@ class BatchedWindowedState:
                 buffer contains bars without parseable timestamps.
         """
         self._buffer.append(bar)
+        if injected_values:
+            for col, val in injected_values.items():
+                if col in self._injected_columns:
+                    self._injected_columns[col].append(val)
         if len(self._buffer) < 2:
             return {name: float("nan") for name in self._names}
 
         df = self._to_frame()
         if df.empty:
             return {name: float("nan") for name in self._names}
+
+        # Inject pre-computed columns into the frame.
+        for col, values_deque in self._injected_columns.items():
+            if len(values_deque) == len(df):
+                df[col] = list(values_deque)
 
         self._currents = self._compute_all(df)
         return dict(self._currents)
@@ -301,6 +326,8 @@ class BatchedWindowedState:
     def reset(self) -> None:
         """Clear accumulated state."""
         self._buffer.clear()
+        for dq in self._injected_columns.values():
+            dq.clear()
         self._currents = {name: float("nan") for name in self._names}
 
     @property
@@ -324,14 +351,16 @@ class BatchedWindowedState:
             _expand_transitive_deps,
         )
 
-        # Collect all direct + transitive dependencies across all names.
+        # Collect all direct + transitive dependencies across all names,
+        # EXCLUDING injected columns (they're already on the frame).
         all_deps: set[str] = set()
+        injected = set(self._injected_columns.keys())
         for name in self._names:
             if name in _INDICATOR_HANDLERS:
                 all_deps.update(
                     d
                     for d in _expand_transitive_deps([name], _INDICATOR_HANDLERS)
-                    if d != name
+                    if d != name and d not in injected
                 )
 
         # One-time pre-compute of all transitive dependencies.

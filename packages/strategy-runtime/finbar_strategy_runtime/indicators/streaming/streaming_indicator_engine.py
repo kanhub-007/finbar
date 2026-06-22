@@ -117,6 +117,10 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                 names=windowed_names,
                 maxlen=batched_window,
             )
+            if self._session_vp is not None:
+                self._batched_windowed.set_injected_columns(
+                    ["vp_poc", "vp_vah", "vp_val"]
+                )
 
         for name in self._indicators:
             if name in _VP_NAMES and self._session_vp is not None:
@@ -138,7 +142,25 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         # Update each unique family state once
         if self._session_vp is not None:
             self._session_vp.update(bar)
+        if self._batched_windowed is not None:
+            injected = {}
+            if self._session_vp is not None:
+                injected = {
+                    "vp_poc": self._session_vp.poc,
+                    "vp_vah": self._session_vp.vah,
+                    "vp_val": self._session_vp.val,
+                }
+            self._batched_windowed.update(bar, injected_values=injected)
+        # Update unique non-batched family states (skip the batched state
+        # since it was already updated above — it appears as multiple
+        # family keys but is one shared object).
+        seen: set[int] = set()
+        if self._batched_windowed is not None:
+            seen.add(id(self._batched_windowed))
         for state in self._family_states.values():
+            if id(state) in seen:
+                continue
+            seen.add(id(state))
             state.update(bar)
 
         # Read the output for each requested indicator name
@@ -165,7 +187,13 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
     def reset(self) -> None:
         if self._session_vp is not None:
             self._session_vp.reset()
+        seen: set[int] = set()
+        if self._batched_windowed is not None:
+            seen.add(id(self._batched_windowed))
         for state in self._family_states.values():
+            if id(state) in seen:
+                continue
+            seen.add(id(state))
             state.reset()
         self._bars_seen = 0
         self._latest = LatestBar()
