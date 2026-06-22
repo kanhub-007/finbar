@@ -34,9 +34,16 @@ from finbar.infrastructure.services.in_memory_indicator_job_manager import (
 from finbar.infrastructure.services.indicator_job_runner import (
     CachedPriceIndicatorJobRunner,
 )
+from finbar.infrastructure.services.strategy_pipeline_job_manager import (
+    StrategyPipelineJobManager,
+)
+from finbar.infrastructure.services.strategy_pipeline_job_runner import (
+    StrategyPipelineJobRunner,
+)
 
 _indicator_job_manager: InMemoryIndicatorJobManager | None = None
 _indicator_job_runner: CachedPriceIndicatorJobRunner | None = None
+_strategy_pipeline_job_manager: StrategyPipelineJobManager | None = None
 
 
 def get_indicator_job_manager() -> InMemoryIndicatorJobManager:
@@ -140,4 +147,20 @@ def make_run_strategy_pipeline_use_case() -> RunStrategyPipelineUseCase:
         backtest_use_case=make_backtest_strategy_definition_use_case(),
         store=get_backtest_result_store(),
         price_cache_factory=lambda: SqlPriceCacheRepository(SessionLocal()),
+    )
+
+
+def get_strategy_pipeline_job_manager() -> StrategyPipelineJobManager:
+    """Return the shared strategy pipeline job manager."""
+    global _strategy_pipeline_job_manager
+    if _strategy_pipeline_job_manager is None:
+        _strategy_pipeline_job_manager = StrategyPipelineJobManager()
+    return _strategy_pipeline_job_manager
+
+
+def make_strategy_pipeline_job_runner() -> StrategyPipelineJobRunner:
+    """Create a runner for background strategy pipeline jobs."""
+    return StrategyPipelineJobRunner(
+        manager=get_strategy_pipeline_job_manager(),
+        pipeline_factory=make_run_strategy_pipeline_use_case,
     )

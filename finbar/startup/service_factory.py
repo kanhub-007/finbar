@@ -57,6 +57,8 @@ from finbar.startup._indicator_job_factories import (  # noqa: F401
     make_query_artifact_bars_use_case as _make_query_artifact_bars_use_case,
     make_run_strategy_pipeline_use_case as _make_run_strategy_pipeline_use_case,
     make_start_indicator_job_use_case as _make_start_indicator_job_use_case,
+    get_strategy_pipeline_job_manager as _get_strategy_pipeline_job_manager,
+    make_strategy_pipeline_job_runner as _make_strategy_pipeline_job_runner,
 )
 
 # ── Backtest factories ──────────────────────────────────────────────────

@@ -554,6 +554,144 @@ def _register_pipeline_tools(mcp: FastMCP) -> None:
         )
         return json.dumps(asdict(result), indent=2, default=str)
 
+    @mcp.tool(
+        name="start_strategy_pipeline",
+        description=(
+            "Start a strategy pipeline as a BACKGROUND JOB. Returns a "
+            "job_id immediately — the pipeline runs asynchronously. "
+            "Poll with get_strategy_pipeline_progress(job_id), then "
+            "retrieve results with get_strategy_pipeline_results(job_id) "
+            "when status='completed'.\n\n"
+            "This is the RECOMMENDED way to run causal (live_parity_streaming) "
+            "pipelines on large datasets, since causal enrichment can take "
+            "several minutes. The one-call run_strategy_pipeline has a 5-minute "
+            "MCP timeout; this async variant has no timeout.\n\n"
+            "DEFAULT enrichment is causal (live_parity_streaming)."
+        ),
+    )
+    async def start_strategy_pipeline(
+        definition_json: str,
+        symbol: str,
+        source: str = "yfinance",
+        start_date: str | None = None,
+        end_date: str | None = None,
+        initial_cash: float = 10000.0,
+        risk_per_trade: float = RISK_PER_TRADE,
+        leverage: float = LEVERAGE,
+        detail_level: str = "summary",
+        enrichment_mode: str = "live_parity_streaming",
+    ) -> str:
+        """Start a background strategy pipeline and return the job_id."""
+        manager = _get_strategy_pipeline_job_manager()
+        runner = _make_strategy_pipeline_job_runner()
+
+        job = manager.start(
+            {
+                "symbol": symbol,
+                "source": source,
+                "start_date": start_date,
+                "end_date": end_date,
+                "enrichment_mode": enrichment_mode,
+            },
+            lambda j: runner.run(
+                j,
+                definition_json,
+                symbol,
+                source,
+                start_date,
+                end_date,
+                initial_cash,
+                risk_per_trade,
+                leverage,
+                detail_level,
+                enrichment_mode,
+            ),
+        )
+        return json.dumps(
+            {
+                "job_id": job.job_id,
+                "status": job.status,
+                "symbol": job.symbol,
+                "source": job.source,
+                "enrichment_mode": job.enrichment_mode,
+                "message": (
+                    f"Pipeline started. Poll with "
+                    f"get_strategy_pipeline_progress('{job.job_id}')."
+                ),
+            },
+            indent=2,
+        )
+
+    @mcp.tool(
+        name="get_strategy_pipeline_progress",
+        description=(
+            "Check the status of a background strategy pipeline job. "
+            "Returns status (queued/running/completed/failed/cancelled), "
+            "progress stage, and error if any."
+        ),
+    )
+    def get_strategy_pipeline_progress(job_id: str) -> str:
+        """Return the current status of a pipeline job."""
+        manager = _get_strategy_pipeline_job_manager()
+        job = manager.get(job_id)
+        if job is None:
+            return json.dumps({"error": f"Job not found: {job_id}"})
+        return json.dumps(
+            {
+                "job_id": job.job_id,
+                "status": job.status,
+                "stage": job.stage,
+                "progress_pct": job.progress_pct,
+                "message": job.message,
+                "symbol": job.symbol,
+                "enrichment_mode": job.enrichment_mode,
+                "error": job.error,
+            },
+            indent=2,
+        )
+
+    @mcp.tool(
+        name="get_strategy_pipeline_results",
+        description=(
+            "Retrieve the results of a completed background strategy "
+            "pipeline job. Returns the full pipeline result including "
+            "backtest summary, result_id, and validation metadata. "
+            "Only works after status='completed'."
+        ),
+    )
+    def get_strategy_pipeline_results(job_id: str) -> str:
+        """Return the full result of a completed pipeline job."""
+        manager = _get_strategy_pipeline_job_manager()
+        job = manager.get(job_id)
+        if job is None:
+            return json.dumps({"error": f"Job not found: {job_id}"})
+        if job.status != "completed":
+            return json.dumps(
+                {
+                    "error": (
+                        f"Job {job_id} is not complete "
+                        f"(status: {job.status}). Use "
+                        f"get_strategy_pipeline_progress('{job_id}')."
+                    )
+                }
+            )
+        return json.dumps(job.result, indent=2, default=str)
+
+    @mcp.tool(
+        name="cancel_strategy_pipeline",
+        description="Cancel a running or queued background strategy pipeline job.",
+    )
+    def cancel_strategy_pipeline(job_id: str) -> str:
+        """Cancel a pipeline job."""
+        manager = _get_strategy_pipeline_job_manager()
+        job = manager.cancel(job_id)
+        if job is None:
+            return json.dumps({"error": f"Job not found: {job_id}"})
+        return json.dumps(
+            {"job_id": job.job_id, "status": job.status, "message": "Cancelled"},
+            indent=2,
+        )
+
 
 def _store_backtest_response(result: dict, detail_level: str) -> str:
     """Store a full result server-side and return a compact MCP response."""
