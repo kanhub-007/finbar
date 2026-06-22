@@ -6,6 +6,8 @@ Resets on session boundary (calendar date change).
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators._bar_timestamp import parse_bar_timestamps
+
 
 class VwapState:
     """Streaming state for the ``vwap`` indicator.
@@ -37,11 +39,10 @@ class VwapState:
         # VWAP uses typical price: (high + low + close) / 3
         typical_price = (high + low + close) / 3.0
 
-        # Session boundary detection
+        # Session boundary detection.
         ts = bar.get("timestamp")
         if ts is not None:
-            ts_str = str(ts)
-            bar_date = ts_str[:10]  # YYYY-MM-DD
+            bar_date = _bar_date(ts)
             if self._last_date is not None and bar_date != self._last_date:
                 self._cum_pv = 0.0
                 self._cum_vol = 0.0
@@ -71,3 +72,8 @@ class VwapState:
         if self._cum_vol == 0.0:
             return float("nan")
         return self._cum_pv / self._cum_vol
+
+
+def _bar_date(timestamp) -> str:
+    """Return the UTC calendar date for a bar timestamp."""
+    return parse_bar_timestamps([timestamp])[0].date().isoformat()

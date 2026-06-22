@@ -12,17 +12,22 @@ from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
 )
 
-_PREFIX_RECOMPUTE_VP_PREFIXES = (
-    "cvp_poc_",
-    "cvp_vah_",
-    "cvp_val_",
-    "vp_poc_",
-    "vp_vah_",
-    "vp_val_",
+_PREFIX_RECOMPUTE_VP_NAMES = frozenset(
+    {
+        *(
+            f"cvp_{part}_{window}d"
+            for part in ("poc", "vah", "val")
+            for window in (5, 10, 20)
+        ),
+        *(
+            f"vp_{part}_{window}d"
+            for part in ("poc", "vah", "val")
+            for window in (5, 20)
+        ),
+    }
 )
 _PREFIX_RECOMPUTE_NAMES = frozenset(
     {
-        "vwap",
         "daily_vpin",
         "intraday_volume_curve",
         "empirical_volume_curve",
@@ -111,10 +116,4 @@ def is_prefix_recompute_metric(name: str) -> bool:
 
 def is_prefix_recompute_vp_metric(name: str) -> bool:
     """Return True for composite or multi-day VP metrics needing prefix state."""
-    if not name.endswith("d"):
-        return False
-    for prefix in _PREFIX_RECOMPUTE_VP_PREFIXES:
-        if name.startswith(prefix):
-            inner = name[len(prefix) : -1]
-            return inner.isdigit() and int(inner) >= 1
-    return False
+    return name in _PREFIX_RECOMPUTE_VP_NAMES
