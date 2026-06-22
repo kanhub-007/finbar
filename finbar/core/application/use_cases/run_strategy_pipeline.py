@@ -36,7 +36,7 @@ from finbar.core.domain.interfaces.price_cache_repository import (
 )
 
 _POLL_INTERVAL = 0.5
-_POLL_TIMEOUT = 300
+_POLL_TIMEOUT = 1800
 
 
 class RunStrategyPipelineUseCase:
