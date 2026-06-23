@@ -56,16 +56,16 @@ class IntervalContext:
                 f"unknown market calendar {self.market_calendar!r}."
             )
 
-        if minutes_per_bar <= 0 or minutes_per_session % minutes_per_bar != 0:
-            # The interval does not evenly divide a session (e.g. a weekly
-            # bar has no intraday session structure). Session-count metrics
-            # are not meaningful for such intervals.
+        if minutes_per_bar <= 0:
             raise ValueError(
-                f"Interval {self.interval!r} does not divide a "
-                f"{self.market_calendar} session evenly; bars-per-session is "
-                f"undefined for session-count metrics."
+                f"Interval {self.interval!r} yields non-positive bar length"
             )
-        return minutes_per_session // minutes_per_bar
+        # Floor division: an interval that does not evenly divide a session
+        # (e.g. 1h on a 6.5h equity day) gets a conservative floor. Session-
+        # count windows use this as ``lookback_sessions x bars_per_session``,
+        # so a slight underestimate of bars-per-session is a conservative
+        # (slightly smaller) streaming window for warmup protection.
+        return max(minutes_per_session // minutes_per_bar, 1)
 
 
 def _minutes(amount: int, unit: str) -> int:

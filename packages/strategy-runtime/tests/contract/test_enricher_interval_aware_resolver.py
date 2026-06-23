@@ -97,7 +97,8 @@ class TestEnricherWithIntervalAwareResolver:
         )
         h1_engine = enricher._info_engines["h1"]
         window = h1_engine._resolve_window("poc_slope_5")
-        assert window == 120  # 5 sessions × 24 bars/session
+        # (5 + 1) sessions × 24 bars/session = 144
+        assert window == 144
 
     def test_without_calendar_keeps_existing_behavior(self, mtf_definition):
         """When no market_calendar is given, session-count uses the old 500."""

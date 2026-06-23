@@ -25,11 +25,12 @@ from finbar_strategy_runtime.domain.services.interval_aware_window_resolver impo
 
 
 class TestIntervalAwareWindowResolver:
-    def test_poc_slope_5_30min_crypto_is_240(self):
+    def test_poc_slope_5_30min_crypto_is_288(self):
         resolver = IntervalAwareWindowResolver(
             interval="30min", market_calendar="crypto_24_7"
         )
-        assert resolver.resolve("poc_slope_5") == 240
+        # (5 lookback + 1 warmup) × 48 bars/session = 288
+        assert resolver.resolve("poc_slope_5") == 288
 
     def test_poc_slope_20_30min_crypto_at_least_960(self):
         resolver = IntervalAwareWindowResolver(
@@ -37,32 +38,34 @@ class TestIntervalAwareWindowResolver:
         )
         assert resolver.resolve("poc_slope_20") >= 960
 
-    def test_poc_slope_5_1h_crypto_is_120(self):
+    def test_poc_slope_5_1h_crypto_is_144(self):
         resolver = IntervalAwareWindowResolver(
             interval="1h", market_calendar="crypto_24_7"
         )
-        assert resolver.resolve("poc_slope_5") == 120
+        # (5 + 1) × 24 bars/session = 144
+        assert resolver.resolve("poc_slope_5") == 144
 
     def test_poc_slope_5_5min_crypto_uses_288_bars_per_session(self):
         resolver = IntervalAwareWindowResolver(
             interval="5min", market_calendar="crypto_24_7"
         )
-        # 5 sessions × (24*60/5 = 288 bars/session) = 1440
-        assert resolver.resolve("poc_slope_5") == 1440
+        # (5 + 1) × 288 bars/session = 1728
+        assert resolver.resolve("poc_slope_5") == 1728
 
     def test_wyckoff_phase_window_covers_slow_slope(self):
         """wyckoff_phase uses poc_slope_20, so it needs the 20-session window."""
         resolver = IntervalAwareWindowResolver(
             interval="30min", market_calendar="crypto_24_7"
         )
+        # (20 + 1) × 48 = 1008, meets >= 960
         assert resolver.resolve("wyckoff_phase") >= 960
 
     def test_value_area_migration_has_session_window(self):
         resolver = IntervalAwareWindowResolver(
             interval="30min", market_calendar="crypto_24_7"
         )
-        # Needs previous-session context; at least one full session.
-        assert resolver.resolve("value_area_migration") >= 48
+        # (1 + 1) × 48 = 96, needs at least one full previous session
+        assert resolver.resolve("value_area_migration") >= 96
 
     def test_non_session_metric_not_handled(self):
         """The resolver only owns session-count metrics; others return None."""
@@ -77,8 +80,8 @@ class TestIntervalAwareWindowResolver:
         resolver = IntervalAwareWindowResolver(
             interval="30min", market_calendar="equity_regular_hours"
         )
-        # 5 sessions × 13 bars = 65
-        assert resolver.resolve("poc_slope_5") == 65
+        # (5 + 1) × 13 bars/session = 78
+        assert resolver.resolve("poc_slope_5") == 78
 
 
 class TestIntervalContextBarsPerSession:
@@ -106,13 +109,15 @@ class TestUnknownIntervalHandling:
         with pytest.raises(ValueError, match="interval"):
             resolver.resolve("poc_slope_5")
 
-    def test_sessionless_interval_raises(self):
-        """A valid interval that doesn't divide a session also fails loudly."""
+    def test_sessionless_interval_floor_is_conservative(self):
+        """An interval longer than a session gets floor 1 bar/session."""
         resolver = IntervalAwareWindowResolver(
-            interval="3d", market_calendar="crypto_24_7"
+            interval="3d", market_calendar="equity_regular_hours"
         )
-        with pytest.raises(ValueError, match="session"):
-            resolver.resolve("poc_slope_5")
+        # 3d > 6.5h equity session → floor = 0 → max(0,1) = 1
+        # 5 sessions × 1 bar = 5, floored at MIN_WINDOW = 10
+        window = resolver.resolve("poc_slope_5")
+        assert window == 10
 
     def test_unknown_interval_on_engine_fails_loudly(self):
         """The streaming engine given an unknown interval raises at construction.

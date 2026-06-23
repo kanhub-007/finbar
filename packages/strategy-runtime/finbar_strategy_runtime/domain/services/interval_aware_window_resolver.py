@@ -74,7 +74,9 @@ class IntervalAwareWindowResolver:
         if lookback_sessions is None:
             return None
         bars_per_session = self._context.bars_per_session
-        return max(lookback_sessions * bars_per_session, _MIN_WINDOW)
+        # +1 session: poc_slope_5 needs to compare session index 5 against
+        # session index 0, which requires 6 sessions of bars in the window.
+        return max((lookback_sessions + 1) * bars_per_session, _MIN_WINDOW)
 
 
 def _lookback_sessions(metric_name: str) -> int | None:
