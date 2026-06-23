@@ -58,8 +58,6 @@ def compute_amt_signals(df: pd.DataFrame) -> pd.DataFrame:
             "near_vah",
             "near_val",
             "at_poc",
-            "rvol",
-            "atr",
         ),
     )
 

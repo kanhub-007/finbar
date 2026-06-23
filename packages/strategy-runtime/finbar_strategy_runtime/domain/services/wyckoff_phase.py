@@ -100,16 +100,32 @@ def classify_wyckoff_phase(
     if slope_col not in result.columns:
         result[slope_col] = compute_poc_slope(result, window=slope_window)
 
+    # vp_poc is the core dependency for the POC slopes. The remaining columns
+    # (balance_status, profile_shape, rvol, value_area_width_pct) are only
+    # needed for the wyckoff_phase *classification*; when they are absent
+    # (e.g. a transitive request for poc_slope_5 only), slopes still compute
+    # and wyckoff_phase degrades to NaN rather than raising.
     require_metric_columns(
         result,
         "classify_wyckoff_phase",
-        ("vp_poc", "balance_status", "profile_shape", "rvol", "value_area_width_pct"),
+        ("vp_poc",),
     )
 
     # Warmup default is NaN, not a confident "NEUTRAL": until the slope is
     # computable (enough session history) we cannot classify the phase, and a
     # ``wyckoff_phase == NEUTRAL`` condition must not fire during warmup.
     result["wyckoff_phase"] = pd.Series(np.nan, index=result.index, dtype=object)
+
+    _classification_deps = (
+        "balance_status",
+        "profile_shape",
+        "rvol",
+        "value_area_width_pct",
+    )
+    if not all(dep in result.columns for dep in _classification_deps):
+        # Slopes are still returned; wyckoff_phase stays NaN (insufficient
+        # context), never a silent NEUTRAL.
+        return result
 
     # Get column references
     slope = result[slope_col]

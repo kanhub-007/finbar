@@ -84,9 +84,15 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
             rolling_volume_profile_state as _rvp_state,
         )
 
-        # Session VP metrics get an incremental state.
-        _VP_NAMES = frozenset({"vp_poc", "vp_vah", "vp_val"})
-        if any(name in _VP_NAMES for name in self._indicators):
+        # Session VP metrics get an incremental state. This is also created
+        # when a requested metric TRANSITIVELY depends on vp_* (e.g. derived
+        # AMT metrics like near_vah) so the windowed fallback receives the
+        # correct expanding-session VP instead of computing it on a truncated
+        # trailing window.
+        needs_session_vp = any(
+            name in _VP_ROOT_NAMES for name in self._indicators
+        ) or (_any_transitive_depends_on_vp(self._indicators))
+        if needs_session_vp:
             from finbar_strategy_runtime.indicators.streaming.incremental_session_vp_state import (  # noqa: E501
                 IncrementalSessionVpState,
             )
@@ -97,7 +103,7 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                 continue  # prefix-recompute is separate
             if _rvp_state.is_rolling_volume_profile_metric(name):
                 continue  # RVP has own state
-            if name in _VP_NAMES:
+            if name in _VP_ROOT_NAMES:
                 continue  # incremental VP, not windowed
             family = _canonical_family(name)
             kind = classify_indicator(name)
@@ -105,7 +111,14 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                 # Scalar-windowed — candidate for batching
                 windowed_names.append(name)
 
-        if len(windowed_names) >= 2:
+        # Batch the windowed metrics when there are at least two, OR when VP
+        # injection is needed: a single derived-AMT windowed metric must still
+        # go through the batched state so the injected vp_* columns reach its
+        # batch compute pass (a standalone WindowedIndicatorState has no
+        # injection hook and would recompute VP on a truncated window).
+        if len(windowed_names) >= 2 or (
+            len(windowed_names) == 1 and self._session_vp is not None
+        ):
             from finbar_strategy_runtime.indicators.streaming.windowed_indicator_state import (  # noqa: E501
                 BatchedWindowedState,
             )
@@ -123,7 +136,7 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                 )
 
         for name in self._indicators:
-            if name in _VP_NAMES and self._session_vp is not None:
+            if name in _VP_ROOT_NAMES and self._session_vp is not None:
                 self._states[name] = self._session_vp
                 continue
             family = _canonical_family(name)
@@ -360,6 +373,39 @@ def _is_missing_value(value: Any) -> bool:
         return bool(missing)
     except ValueError:
         return False
+
+
+_VP_ROOT_NAMES = frozenset({"vp_poc", "vp_vah", "vp_val"})
+
+
+def _any_transitive_depends_on_vp(indicators: list[str]) -> bool:
+    """Return True if any requested metric transitively requires vp_*.
+
+    Walks the handler ``requires`` graph so derived AMT metrics (near_vah,
+    rejection_from_edge, etc.) trigger incremental session VP injection
+    even when ``vp_poc/vp_vah/vp_val`` are not requested explicitly.
+    """
+    from finbar_strategy_runtime.indicators._handler_registry import (
+        default_handler_registry,
+    )
+
+    handlers = default_handler_registry()
+    seen: set[str] = set()
+    stack = [n for n in indicators if n not in _VP_ROOT_NAMES]
+    while stack:
+        name = stack.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        if name not in handlers:
+            continue
+        _fn, requires = handlers[name]
+        for dep in requires:
+            if dep in _VP_ROOT_NAMES:
+                return True
+            if dep not in seen:
+                stack.append(dep)
+    return False
 
 
 
