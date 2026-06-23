@@ -113,6 +113,7 @@ def make_run_backtest_use_case(
         parser=get_parser(),
         strategy_factory=get_json_strategy_factory(),
         enricher=enricher,
+        strategy_definition_backtester=make_backtest_strategy_definition_use_case(),
     )
 
 

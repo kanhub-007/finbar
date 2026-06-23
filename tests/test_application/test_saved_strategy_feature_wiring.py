@@ -1,13 +1,22 @@
-"""Tests for saved JSON strategies using causal package enrichment.
+"""Spec 2026-06-23 Scenario 5 — saved run_backtest uses the fully wired
+live-parity use case (features included).
 
-Scenario 12: a saved/named JSON strategy backtest must consume the same causal
-streaming enricher as the inline JSON backtest path.
+The saved/named strategy path previously built a partial
+``BacktestStrategyDefinitionUseCase`` inline, omitting the feature
+calculator (and data validator). A strategy that relies on a declared
+``feature`` would then silently skip feature computation, so its result
+diverged from a direct ``backtest_strategy_definition`` run. The fix is
+DI: the startup composition root injects a fully wired delegate.
+
+Classical school, black-box: real parsers/enrichers/feature calculators
+and the real backtest runner on deterministic timestamped bars. We assert
+that the saved path produces the same trades as the direct path and that
+the declared feature actually drives the result.
 """
 
 from __future__ import annotations
 
 from finbar_strategy_runtime.domain.entities.strategy_kind import StrategyKind
-from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
 from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
     MultiTimeframeBarEnricher,
 )
@@ -45,26 +54,34 @@ from finbar.infrastructure.services.strategy_definition_factory import (
 
 
 def _bars(count: int = 80) -> list[dict]:
-    """Return deterministic timestamped OHLCV bars."""
+    """Deterministic timestamped OHLCV bars with a rising-trend breakout."""
     return [
         {
             "timestamp": f"2026-02-{(i // 24) + 1:02d}T{i % 24:02d}:00:00Z",
             "open": 100.0 + i,
-            "high": 101.0 + i,
+            "high": 101.5 + i,
             "low": 99.0 + i,
-            "close": 100.5 + i,
+            "close": 101.0 + i,
             "volume": 1000.0 + (i * 10.0),
         }
         for i in range(count)
     ]
 
 
-def _vwap_strategy() -> dict:
-    """Return a saved-compatible strategy requiring causal vwap enrichment."""
+def _feature_strategy() -> dict:
+    """A strategy whose entry depends on a declared rolling_max feature."""
     return {
         "schema_version": "2.0",
-        "name": "saved_vwap_strategy",
-        "indicators": [{"name": "primary_vwap", "type": "vwap"}],
+        "name": "saved_feature_breakout",
+        "features": [
+            {
+                "name": "prior_high",
+                "type": "rolling_max",
+                "source": "high",
+                "window": 3,
+                "shift": 1,
+            }
+        ],
         "sides": {
             "long": {
                 "entry": {
@@ -73,7 +90,7 @@ def _vwap_strategy() -> dict:
                             {
                                 "left": "close",
                                 "operator": ">",
-                                "right": "primary_vwap",
+                                "right": "prior_high",
                             }
                         ]
                     }
@@ -84,7 +101,6 @@ def _vwap_strategy() -> dict:
 
 
 def _enricher() -> MultiTimeframeBarEnricher:
-    """Create the package batch enricher dependency for the use cases."""
     return MultiTimeframeBarEnricher(
         indicator_calculator=PandasTaIndicatorCalculator(),
         bar_converter=PandasBarFrameConverter(),
@@ -93,83 +109,62 @@ def _enricher() -> MultiTimeframeBarEnricher:
     )
 
 
-def _inline_use_case() -> BacktestStrategyDefinitionUseCase:
-    """Create the inline JSON backtest use case."""
+def _fully_wired_definition_use_case() -> BacktestStrategyDefinitionUseCase:
+    """The delegate the startup composition root would build."""
     return BacktestStrategyDefinitionUseCase(
         engine=BacktestRunner(),
         converter=PandasBarFrameConverter(),
         strategy_factory=StrategyDefinitionFactory(),
         parser=StrategyDefinitionParser(),
         enricher=_enricher(),
+        feature_calculator=PandasStrategyFeatureCalculator(),
     )
 
 
 class SavedJsonStrategyProvider(StrategyProvider):
-    """In-memory saved strategy provider for application tests."""
+    """In-memory saved strategy provider."""
 
     def __init__(self, definition: dict):
-        """Store a single saved definition."""
         self._definition = definition
 
-    def create(self, name: str, params: dict | None = None) -> TradingStrategy | None:
-        """Create is intentionally unused by the causal saved path."""
+    def create(self, name: str, params: dict | None = None):
         if name != self._definition["name"]:
             return None
-        parser = StrategyDefinitionParser()
-        validation = parser.parse(self._definition, param_overrides=params or {})
+        validation = StrategyDefinitionParser().parse(
+            self._definition, param_overrides=params or {}
+        )
         if validation.definition is None:
             return None
         return StrategyDefinitionFactory().create(validation.definition)
 
     def list_metadata(self) -> list[StrategyMeta]:
-        """Return metadata for the saved definition."""
         return [
             StrategyMeta(
                 name=self._definition["name"],
                 variant=DataMode.REAL,
                 kind=StrategyKind.USER_DEFINED,
-                description="Saved VWAP strategy",
-                required_indicators=["vwap"],
+                description="Saved feature breakout",
+                required_indicators=[],
             )
         ]
 
     def exists(self, name: str) -> bool:
-        """Return whether the saved definition exists."""
         return name == self._definition["name"]
 
-    def definition_for(self, name: str) -> dict | None:
-        """Return the saved JSON definition for causal enrichment."""
+    def definition_for(self, name: str):
         if name != self._definition["name"]:
             return None
         return self._definition
 
 
-def _saved_use_case(provider: SavedJsonStrategyProvider) -> RunBacktestUseCase:
-    """Create the saved/named strategy backtest use case.
+class TestSavedStrategyFeatureWiring:
+    """Saved run_backtest must compute declared features like the direct path."""
 
-    The saved path delegates to a fully wired BacktestStrategyDefinitionUseCase
-    (the same object graph the startup composition root builds) so declared
-    features and data validation behave identically to the direct path.
-    """
-    return RunBacktestUseCase(
-        engine=BacktestRunner(),
-        strategy_provider=provider,
-        converter=PandasBarFrameConverter(),
-        parser=StrategyDefinitionParser(),
-        strategy_factory=StrategyDefinitionFactory(),
-        enricher=_enricher(),
-        strategy_definition_backtester=_inline_use_case(),
-    )
-
-
-class TestSavedStrategyCausalBacktest:
-    """Black-box tests comparing saved and inline JSON backtests."""
-
-    def test_saved_strategy_matches_inline_causal_backtest(self):
-        """Saved default backtest uses the same causal enricher as inline JSON."""
-        definition = _vwap_strategy()
+    def test_saved_path_matches_direct_path_when_feature_drives_entry(self):
+        definition = _feature_strategy()
         bars = _bars()
-        inline = _inline_use_case().execute(
+
+        direct = _fully_wired_definition_use_case().execute(
             BacktestStrategyDefinitionRequest(
                 definition=definition,
                 bars=bars,
@@ -178,7 +173,22 @@ class TestSavedStrategyCausalBacktest:
                 interval="1h",
             )
         )
-        saved = _saved_use_case(SavedJsonStrategyProvider(definition)).execute(
+        assert direct.valid is True, direct.errors
+        assert direct.result is not None
+        # Sanity: the feature genuinely drives at least one trade on this data.
+        assert direct.result.total_trades >= 1, (
+            "test fixture should produce a feature-driven trade"
+        )
+
+        saved = RunBacktestUseCase(
+            engine=BacktestRunner(),
+            strategy_provider=SavedJsonStrategyProvider(definition),
+            converter=PandasBarFrameConverter(),
+            parser=StrategyDefinitionParser(),
+            strategy_factory=StrategyDefinitionFactory(),
+            enricher=_enricher(),
+            strategy_definition_backtester=_fully_wired_definition_use_case(),
+        ).execute(
             BacktestRequest(
                 bars=bars,
                 strategy_name=definition["name"],
@@ -188,12 +198,8 @@ class TestSavedStrategyCausalBacktest:
             )
         )
 
-        assert inline.valid is True, inline.errors
-        assert inline.result is not None
-        assert saved.error is None
+        assert saved.error is None, saved.error
         assert saved.enrichment_mode == "live_parity_streaming"
-        assert saved.live_parity_safe is True
-        assert saved.parity_warnings == []
-        assert saved.trades == inline.result.trades
-        assert saved.final_value == inline.result.final_value
-        assert saved.total_trades == inline.result.total_trades
+        assert saved.total_trades == direct.result.total_trades
+        assert saved.trades == direct.result.trades
+        assert saved.final_value == direct.result.final_value

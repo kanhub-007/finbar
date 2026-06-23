@@ -57,6 +57,7 @@ class RunBacktestUseCase:
         ) = None,
         enricher: MultiTimeframeBarEnricher | None = None,
         input_validator: BacktestInputValidator | None = None,
+        strategy_definition_backtester: BacktestStrategyDefinitionUseCase | None = None,
     ):
         """Constructor injection — receives engine and strategy provider.
 
@@ -70,6 +71,10 @@ class RunBacktestUseCase:
             enricher: Optional package enricher for raw-bar causal enrichment.
             input_validator: Optional validator for backtest bar inputs. When
                 omitted a :class:`DefaultBacktestInputValidator` is used.
+            strategy_definition_backtester: Fully wired delegate used to run
+                saved JSON definitions through the causal live-parity path
+                (with feature calculator, data validator, etc.). Built by the
+                startup composition root — never assembled inline here.
         """
         self._engine = engine
         self._strategy_provider = strategy_provider
@@ -78,6 +83,7 @@ class RunBacktestUseCase:
         self._strategy_factory = strategy_factory
         self._enricher = enricher
         self._input_validator = input_validator or DefaultBacktestInputValidator()
+        self._strategy_definition_backtester = strategy_definition_backtester
 
     def list_strategies(self) -> list[StrategyMeta]:
         """Return metadata for available strategies."""
@@ -178,29 +184,20 @@ class RunBacktestUseCase:
         self,
         request: BacktestRequest,
     ) -> BacktestResultDTO | None:
-        """Run saved JSON definitions through the inline causal use case.
+        """Run saved JSON definitions through the fully wired live-parity delegate.
 
-        Returns None when the provider has no saved JSON definition or when
-        this use case was constructed without JSON-enrichment dependencies.
+        Returns None when the provider has no saved JSON definition, when no
+        delegate is wired, or when the saved strategy should fall back to the
+        built-in strategy path.
         """
-        if (
-            isinstance(self._strategy_provider, dict)
-            or self._parser is None
-            or self._strategy_factory is None
-            or self._enricher is None
+        if self._strategy_definition_backtester is None or isinstance(
+            self._strategy_provider, dict
         ):
             return None
         definition = self._strategy_provider.definition_for(request.strategy_name)
         if definition is None:
             return None
-        inline = BacktestStrategyDefinitionUseCase(
-            engine=self._engine,
-            converter=self._converter,
-            strategy_factory=self._strategy_factory,
-            parser=self._parser,
-            enricher=self._enricher,
-        )
-        result = inline.execute(
+        result = self._strategy_definition_backtester.execute(
             BacktestStrategyDefinitionRequest(
                 definition=definition,
                 bars=request.bars,
