@@ -42,8 +42,14 @@ from finbar.core.application.dto.backtest_strategy_definition_result import (
 )
 from finbar.core.application.live_parity_frame_builder import build_causal_frame
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
+from finbar.core.domain.interfaces.backtest_input_validator import (
+    BacktestInputValidator,
+)
 from finbar.core.domain.interfaces.indicator_artifact_provider import (
     IndicatorArtifactProvider,
+)
+from finbar.core.domain.services.default_backtest_input_validator import (
+    DefaultBacktestInputValidator,
 )
 from finbar.infrastructure.services.backtest_data_validator import (
     validate_required_data,
@@ -75,6 +81,7 @@ class BacktestStrategyDefinitionUseCase:
         feature_calculator: StrategyFeatureCalculator | None = None,
         enricher: MultiTimeframeBarEnricher | None = None,
         data_validator: RequiredDataValidator | None = None,
+        input_validator: BacktestInputValidator | None = None,
     ):
         """Create the use case with injected engine/converter/factory."""
         self._engine = engine
@@ -86,6 +93,7 @@ class BacktestStrategyDefinitionUseCase:
         self._feature_calculator = feature_calculator
         self._enricher = enricher
         self._data_validator = data_validator
+        self._input_validator = input_validator or DefaultBacktestInputValidator()
 
     def execute(
         self,
@@ -103,6 +111,18 @@ class BacktestStrategyDefinitionUseCase:
             return BacktestStrategyDefinitionResult(
                 valid=False,
                 errors=[_err("$.bars", "No bars provided", "no_bars")],
+            )
+
+        input_validation = self._input_validator.validate(
+            request.bars, request.interval
+        )
+        if not input_validation.valid:
+            return BacktestStrategyDefinitionResult(
+                valid=False,
+                errors=[
+                    _err("$.bars", message, "invalid_bars")
+                    for message in input_validation.errors
+                ],
             )
 
         validation = self._parser.parse(request.definition, request.params)

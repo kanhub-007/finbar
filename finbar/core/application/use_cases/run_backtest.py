@@ -32,7 +32,13 @@ from finbar.core.application.use_cases.backtest_strategy_definition import (
     BacktestStrategyDefinitionUseCase,
 )
 from finbar.core.domain.interfaces.backtest_engine import BacktestEngine
+from finbar.core.domain.interfaces.backtest_input_validator import (
+    BacktestInputValidator,
+)
 from finbar.core.domain.interfaces.strategy_provider import StrategyProvider
+from finbar.core.domain.services.default_backtest_input_validator import (
+    DefaultBacktestInputValidator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +56,7 @@ class RunBacktestUseCase:
             strategy_factory_interface.StrategyDefinitionStrategyFactory | None
         ) = None,
         enricher: MultiTimeframeBarEnricher | None = None,
+        input_validator: BacktestInputValidator | None = None,
     ):
         """Constructor injection — receives engine and strategy provider.
 
@@ -61,6 +68,8 @@ class RunBacktestUseCase:
             parser: Optional JSON strategy parser for saved strategy definitions.
             strategy_factory: Optional factory for saved JSON strategy objects.
             enricher: Optional package enricher for raw-bar causal enrichment.
+            input_validator: Optional validator for backtest bar inputs. When
+                omitted a :class:`DefaultBacktestInputValidator` is used.
         """
         self._engine = engine
         self._strategy_provider = strategy_provider
@@ -68,6 +77,7 @@ class RunBacktestUseCase:
         self._parser = parser
         self._strategy_factory = strategy_factory
         self._enricher = enricher
+        self._input_validator = input_validator or DefaultBacktestInputValidator()
 
     def list_strategies(self) -> list[StrategyMeta]:
         """Return metadata for available strategies."""
@@ -95,6 +105,10 @@ class RunBacktestUseCase:
         """
         if not request.bars:
             return BacktestResultDTO(error="No bars provided")
+
+        validation = self._input_validator.validate(request.bars, request.interval)
+        if not validation.valid:
+            return BacktestResultDTO(error="; ".join(validation.errors))
 
         saved_json_result = self._try_saved_json_backtest(request)
         if saved_json_result is not None:
