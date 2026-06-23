@@ -19,6 +19,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from finbar_strategy_runtime.domain.services.metric_input_guard import (
+    require_metric_columns,
+)
+
 
 def compute_amt_signals(df: pd.DataFrame) -> pd.DataFrame:
     """Compute all AMT rule signals from enriched bar data.
@@ -38,6 +42,27 @@ def compute_amt_signals(df: pd.DataFrame) -> pd.DataFrame:
       - edge_volume_building:       bool
       - value_area_migration:       str — HIGHER | LOWER | STABLE
     """
+    require_metric_columns(
+        df,
+        "compute_amt_signals",
+        (
+            "close",
+            "high",
+            "low",
+            "vp_poc",
+            "vp_vah",
+            "vp_val",
+            "inside_value",
+            "above_value",
+            "below_value",
+            "near_vah",
+            "near_val",
+            "at_poc",
+            "rvol",
+            "atr",
+        ),
+    )
+
     result = df.copy()
 
     result["acceptance_into_value"] = _acceptance_into_value(result)

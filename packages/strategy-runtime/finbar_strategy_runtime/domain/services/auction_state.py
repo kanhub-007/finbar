@@ -12,6 +12,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from finbar_strategy_runtime.domain.services.metric_input_guard import (
+    require_metric_columns,
+)
+
 
 def classify_auction_state(df: pd.DataFrame) -> pd.DataFrame:
     """Add auction state columns derived from Volume Profile and VWAP bands.
@@ -35,10 +39,16 @@ def classify_auction_state(df: pd.DataFrame) -> pd.DataFrame:
     """
     result = df.copy()
 
+    require_metric_columns(
+        result,
+        "classify_auction_state",
+        ("close", "vp_poc", "vp_vah", "vp_val"),
+    )
+
     close = result["close"]
-    vah = result.get("vp_vah", pd.Series(np.nan, index=result.index))
-    val = result.get("vp_val", pd.Series(np.nan, index=result.index))
-    poc = result.get("vp_poc", pd.Series(np.nan, index=result.index))
+    vah = result["vp_vah"]
+    val = result["vp_val"]
+    poc = result["vp_poc"]
 
     # --- Position relative to value area ---
     result["inside_value"] = (close >= val) & (close <= vah)

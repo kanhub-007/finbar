@@ -19,9 +19,13 @@ import math
 import numpy as np
 import pandas as pd
 
-from finbar_strategy_runtime.domain.entities.volume_profile_result import VolumeProfileResult
+from finbar_strategy_runtime.domain.entities.volume_profile_result import (
+    VolumeProfileResult,
+)
 from finbar_strategy_runtime.domain.services._profile_utils import expand_value_area
-
+from finbar_strategy_runtime.domain.services.metric_input_guard import (
+    require_metric_columns,
+)
 
 # ---------------------------------------------------------------------------
 # Per-bar volume distribution
@@ -403,8 +407,11 @@ def compute_rolling_vp(
     result[vah_col] = np.nan
     result[val_col] = np.nan
 
-    if "vp_poc" not in df.columns:
-        return result
+    require_metric_columns(
+        result,
+        "compute_rolling_vp",
+        ("vp_poc", "vp_vah", "vp_val"),
+    )
 
     date_series = pd.Series(
         result.index.date,

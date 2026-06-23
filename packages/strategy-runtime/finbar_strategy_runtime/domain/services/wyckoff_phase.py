@@ -14,8 +14,11 @@ All functions are pure — no state, no I/O.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
+
+from finbar_strategy_runtime.domain.services.metric_input_guard import (
+    require_metric_columns,
+)
 
 
 def compute_poc_slope(df: pd.DataFrame, window: int = 5) -> pd.Series:
@@ -93,18 +96,20 @@ def classify_wyckoff_phase(
     if slope_col not in result.columns:
         result[slope_col] = compute_poc_slope(result, window=slope_window)
 
-    result["wyckoff_phase"] = "NEUTRAL"
+    require_metric_columns(
+        result,
+        "classify_wyckoff_phase",
+        ("vp_poc", "balance_status", "profile_shape", "rvol", "value_area_width_pct"),
+    )
 
-    # Need base columns
-    if "vp_poc" not in result.columns or "balance_status" not in result.columns:
-        return result
+    result["wyckoff_phase"] = "NEUTRAL"
 
     # Get column references
     slope = result[slope_col]
-    width = result.get("value_area_width_pct", pd.Series(0.0, index=result.index))
-    balance = result.get("balance_status", pd.Series("BALANCED", index=result.index))
-    rvol = result.get("rvol", pd.Series(1.0, index=result.index))
-    shape = result.get("profile_shape", pd.Series("NEUTRAL", index=result.index))
+    width = result["value_area_width_pct"]
+    balance = result["balance_status"]
+    rvol = result["rvol"]
+    shape = result["profile_shape"]
 
     # Width direction: expanding or contracting
     width_direction = width - width.shift(5)
@@ -123,7 +128,7 @@ def classify_wyckoff_phase(
         & (balance.isin(["IMBALANCED_DOWN"]))
     )
 
-    # --- ACCUMULATION: POC flat, VA contracting, balance, declining vol, normal/b-shape ---
+    # --- ACCUMULATION: POC flat, VA contracting, balance, declining vol ---
     # Plan: |slope| < 0.2%, VA contracting, BALANCED, normal/b-shape, rvol < 1.0
     accumulation = (
         (slope.abs() < 0.2)
