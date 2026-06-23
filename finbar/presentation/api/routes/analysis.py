@@ -139,6 +139,9 @@ def run_backtest(request: ApiBacktestRequest):
         calmar_ratio=result.calmar_ratio,
         enrichment_mode=result.enrichment_mode,
         live_parity_safe=result.live_parity_safe,
+        metric_input_policy=result.trust_diagnostics.get(
+            "metric_input_policy", "strict"
+        ),
         parity_warnings=result.parity_warnings,
         trades=result.trades,
         equity_curve=result.equity_curve,

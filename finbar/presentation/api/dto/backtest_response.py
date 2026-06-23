@@ -25,6 +25,7 @@ class BacktestResponse(BaseModel):
     calmar_ratio: float
     enrichment_mode: str = "batch_full_frame"
     live_parity_safe: bool = True
+    metric_input_policy: str = "strict"
     parity_warnings: list[str] = Field(default_factory=list)
     trades: list[dict]
     equity_curve: list[dict]
