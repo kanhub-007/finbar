@@ -20,6 +20,9 @@ from typing import Any
 
 import pandas as pd
 
+from finbar_strategy_runtime.domain.entities.as_of_informative_cursor import (
+    AsOfInformativeCursor,
+)
 from finbar_strategy_runtime.domain.entities.causal_enriched_bar import (
     CausalEnrichedBar,
 )
@@ -70,7 +73,10 @@ class CausalMultiTimeframeStreamingEnricher(
         self._info_engines: dict[str, StreamingIndicatorEngine] = {}
         self._info_offsets: dict[str, pd.Timedelta] = {}
         self._info_suffixes: dict[str, str] = {}
-        self._info_history: dict[str, list[tuple[pd.Timestamp, dict]]] = {}
+        # Per-alias as-of cursors replace the reverse-scan history. Each cursor
+        # advances a monotonic pointer over availability timestamps, making
+        # the per-bar merge O(1) amortised instead of O(informative).
+        self._info_cursors: dict[str, AsOfInformativeCursor] = {}
         timeframes = definition.timeframes
         if timeframes is not None:
             for item in timeframes.informative:
@@ -80,7 +86,9 @@ class CausalMultiTimeframeStreamingEnricher(
                 )
                 self._info_offsets[alias] = interval_offset(item.interval)
                 self._info_suffixes[alias] = f"_{item.interval}"
-                self._info_history[alias] = []
+                self._info_cursors[alias] = AsOfInformativeCursor(
+                    offset=self._info_offsets[alias]
+                )
         self._latest: CausalEnrichedBar | None = None
 
     # ── public API ──────────────────────────────────────────────────────
@@ -136,7 +144,7 @@ class CausalMultiTimeframeStreamingEnricher(
                 self._info_indicators.get(alias, []),
             ),
         )
-        self._info_history[alias].append((_bar_open_ts(bar), row))
+        self._info_cursors[alias].append(_bar_open_ts(bar), row)
 
     def update_primary(self, bar: dict) -> CausalEnrichedBar:
         """Ingest one closed primary bar; return the latest causal enriched bar."""
@@ -146,8 +154,8 @@ class CausalMultiTimeframeStreamingEnricher(
             _with_requested_columns(latest.values, self._primary_indicators),
         )
         primary_open = _bar_open_ts(bar)
-        for alias, offset in self._info_offsets.items():
-            info_row = _latest_visible(self._info_history[alias], primary_open, offset)
+        for alias in self._info_cursors:
+            info_row = self._info_cursors[alias].latest_visible_at(primary_open)
             if info_row is not None:
                 _merge_informative(merged, info_row, self._info_suffixes[alias])
         self._latest = CausalEnrichedBar(
@@ -166,8 +174,8 @@ class CausalMultiTimeframeStreamingEnricher(
         self._primary_engine.reset()
         for engine in self._info_engines.values():
             engine.reset()
-        for alias in self._info_history:
-            self._info_history[alias] = []
+        for cursor in self._info_cursors.values():
+            cursor.reset()
         self._latest = None
 
     @staticmethod
@@ -210,7 +218,6 @@ class CausalMultiTimeframeStreamingEnricher(
                 engine = StreamingIndicatorEngine(
                     indicators=informative_indicators.get(alias, [])
                 )
-                suffix = _info_suffix_from_definition(definition, alias)
                 results: list[tuple[Any, dict]] = []
                 for b in informative_bars.get(alias, []):
                     latest = engine.update(b)
@@ -261,12 +268,14 @@ class CausalMultiTimeframeStreamingEnricher(
             primary_indicators=primary_indicators,
             informative_indicators=informative_indicators,
         )
-        # Seed informative history from pre-computed results.
+        # Seed informative cursors from pre-computed results. Each entry is
+        # (open_ts, row); the cursor applies its interval offset internally.
         for alias, enriched in info_enriched.items():
-            offset = enricher._info_offsets.get(alias)
-            if offset is None:
+            cursor = enricher._info_cursors.get(alias)
+            if cursor is None:
                 continue
-            enricher._info_history[alias] = list(enriched)
+            for open_ts, row in enriched:
+                cursor.append(open_ts, row)
 
         rows: list[dict] = []
         for bar in primary_bars:
@@ -316,36 +325,6 @@ def _frame_from_rows(rows: list[dict]) -> pd.DataFrame:
     ts = frame["timestamp"].tolist()
     index = parse_bar_timestamps(ts)
     return frame.drop(columns=["timestamp"]).set_index(index)
-
-
-def _info_suffix_from_definition(
-    definition: StrategyDefinition,
-    alias: str,
-) -> str:
-    """Return the column suffix for an informative timeframe alias."""
-    timeframes = definition.timeframes
-    if timeframes is not None:
-        for item in timeframes.informative:
-            if item.alias == alias:
-                return f"_{item.interval}"
-    return f"_{alias}"
-
-
-def _latest_visible(
-    history: list[tuple[pd.Timestamp, dict]],
-    primary_open: pd.Timestamp,
-    offset: pd.Timedelta,
-) -> dict | None:
-    """Return the latest informative row whose close is at or before primary open.
-
-    An informative bar is visible only once it has fully closed: its close
-    time (open + interval) must be <= the primary bar's open time. This
-    replicates the batch merger's no-lookahead availability offset.
-    """
-    for open_ts, row in reversed(history):
-        if open_ts + offset <= primary_open:
-            return row
-    return None
 
 
 def _merge_informative(merged: dict, info_row: dict, suffix: str) -> None:
