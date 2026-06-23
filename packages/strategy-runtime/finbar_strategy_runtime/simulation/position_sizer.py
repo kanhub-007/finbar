@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.simulation.backtest_diagnostic import BacktestDiagnostic  # noqa: F401
+from finbar_strategy_runtime.simulation.backtest_diagnostic import (
+    BacktestDiagnostic,  # noqa: F401
+)
 from finbar_strategy_runtime.simulation.execution_config import ExecutionConfig
 from finbar_strategy_runtime.simulation.leverage_config import LeverageConfig
 from finbar_strategy_runtime.simulation.pending_entry import PendingEntry

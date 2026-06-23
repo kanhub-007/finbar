@@ -23,7 +23,6 @@ from finbar_strategy_runtime.indicators.streaming.windowed_indicator_state impor
     WindowedIndicatorState,
 )
 
-
 # ── Scenario 5: real timestamps are preserved ───────────────────────────────
 
 

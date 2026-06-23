@@ -4,71 +4,125 @@ This module is imported by ``handlers/__init__.py`` which triggers
 registration of all ``@_register`` decorators at import time.
 """
 
-import pandas as pd
 
-from finbar_strategy_runtime.indicators._handler_registry import _register
-
-
-from finbar_strategy_runtime.domain.services.spread_proxies import (  # noqa: E402
-    effective_tick_spread as _et_calc,
-    fong_holden_tran_spread as _fht_calc,
-    lot_zero_return_spread as _lot_calc,
-    roll_spread as _roll_calc,
-)
-from finbar_strategy_runtime.domain.services.volatility_estimators import (  # noqa: E402
-    close_to_close_vol as _cc_vol,
-    daily_return_kurtosis as _dr_kurt,
-    daily_return_skewness as _dr_skew,
-    garman_klass_vol as _gk_vol,
-    gk_plus_overnight_vol as _gko_vol,
-    meilijson_vol as _mj_vol,
-    parkinson_vol as _pk_vol,
-    rogers_satchell_vol as _rs_vol,
-    yang_zhang_vol as _yz_vol,
-)
-from finbar_strategy_runtime.domain.services.liquidity_proxies import (  # noqa: E402
-    amihud_illiq as _amihud,
-    amivest_liquidity as _amivest,
-    bao_pan_zhou_cost as _bpz,
-    florackis_lambda as _flor,
-    hasbrouck_daily_lambda as _hasb,
-    liu_illiq as _liu,
-)
-from finbar_strategy_runtime.domain.services.order_flow_proxies import (  # noqa: E402
-    bvc_buy_volume as _bvc_buy,
-    bvc_ofi as _bvc_ofi,
-    bvc_sell_volume as _bvc_sell,
-    cumulative_signed_volume_ofi as _csv_ofi,
-    return_volume_correlation as _rvc,
-    signed_sqrt_volume_ofi as _ssq_ofi,
-)
 from finbar_strategy_runtime.domain.services.informed_trading_proxies import (  # noqa: E402
     daily_vpin as _vpin,
+)
+from finbar_strategy_runtime.domain.services.informed_trading_proxies import (
     spread_based_pin_proxy as _pin,
-)
-from finbar_strategy_runtime.domain.services.jump_risk_proxies import (  # noqa: E402
-    cc_rs_jump_proxy as _cc_jump,
-    extreme_return_flag as _ext_ret,
-    jump_gap_proxy as _jump_gap,
-    overnight_gap_proxy as _on_gap,
-)
-from finbar_strategy_runtime.domain.services.resiliency_proxies import (  # noqa: E402
-    inverse_amihud_resiliency as _inv_amihud,
-    resiliency_autocorr as _res_auto,
-    resiliency_spread_to_impact as _res_si,
 )
 from finbar_strategy_runtime.domain.services.intraday_seasonality_proxies import (  # noqa: E402
     first_last_hour_vol_fraction_proxy as _flhvf,
+)
+from finbar_strategy_runtime.domain.services.intraday_seasonality_proxies import (
     overnight_intraday_decomp as _oid,
+)
+from finbar_strategy_runtime.domain.services.intraday_seasonality_proxies import (
     parametric_u_shape as _u_shape,
+)
+from finbar_strategy_runtime.domain.services.jump_risk_proxies import (  # noqa: E402
+    cc_rs_jump_proxy as _cc_jump,
+)
+from finbar_strategy_runtime.domain.services.jump_risk_proxies import (
+    extreme_return_flag as _ext_ret,
+)
+from finbar_strategy_runtime.domain.services.jump_risk_proxies import (
+    jump_gap_proxy as _jump_gap,
+)
+from finbar_strategy_runtime.domain.services.jump_risk_proxies import (
+    overnight_gap_proxy as _on_gap,
+)
+from finbar_strategy_runtime.domain.services.liquidity_proxies import (  # noqa: E402
+    amihud_illiq as _amihud,
+)
+from finbar_strategy_runtime.domain.services.liquidity_proxies import (
+    amivest_liquidity as _amivest,
+)
+from finbar_strategy_runtime.domain.services.liquidity_proxies import (
+    bao_pan_zhou_cost as _bpz,
+)
+from finbar_strategy_runtime.domain.services.liquidity_proxies import (
+    florackis_lambda as _flor,
+)
+from finbar_strategy_runtime.domain.services.liquidity_proxies import (
+    hasbrouck_daily_lambda as _hasb,
+)
+from finbar_strategy_runtime.domain.services.liquidity_proxies import (
+    liu_illiq as _liu,
 )
 from finbar_strategy_runtime.domain.services.order_arrival_proxies import (  # noqa: E402
     volume_to_trade_count_proxy as _vtc,
 )
+from finbar_strategy_runtime.domain.services.order_flow_proxies import (  # noqa: E402
+    bvc_buy_volume as _bvc_buy,
+)
+from finbar_strategy_runtime.domain.services.order_flow_proxies import (
+    bvc_ofi as _bvc_ofi,
+)
+from finbar_strategy_runtime.domain.services.order_flow_proxies import (
+    bvc_sell_volume as _bvc_sell,
+)
+from finbar_strategy_runtime.domain.services.order_flow_proxies import (
+    cumulative_signed_volume_ofi as _csv_ofi,
+)
+from finbar_strategy_runtime.domain.services.order_flow_proxies import (
+    return_volume_correlation as _rvc,
+)
+from finbar_strategy_runtime.domain.services.order_flow_proxies import (
+    signed_sqrt_volume_ofi as _ssq_ofi,
+)
+from finbar_strategy_runtime.domain.services.resiliency_proxies import (  # noqa: E402
+    inverse_amihud_resiliency as _inv_amihud,
+)
+from finbar_strategy_runtime.domain.services.resiliency_proxies import (
+    resiliency_autocorr as _res_auto,
+)
+from finbar_strategy_runtime.domain.services.resiliency_proxies import (
+    resiliency_spread_to_impact as _res_si,
+)
+from finbar_strategy_runtime.domain.services.spread_proxies import (  # noqa: E402
+    effective_tick_spread as _et_calc,
+)
+from finbar_strategy_runtime.domain.services.spread_proxies import (
+    fong_holden_tran_spread as _fht_calc,
+)
+from finbar_strategy_runtime.domain.services.spread_proxies import (
+    lot_zero_return_spread as _lot_calc,
+)
+from finbar_strategy_runtime.domain.services.spread_proxies import (
+    roll_spread as _roll_calc,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (  # noqa: E402
+    close_to_close_vol as _cc_vol,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    daily_return_kurtosis as _dr_kurt,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    daily_return_skewness as _dr_skew,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    garman_klass_vol as _gk_vol,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    gk_plus_overnight_vol as _gko_vol,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    meilijson_vol as _mj_vol,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    parkinson_vol as _pk_vol,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    rogers_satchell_vol as _rs_vol,
+)
+from finbar_strategy_runtime.domain.services.volatility_estimators import (
+    yang_zhang_vol as _yz_vol,
+)
+from finbar_strategy_runtime.indicators._handler_registry import _register
 from finbar_strategy_runtime.indicators.rolling_scalar_wrapper import (  # noqa: E402
     rolling_scalar_series,
 )
-
 
 # --- Spread proxies (4) ---
 

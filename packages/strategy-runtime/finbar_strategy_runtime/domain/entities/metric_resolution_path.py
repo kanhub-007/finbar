@@ -1,6 +1,6 @@
 """MetricResolutionPath — one computation path for a conceptual metric."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from finbar_strategy_runtime.domain.entities.data_class import DataClass
 from finbar_strategy_runtime.domain.entities.metric_confidence import MetricConfidence

@@ -4,15 +4,14 @@ These tests verify that crossover state is always recorded in pending_values
 regardless of whether an any/all group short-circuits its boolean result.
 """
 
-import pytest
 
 from finbar_strategy_runtime.domain.entities.condition import Condition
 from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
 from finbar_strategy_runtime.domain.entities.operand import Operand
 from finbar_strategy_runtime.evaluation.condition_evaluator import (
     _CROSSOVER_OPERATORS,
-    _crossover_key,
     ConditionEvaluator,
+    _crossover_key,
 )
 
 

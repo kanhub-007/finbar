@@ -3,9 +3,20 @@
 Scenario S2: Finbar's backtest delegates to the enricher (behaviour-preserving).
 """
 
-import copy
 
-import pytest
+
+from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
+    MultiTimeframeBarEnricher,
+)
+from finbar_strategy_runtime.indicators.pandas_strategy_feature_calculator import (
+    PandasStrategyFeatureCalculator,
+)
+from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+    PandasTaIndicatorCalculator,
+)
+from finbar_strategy_runtime.indicators.pandas_timeframe_bar_merger import (
+    PandasTimeframeBarMerger,
+)
 
 from finbar.core.application.dto.backtest_strategy_definition_request import (
     BacktestStrategyDefinitionRequest,
@@ -22,18 +33,6 @@ from finbar.infrastructure.services.pandas_bar_frame_converter import (
 )
 from finbar.infrastructure.services.strategy_definition_factory import (
     StrategyDefinitionFactory,
-)
-from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
-    MultiTimeframeBarEnricher,
-)
-from finbar_strategy_runtime.indicators.pandas_strategy_feature_calculator import (
-    PandasStrategyFeatureCalculator,
-)
-from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-    PandasTaIndicatorCalculator,
-)
-from finbar_strategy_runtime.indicators.pandas_timeframe_bar_merger import (
-    PandasTimeframeBarMerger,
 )
 
 # Reuse the strategy and bars from the existing SDK tests

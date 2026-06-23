@@ -2,17 +2,17 @@
 
 from typing import Any
 
-from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
-    OHLCV_FIELDS,
-    make_error,
-    resolve_expression,
-)
 from finbar_strategy_runtime.domain.entities.operand import Operand
 from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
 from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
+)
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
+    OHLCV_FIELDS,
+    make_error,
+    resolve_expression,
 )
 
 

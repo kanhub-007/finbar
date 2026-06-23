@@ -6,12 +6,12 @@ Serves ``bb_upper``, ``bb_middle``, ``bb_lower`` from a single state.
 
 from __future__ import annotations
 
+from collections import deque
+from math import isnan, sqrt
+
 from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
     StreamingIndicatorState,
 )
-
-from collections import deque
-from math import isnan, sqrt
 
 
 class BbState(StreamingIndicatorState):

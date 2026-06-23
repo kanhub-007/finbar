@@ -5,7 +5,9 @@ Internal visitor used by ExplainStrategyDefinitionUseCase.
 
 from finbar_strategy_runtime.domain.entities.condition import Condition
 from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
-from finbar_strategy_runtime.domain.interfaces.condition_tree_visitor import ConditionTreeVisitor
+from finbar_strategy_runtime.domain.interfaces.condition_tree_visitor import (
+    ConditionTreeVisitor,
+)
 
 _GROUP_FORMAT: dict[str, tuple[str, str]] = {
     "all": ("(", " AND "),

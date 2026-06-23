@@ -6,12 +6,10 @@ PandasTaIndicatorCalculator for SMA at various periods.
 
 import math
 
-import pytest
-
 # ── helpers (will move to conftest once stable) ─────────────────────────────
-
 import numpy as np
 import pandas as pd
+import pytest
 
 # Fixed int-second origin (2024-07-01 00:00:00 UTC) with 1-hour spacing.
 # Real timestamps are required so session/date-sensitive indicators

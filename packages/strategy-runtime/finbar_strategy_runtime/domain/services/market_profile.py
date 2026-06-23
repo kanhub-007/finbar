@@ -15,7 +15,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from finbar_strategy_runtime.domain.entities.market_profile_result import MarketProfileResult
+from finbar_strategy_runtime.domain.entities.market_profile_result import (
+    MarketProfileResult,
+)
 from finbar_strategy_runtime.domain.services._profile_utils import expand_value_area
 
 # ---------------------------------------------------------------------------

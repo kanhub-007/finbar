@@ -2,19 +2,6 @@
 
 from typing import Any
 
-from finbar_strategy_runtime.parser.strategy_condition_group_parser import (
-    StrategyConditionGroupParser,
-)
-from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
-    extract_condition,
-    make_error,
-)
-from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
-    StrategyIndicatorCatalog,
-)
-from finbar_strategy_runtime.parser.strategy_operand_parser import (
-    StrategyOperandParser,
-)
 from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
 from finbar_strategy_runtime.domain.entities.feature_spec import FeatureSpec
 from finbar_strategy_runtime.domain.entities.indicator_spec import IndicatorSpec
@@ -26,8 +13,16 @@ from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider imp
     IndicatorCapabilityProvider,
 )
 from finbar_strategy_runtime.parser._catalog_factory import default_catalog
-
-
+from finbar_strategy_runtime.parser.strategy_condition_group_parser import (
+    StrategyConditionGroupParser,
+)
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
+    extract_condition,
+    make_error,
+)
+from finbar_strategy_runtime.parser.strategy_operand_parser import (
+    StrategyOperandParser,
+)
 
 
 class StrategyConditionParser:

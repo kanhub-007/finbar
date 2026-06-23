@@ -7,7 +7,6 @@ fail closed.
 
 import pytest
 
-
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _collect_all_handler_names():

@@ -6,8 +6,8 @@ import logging
 
 from finbar_strategy_runtime.simulation.execution_config import ExecutionConfig
 from finbar_strategy_runtime.simulation.leverage_config import LeverageConfig
-from finbar_strategy_runtime.simulation.trade_record import TradeRecord
 from finbar_strategy_runtime.simulation.simulation_state import SimulationState
+from finbar_strategy_runtime.simulation.trade_record import TradeRecord
 
 logger = logging.getLogger(__name__)
 

@@ -17,7 +17,6 @@ from .test_streaming_sma_parity import (
     _make_deterministic_bars,
 )
 
-
 # Representative indicator set with ~15 streaming + 2 windowed + 2 windowed-default
 REPRESENTATIVE_SET = [
     "sma_20",
@@ -119,6 +118,7 @@ class TestStreamingPerfBudget:
         from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
             PandasTaIndicatorCalculator,
         )
+
         from .test_streaming_sma_parity import _bars_to_frame
 
         calc = PandasTaIndicatorCalculator()

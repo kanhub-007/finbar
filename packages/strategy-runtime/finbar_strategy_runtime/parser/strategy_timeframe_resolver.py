@@ -2,16 +2,20 @@
 
 from typing import Any
 
-from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
-    OHLCV_FIELDS,
-    make_error,
+from finbar_strategy_runtime.domain.entities.informative_timeframe import (
+    InformativeTimeframe,
 )
-from finbar_strategy_runtime.domain.entities.informative_timeframe import InformativeTimeframe
 from finbar_strategy_runtime.domain.entities.interval import Interval
 from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
-from finbar_strategy_runtime.domain.entities.timeframe_declaration import TimeframeDeclaration
+from finbar_strategy_runtime.domain.entities.timeframe_declaration import (
+    TimeframeDeclaration,
+)
+from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
+    OHLCV_FIELDS,
+    make_error,
+)
 
 _MAX_INFORMATIVE_TIMEFRAMES = 3
 

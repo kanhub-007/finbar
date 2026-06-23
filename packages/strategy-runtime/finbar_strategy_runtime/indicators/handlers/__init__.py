@@ -7,14 +7,14 @@ Importing this package ensures every handler is registered before any
 
 from finbar_strategy_runtime.indicators.handlers import (  # noqa: F401
     core_ta,
+    derivatives,
     inside_bar,
-    trend_breakout,
-    vwap_bands,
-    volume_profile,
-    profile_classifiers,
+    intraday_realized,
     market_profile_amt,
     microstructure,
     price_action,
-    derivatives,
-    intraday_realized,
+    profile_classifiers,
+    trend_breakout,
+    volume_profile,
+    vwap_bands,
 )

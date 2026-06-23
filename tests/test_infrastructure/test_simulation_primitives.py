@@ -4,9 +4,7 @@ Scenario S6: Finbar's backtest is unchanged after primitives move to package.
 Scenario S7: Fill primitives are independently composable.
 """
 
-import pytest
 
-from finbar.core.domain.entities.execution_config import ExecutionConfig
 from finbar.infrastructure.services.backtest_runner import BacktestRunner
 
 
@@ -35,7 +33,6 @@ class TestBacktestParityAfterMove:
 
     def test_backtest_produces_valid_result(self):
         """BacktestRunner.run() produces a valid result with trades."""
-        import copy
 
         from finbar_strategy_runtime.domain.entities.signal_result import (
             SignalResult,

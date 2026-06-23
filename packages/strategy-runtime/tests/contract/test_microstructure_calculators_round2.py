@@ -6,7 +6,6 @@ informed trading (daily_vpin), jump risk, resiliency.
 
 import numpy as np
 import pandas as pd
-import pytest
 
 
 def _make_ohlcv_frame(data: list[dict]) -> pd.DataFrame:

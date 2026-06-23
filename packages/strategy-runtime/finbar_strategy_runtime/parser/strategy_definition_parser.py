@@ -6,6 +6,22 @@ import json
 
 import yaml
 
+from finbar_strategy_runtime.domain.entities.strategy_definition import (
+    StrategyDefinition,
+)
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
+    StrategyValidationError,
+)
+from finbar_strategy_runtime.domain.entities.strategy_validation_result import (
+    StrategyValidationResult,
+)
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
+    IndicatorCapabilityProvider,
+)
+from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
+    StrategyDefinitionParser as ParserInterface,
+)
+from finbar_strategy_runtime.parser._catalog_factory import default_catalog
 from finbar_strategy_runtime.parser.required_column_collector import (
     RequiredColumnCollector,
 )
@@ -15,12 +31,8 @@ from finbar_strategy_runtime.parser.strategy_condition_parser import (
 from finbar_strategy_runtime.parser.strategy_definition_serializer import (
     StrategyDefinitionSerializer,
 )
-from finbar_strategy_runtime.parser._catalog_factory import default_catalog
 from finbar_strategy_runtime.parser.strategy_feature_resolver import (
     StrategyFeatureResolver,
-)
-from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
-    StrategyIndicatorCatalog,
 )
 from finbar_strategy_runtime.parser.strategy_indicator_resolver import (
     StrategyIndicatorResolver,
@@ -41,19 +53,6 @@ from finbar_strategy_runtime.parser.strategy_timeframe_resolver import (
 from finbar_strategy_runtime.parser.strategy_warning_rules import (
     DEFAULT_WARNING_RULES,
     StrategyWarningRule,
-)
-from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
-from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
-    StrategyValidationError,
-)
-from finbar_strategy_runtime.domain.entities.strategy_validation_result import (
-    StrategyValidationResult,
-)
-from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
-    IndicatorCapabilityProvider,
-)
-from finbar_strategy_runtime.domain.interfaces.strategy_definition_parser import (
-    StrategyDefinitionParser as ParserInterface,
 )
 
 

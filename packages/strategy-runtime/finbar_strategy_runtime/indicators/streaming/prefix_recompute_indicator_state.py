@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
-    StreamingIndicatorState,
-)
-
 import math
 from typing import Any
 
@@ -14,6 +10,9 @@ from finbar_strategy_runtime.indicators.pandas_bar_frame_converter import (
 )
 from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
     PandasTaIndicatorCalculator,
+)
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
 )
 
 _PREFIX_RECOMPUTE_VP_NAMES = frozenset(

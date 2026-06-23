@@ -5,9 +5,7 @@ Pure (stateless) domain services.
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------------
 # Awesome Oscillator

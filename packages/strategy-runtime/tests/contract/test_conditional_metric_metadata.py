@@ -11,7 +11,6 @@ Classical school: real ``UnifiedMetricCatalog``, assert on outcomes.
 
 import pytest
 
-from finbar_strategy_runtime.domain.entities.data_class import DataClass
 from finbar_strategy_runtime.parser.unified_metric_catalog import UnifiedMetricCatalog
 
 

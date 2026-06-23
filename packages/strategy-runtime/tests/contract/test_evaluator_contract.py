@@ -20,7 +20,6 @@ from finbar_strategy_runtime.evaluation.json_rule_based_strategy import (
     JsonRuleBasedStrategy,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -61,21 +60,6 @@ def _group(kind: str, *children: ConditionGroup, condition: Condition | None = N
 from finbar_strategy_runtime.domain.entities.condition import Condition
 from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
 from finbar_strategy_runtime.domain.entities.operand import Operand
-from finbar_strategy_runtime.domain.entities.risk_spec import RiskSpec
-from finbar_strategy_runtime.domain.entities.side_rules import SideRules
-from finbar_strategy_runtime.domain.entities.strategy_definition import (
-    StrategyDefinition,
-)
-from finbar_strategy_runtime.evaluation.condition_evaluator import (
-    ConditionEvaluator,
-)
-from finbar_strategy_runtime.evaluation.json_risk_price_calculator import (
-    JsonRiskPriceCalculator,
-)
-from finbar_strategy_runtime.evaluation.json_rule_based_strategy import (
-    JsonRuleBasedStrategy,
-)
-
 
 # ---------------------------------------------------------------------------
 # Helpers

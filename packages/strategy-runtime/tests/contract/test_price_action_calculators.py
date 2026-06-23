@@ -5,8 +5,6 @@ Covers: Fibonacci levels, Bill Williams indicators, Dow Theory / trend structure
 
 import numpy as np
 import pandas as pd
-import pytest
-
 
 # =========================================================================
 # Fibonacci levels

@@ -119,7 +119,7 @@ def sol_info_bars() -> dict[str, list[dict]]:
 
 
 @pytest.fixture(scope="module")
-def enriched_mtf_frame() -> "pd.DataFrame":
+def enriched_mtf_frame() -> pd.DataFrame:
     """Enriched MTF frame (module-scoped for speed)."""
     from finbar_strategy_runtime.indicators.multi_timeframe_bar_enricher import (
         MultiTimeframeBarEnricher,

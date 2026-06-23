@@ -2,8 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
-
 
 # =========================================================================
 # Supply / Demand zones
@@ -14,8 +12,8 @@ class TestSupplyDemandZones:
     def test_demand_zone_from_rbr(self):
         """Rally-base-rally creates a demand zone."""
         from finbar_strategy_runtime.domain.services.supply_demand_zones import (
-            demand_zone_low,
             demand_zone_high,
+            demand_zone_low,
             demand_zone_score,
         )
 
@@ -35,8 +33,8 @@ class TestSupplyDemandZones:
 
     def test_supply_zone_from_dbr(self):
         from finbar_strategy_runtime.domain.services.supply_demand_zones import (
-            supply_zone_low,
             supply_zone_high,
+            supply_zone_low,
         )
 
         close = pd.Series([120, 115, 118, 113, 110, 112, 108, 105, 102, 100, 103])
@@ -369,8 +367,8 @@ class TestBugFixRegressions:
     # --- Fix 6: zone_signal requires AC positive for green ---
     def test_zone_signal_green_requires_ac_positive(self):
         from finbar_strategy_runtime.domain.services.bill_williams_indicators import (
-            zone_signal,
             accelerator_oscillator,
+            zone_signal,
         )
 
         # Build data where AO>0 rising but AC<0

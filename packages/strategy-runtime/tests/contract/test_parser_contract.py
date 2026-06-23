@@ -5,7 +5,6 @@ on outcomes. No mocks, no interaction assertions, no private method verification
 """
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -13,7 +12,6 @@ import pytest
 from finbar_strategy_runtime.parser.strategy_definition_parser import (
     StrategyDefinitionParser,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -258,7 +256,6 @@ class TestArchitecture:
         """The runtime package must not import Finbar presentation, startup,
         repositories, fetchers, or ORM frameworks."""
         import ast
-        import importlib
 
         package_root = Path(__file__).resolve().parents[2] / "finbar_strategy_runtime"
         violating = []
@@ -285,5 +282,5 @@ class TestArchitecture:
                             violating.append(f"{py_file.name}: from {module}")
 
         assert len(violating) == 0, (
-            f"Forbidden imports found:\n" + "\n".join(violating)
+            "Forbidden imports found:\n" + "\n".join(violating)
         )

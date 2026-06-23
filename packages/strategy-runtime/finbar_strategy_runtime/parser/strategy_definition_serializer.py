@@ -1,9 +1,11 @@
 """StrategyDefinitionSerializer — serialize canonical definitions to dict."""
 
+from finbar_strategy_runtime.domain.entities.strategy_definition import (
+    StrategyDefinition,
+)
 from finbar_strategy_runtime.parser.serialize_group_visitor import (
     SerializeGroupVisitor,
 )
-from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
 
 
 class StrategyDefinitionSerializer:

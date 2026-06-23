@@ -10,8 +10,6 @@ from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state impo
     StreamingIndicatorState,
 )
 
-from math import isnan
-
 
 class IbsState(StreamingIndicatorState):
     """Streaming state for the ``ibs`` indicator.

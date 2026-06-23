@@ -6,9 +6,7 @@ registration of all ``@_register`` decorators at import time.
 
 import pandas as pd
 
-import numpy as np
-import pandas_ta as ta
-from finbar_strategy_runtime.indicators._handler_registry import _register, _safe_ta
+from finbar_strategy_runtime.indicators._handler_registry import _register
 
 
 @_register("price_vs_sma20", requires={"sma_20"})

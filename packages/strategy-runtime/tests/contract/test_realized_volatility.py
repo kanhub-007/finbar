@@ -7,6 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from finbar_strategy_runtime.domain.services.intraday_seasonality_proxies import (
+    empirical_volume_curve,
+    intraday_volume_curve,
+)
 from finbar_strategy_runtime.domain.services.realized_volatility_estimators import (
     bipower_variation,
     lee_mykland_jump,
@@ -14,11 +18,6 @@ from finbar_strategy_runtime.domain.services.realized_volatility_estimators impo
     realized_skewness,
     realized_volatility,
 )
-from finbar_strategy_runtime.domain.services.intraday_seasonality_proxies import (
-    empirical_volume_curve,
-    intraday_volume_curve,
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

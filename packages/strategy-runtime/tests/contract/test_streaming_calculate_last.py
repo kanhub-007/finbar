@@ -6,7 +6,7 @@ the latest-row dict, equal to the last row of calculate().
 
 import math
 
-from .test_streaming_sma_parity import _make_deterministic_bars, _bars_to_frame
+from .test_streaming_sma_parity import _bars_to_frame, _make_deterministic_bars
 
 
 class TestCalculateLast:

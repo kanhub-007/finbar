@@ -21,7 +21,6 @@ pandas_ta_required = pytest.mark.skipif(
 # Scenario 3: Runtime package computes indicator/enrichment columns with parity
 # =========================================================================
 
-import numpy as np
 
 # Soft import pandas_ta — skip indicator tests if unavailable
 _HAS_PANDAS_TA = False
@@ -147,10 +146,11 @@ class TestIndicatorCalculator:
     @pandas_ta_required
     def test_empty_df_returns_copy(self):
         """Passing an empty DataFrame returns an empty copy."""
+        import pandas as pd
+
         from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
             PandasTaIndicatorCalculator,
         )
-        import pandas as pd
 
         calc = PandasTaIndicatorCalculator()
         result = calc.calculate(pd.DataFrame(), ["rsi_14"])
@@ -246,11 +246,11 @@ class TestDomainServicesIndicatorMath:
     def test_auction_state_classifies(self):
         """Auction state classifier produces an output column."""
         self._check_pandas()
-        from finbar_strategy_runtime.domain.services.volume_profile import (
-            compute_all_session_volume_profiles,
-        )
         from finbar_strategy_runtime.domain.services.auction_state import (
             classify_auction_state,
+        )
+        from finbar_strategy_runtime.domain.services.volume_profile import (
+            compute_all_session_volume_profiles,
         )
 
         df = self._make_ohlcv_df(200)

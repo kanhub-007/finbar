@@ -18,88 +18,40 @@ from typing import TYPE_CHECKING
 
 from finbar_strategy_runtime.domain.entities.interval import Interval
 
+# ── Backtest factories ──────────────────────────────────────────────────
+from finbar.startup._backtest_factories import (  # noqa: F401
+    get_backtest_result_store as _get_backtest_result_store,
+)
+
 # ── Data factories ──────────────────────────────────────────────────────
 from finbar.startup._data_factories import (  # noqa: F401
     get_db as _get_db,
-    get_fetcher as _get_fetcher,
-    get_hl_fetcher as _get_hl_fetcher,
-    get_hl_tickers as _get_hl_tickers,
-    get_job_manager as _get_job_manager,
-    make_delete_cached_use_case as _make_delete_cached_use_case,
-    make_fetch_prices_use_case as _make_fetch_prices_use_case,
-    make_get_latest_quote_use_case as _make_get_latest_quote_use_case,
-    make_get_symbol_info_use_case as _make_get_symbol_info_use_case,
-    make_list_cached_use_case as _make_list_cached_use_case,
-    make_query_cached_use_case as _make_query_cached_use_case,
-    _validate_source,
 )
 
 # ── Indicator (calculator) factories ────────────────────────────────────
 from finbar.startup._indicator_factories import (  # noqa: F401
     get_bar_frame_converter as _get_bar_frame_converter,
-    get_indicator_calculator as _get_indicator_calculator,
-    get_strategy_feature_calculator as _get_strategy_feature_calculator,
-    get_timeframe_bar_merger as _get_timeframe_bar_merger,
-    make_apply_indicators_use_case as _make_apply_indicators_use_case,
 )
 
 # ── Indicator job factories ─────────────────────────────────────────────
 from finbar.startup._indicator_job_factories import (  # noqa: F401
     get_indicator_job_manager as _get_indicator_job_manager,
-    get_indicator_job_runner as _get_indicator_job_runner,
-    make_cancel_indicator_job_use_case as _make_cancel_indicator_job_use_case,
-    make_compute_strategy_indicators_use_case as _make_compute_strategy_indicators_use_case,
-    make_delete_artifact_use_case as _make_delete_artifact_use_case,
-    make_describe_artifact_use_case as _make_describe_artifact_use_case,
-    make_get_indicator_job_progress_use_case as _make_get_indicator_job_progress_use_case,
-    make_get_indicator_job_results_use_case as _make_get_indicator_job_results_use_case,
-    make_list_artifacts_use_case as _make_list_artifacts_use_case,
-    make_query_artifact_bars_use_case as _make_query_artifact_bars_use_case,
-    make_run_strategy_pipeline_use_case as _make_run_strategy_pipeline_use_case,
-    make_start_indicator_job_use_case as _make_start_indicator_job_use_case,
-    get_strategy_pipeline_job_manager as _get_strategy_pipeline_job_manager,
-    make_strategy_pipeline_job_runner as _make_strategy_pipeline_job_runner,
-)
-
-# ── Backtest factories ──────────────────────────────────────────────────
-from finbar.startup._backtest_factories import (  # noqa: F401
-    get_backtest_result_store as _get_backtest_result_store,
-    get_backtest_runner as _get_backtest_runner,
-    make_apply_strategy_features_use_case as _make_apply_strategy_features_use_case,
-    make_backtest_strategy_definition_use_case as _make_backtest_strategy_definition_use_case,
-    make_get_backtest_equity_use_case as _make_get_backtest_equity_use_case,
-    make_get_backtest_summary_use_case as _make_get_backtest_summary_use_case,
-    make_get_backtest_trades_use_case as _make_get_backtest_trades_use_case,
-    make_list_backtest_results_use_case as _make_list_backtest_results_use_case,
-    make_run_backtest_use_case as _make_run_backtest_use_case,
-    make_run_portfolio_backtest_use_case as _make_run_portfolio_backtest_use_case,
-    make_store_backtest_result_use_case as _make_store_backtest_result_use_case,
 )
 
 # ── Optimization factories ──────────────────────────────────────────────
 from finbar.startup._optimization_factories import (  # noqa: F401
     get_optimization_job_manager as _get_optimization_job_manager,
-    get_optimizer as _get_optimizer,
-    get_walk_forward_optimizer as _get_walk_forward_optimizer,
-    make_cancel_optimization_job_use_case as _make_cancel_optimization_job_use_case,
-    make_get_optimization_job_progress_use_case as _make_get_optimization_job_progress_use_case,
-    make_get_optimization_job_results_use_case as _make_get_optimization_job_results_use_case,
-    make_start_optimization_job_use_case as _make_start_optimization_job_use_case,
-    make_start_walk_forward_job_use_case as _make_start_walk_forward_job_use_case,
 )
 
 # ── Strategy factories ──────────────────────────────────────────────────
 from finbar.startup._strategy_factories import (  # noqa: F401
     get_capability_service as _get_capability_service,
-    get_json_strategy_factory as _get_json_strategy_factory,
-    get_parser as _get_parser,
-    get_schema_provider as _get_schema_provider,
+)
+from finbar.startup._strategy_factories import (
     get_signal_calculator as _get_signal_calculator,
-    make_delete_strategy_definition_use_case as _make_delete_strategy_definition_use_case,
-    make_explain_strategy_definition_use_case as _make_explain_strategy_definition_use_case,
-    make_save_strategy_definition_use_case as _make_save_strategy_definition_use_case,
+)
+from finbar.startup._strategy_factories import (
     make_strategy_provider as _make_strategy_provider,
-    make_validate_strategy_definition_use_case as _make_validate_strategy_definition_use_case,
 )
 
 if TYPE_CHECKING:
@@ -115,10 +67,10 @@ if TYPE_CHECKING:
 
 # ── Derivatives / CoinGlass ────────────────────────────────────────────
 
-_derivatives_provider: "DerivativesDataProvider | None" = None
+_derivatives_provider: DerivativesDataProvider | None = None
 
 
-def _get_derivatives_provider() -> "DerivativesDataProvider":
+def _get_derivatives_provider() -> DerivativesDataProvider:
     """Return the shared derivatives data provider (CoinGlass)."""
     global _derivatives_provider
     if _derivatives_provider is None:
@@ -128,7 +80,7 @@ def _get_derivatives_provider() -> "DerivativesDataProvider":
     return _derivatives_provider
 
 
-def _make_fetch_derivatives_use_case() -> "FetchDerivativesUseCase":
+def _make_fetch_derivatives_use_case() -> FetchDerivativesUseCase:
     """Create a derivatives fetch use case with wiring."""
     from finbar.core.application.use_cases.fetch_derivatives import (
         FetchDerivativesUseCase,
@@ -144,7 +96,7 @@ def _make_fetch_derivatives_use_case() -> "FetchDerivativesUseCase":
     )
 
 
-def _make_compute_signals_use_case() -> "ComputeSignalsUseCase":
+def _make_compute_signals_use_case() -> ComputeSignalsUseCase:
     """Create a signal computation use case with wiring."""
     from finbar.core.application.use_cases.compute_signals import (
         ComputeSignalsUseCase,

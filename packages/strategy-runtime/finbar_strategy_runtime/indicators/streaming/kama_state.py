@@ -8,13 +8,12 @@ Matches ``pandas_ta.kama``.
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
-    StreamingIndicatorState,
-)
-
 from math import isnan
 
 from finbar_strategy_runtime.indicators.streaming.ker_state import KerState
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
 
 
 class KamaState(StreamingIndicatorState):

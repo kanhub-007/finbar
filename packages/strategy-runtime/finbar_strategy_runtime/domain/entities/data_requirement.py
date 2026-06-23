@@ -1,6 +1,6 @@
 """DataRequirement — what data is needed to compute a metric."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from finbar_strategy_runtime.domain.entities.data_class import DataClass
 

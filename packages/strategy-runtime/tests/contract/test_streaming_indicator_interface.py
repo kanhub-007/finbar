@@ -24,10 +24,10 @@ class TestStreamingIndicatorCalculatorInterface:
 
     def test_abstract_methods_defined(self):
         """All four abstract methods are declared on the ABC."""
+
         from finbar_strategy_runtime.domain.interfaces.streaming_indicator_calculator import (
             StreamingIndicatorCalculator,
         )
-        from abc import abstractmethod
 
         assert hasattr(StreamingIndicatorCalculator, "update")
         assert hasattr(StreamingIndicatorCalculator, "latest")
@@ -73,10 +73,11 @@ class TestLatestBar:
 
     def test_immutable(self):
         """LatestBar is a frozen dataclass — cannot reassign attributes."""
+        from dataclasses import FrozenInstanceError
+
         from finbar_strategy_runtime.domain.entities.latest_bar import (
             LatestBar,
         )
-        from dataclasses import FrozenInstanceError
 
         bar = LatestBar(values={"a": 1.0})
         with pytest.raises(FrozenInstanceError):

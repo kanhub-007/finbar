@@ -10,8 +10,8 @@ import math
 
 from finbar_strategy_runtime.simulation.execution_config import ExecutionConfig
 from finbar_strategy_runtime.simulation.margin_account import MarginAccount
-from finbar_strategy_runtime.simulation.simulation_state import SimulationState
 from finbar_strategy_runtime.simulation.simulated_position import SimulatedPosition
+from finbar_strategy_runtime.simulation.simulation_state import SimulationState
 
 
 class MarginAccountManager:

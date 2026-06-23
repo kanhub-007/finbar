@@ -6,8 +6,6 @@ assert on outcomes. No mocks.
 
 import numpy as np
 import pandas as pd
-import pytest
-
 
 # =========================================================================
 # Helpers
@@ -65,7 +63,7 @@ class TestCorwinSchultzSpread:
         result = fong_holden_tran_spread(df)
         # Spread should be non-negative
         assert (result.dropna() >= 0).all()
-        assert not result.iloc[-1] is None
+        assert result.iloc[-1] is not None
         assert isinstance(result.iloc[-1], float)
 
     def test_insufficient_bars_returns_nan(self):

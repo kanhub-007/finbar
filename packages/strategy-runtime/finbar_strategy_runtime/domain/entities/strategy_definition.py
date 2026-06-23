@@ -8,7 +8,9 @@ from finbar_strategy_runtime.domain.entities.indicator_spec import IndicatorSpec
 from finbar_strategy_runtime.domain.entities.risk_spec import RiskSpec
 from finbar_strategy_runtime.domain.entities.side_rules import SideRules
 from finbar_strategy_runtime.domain.entities.strategy_parameter import StrategyParameter
-from finbar_strategy_runtime.domain.entities.timeframe_declaration import TimeframeDeclaration
+from finbar_strategy_runtime.domain.entities.timeframe_declaration import (
+    TimeframeDeclaration,
+)
 
 
 @dataclass(frozen=True)

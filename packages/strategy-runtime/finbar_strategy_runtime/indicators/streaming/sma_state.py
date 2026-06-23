@@ -6,12 +6,11 @@ equals the mean of the first ``length`` closes, matching ``pandas_ta.sma``.
 
 from __future__ import annotations
 
+from collections import deque
+
 from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
     StreamingIndicatorState,
 )
-
-from collections import deque
-from math import isnan
 
 
 class SmaState(StreamingIndicatorState):

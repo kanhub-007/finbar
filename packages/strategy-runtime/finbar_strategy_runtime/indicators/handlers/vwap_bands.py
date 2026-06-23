@@ -6,7 +6,9 @@ registration of all ``@_register`` decorators at import time.
 
 import pandas as pd
 
-from finbar_strategy_runtime.domain.services.vwap_bands import compute_vwap_session_bands
+from finbar_strategy_runtime.domain.services.vwap_bands import (
+    compute_vwap_session_bands,
+)
 from finbar_strategy_runtime.indicators._handler_registry import _register
 
 

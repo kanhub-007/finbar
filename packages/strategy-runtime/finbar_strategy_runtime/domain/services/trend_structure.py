@@ -8,7 +8,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Swing detection (generalized from existing swing_high_20 / swing_low_20)
 # ---------------------------------------------------------------------------

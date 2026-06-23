@@ -16,7 +16,9 @@ _NEUTRAL = "NEUTRAL"
 def _get_shape_column(df: pd.DataFrame) -> pd.Series:
     """Get profile_shape column or compute it lazily."""
     if "profile_shape" not in df.columns:
-        from finbar_strategy_runtime.domain.services.profile_shape import classify_all_profile_shapes
+        from finbar_strategy_runtime.domain.services.profile_shape import (
+            classify_all_profile_shapes,
+        )
 
         return classify_all_profile_shapes(df)["profile_shape"]
     return df["profile_shape"]

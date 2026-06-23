@@ -6,8 +6,6 @@ order arrival, information share.
 
 import numpy as np
 import pandas as pd
-import pytest
-
 
 # =========================================================================
 # Volatility (remaining)

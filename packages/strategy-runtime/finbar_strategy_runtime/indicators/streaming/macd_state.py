@@ -7,13 +7,12 @@ state. Matches ``pandas_ta.macd`` with default parameters.
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
-    StreamingIndicatorState,
-)
-
 from math import isnan
 
 from finbar_strategy_runtime.indicators.streaming.ema_state import EmaState
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
 
 
 class MacdState(StreamingIndicatorState):

@@ -2,7 +2,9 @@
 
 from typing import Any
 
-from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import TimeframeBarMerger
+from finbar_strategy_runtime.domain.interfaces.timeframe_bar_merger import (
+    TimeframeBarMerger,
+)
 from finbar_strategy_runtime.indicators.bar_merger import merge_timeframes
 
 

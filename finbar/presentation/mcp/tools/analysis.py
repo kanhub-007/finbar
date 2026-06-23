@@ -44,8 +44,8 @@ from finbar.startup.service_factory import (
     _make_run_backtest_use_case,
     _make_run_portfolio_backtest_use_case,
     _make_run_strategy_pipeline_use_case,
-    _make_strategy_pipeline_job_runner,
     _make_store_backtest_result_use_case,
+    _make_strategy_pipeline_job_runner,
 )
 
 from ._shared import _search_filter

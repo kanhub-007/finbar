@@ -6,12 +6,12 @@ values, seeds with their SMA, then applies Wilder smoothing.
 
 from __future__ import annotations
 
+from collections import deque
+from math import isnan
+
 from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
     StreamingIndicatorState,
 )
-
-from collections import deque
-from math import isnan
 
 
 class AtrState(StreamingIndicatorState):

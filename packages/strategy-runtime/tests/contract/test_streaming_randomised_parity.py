@@ -65,13 +65,14 @@ class TestRandomisedParity:
     @pytest.mark.parametrize("indicators,tol", _parametrize_sets())
     def test_parity_over_random_sequences(self, indicators, tol):
         """Each indicator in the set matches batch over 5 random seeds."""
+        import pandas as pd
+
         from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
             PandasTaIndicatorCalculator,
         )
         from finbar_strategy_runtime.indicators.streaming.streaming_indicator_engine import (
             StreamingIndicatorEngine,
         )
-        import pandas as pd
 
         atol, rtol = tol
 

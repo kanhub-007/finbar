@@ -6,12 +6,11 @@ SMA and divides the current bar's volume by it.
 
 from __future__ import annotations
 
+from collections import deque
+
 from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
     StreamingIndicatorState,
 )
-
-from collections import deque
-from math import isnan
 
 
 class RvolState(StreamingIndicatorState):

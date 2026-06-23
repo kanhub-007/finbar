@@ -7,7 +7,6 @@ ATR Wilder TR smoothing). Also tests numerical stability over long streams.
 
 import math
 
-import numpy as np
 import pytest
 
 from .test_streaming_sma_parity import (
@@ -211,7 +210,7 @@ class TestStreamingAtrParity:
         got = engine.latest().values.get(name, float("nan"))
         expected = batch_last[name]
 
-        assert not math.isnan(got), f"ATR went NaN after zero-range bars"
+        assert not math.isnan(got), "ATR went NaN after zero-range bars"
         assert math.isclose(got, expected, rel_tol=1e-9, abs_tol=1e-12), (
             f"ATR: streaming={got}, batch={expected}, diff={abs(got - expected)}"
         )

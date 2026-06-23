@@ -1,6 +1,6 @@
 """MetricCapabilityResult — result of checking whether a metric can be computed."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from finbar_strategy_runtime.domain.entities.metric_confidence import MetricConfidence
 from finbar_strategy_runtime.domain.entities.metric_resolution_path import (

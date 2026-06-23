@@ -1,7 +1,9 @@
 """JsonRiskPriceCalculator — calculate risk prices for JSON strategies."""
 
 from finbar_strategy_runtime.domain.entities.risk_spec import RiskSpec
-from finbar_strategy_runtime.domain.interfaces.risk_price_calculator import RiskPriceCalculator
+from finbar_strategy_runtime.domain.interfaces.risk_price_calculator import (
+    RiskPriceCalculator,
+)
 
 
 class JsonRiskPriceCalculator(RiskPriceCalculator):

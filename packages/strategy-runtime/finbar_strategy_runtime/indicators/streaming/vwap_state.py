@@ -6,11 +6,10 @@ Resets on session boundary (calendar date change).
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators._bar_timestamp import parse_bar_timestamps
 from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
     StreamingIndicatorState,
 )
-
-from finbar_strategy_runtime.indicators._bar_timestamp import parse_bar_timestamps
 
 
 class VwapState(StreamingIndicatorState):

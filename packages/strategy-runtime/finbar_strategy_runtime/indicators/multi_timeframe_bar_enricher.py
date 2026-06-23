@@ -8,8 +8,6 @@ window yields correct values even in streaming.
 
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
 
 from finbar_strategy_runtime.domain.entities.strategy_definition import (

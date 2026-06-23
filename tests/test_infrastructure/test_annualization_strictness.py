@@ -14,10 +14,10 @@ from __future__ import annotations
 import math
 
 import pandas as pd
-
 from finbar_strategy_runtime.domain.entities.signal_result import SignalResult
 from finbar_strategy_runtime.domain.entities.strategy_meta import DataMode, StrategyMeta
 from finbar_strategy_runtime.domain.interfaces.trading_strategy import TradingStrategy
+
 from finbar.infrastructure.services.backtest_runner import BacktestRunner
 
 

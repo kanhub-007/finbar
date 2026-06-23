@@ -6,7 +6,6 @@ into a per-bar Series with proper warm-up handling.
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from finbar_strategy_runtime.domain.services.spread_proxies import roll_spread
 from finbar_strategy_runtime.indicators.rolling_scalar_wrapper import (

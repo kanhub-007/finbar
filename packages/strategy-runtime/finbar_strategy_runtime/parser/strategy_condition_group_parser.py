@@ -2,6 +2,11 @@
 
 from typing import Any
 
+from finbar_strategy_runtime.domain.entities.condition import Condition
+from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
+    StrategyValidationError,
+)
 from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
     BINARY_OPERATORS,
     UNARY_OPERATORS,
@@ -9,11 +14,6 @@ from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
 )
 from finbar_strategy_runtime.parser.strategy_operand_parser import (
     StrategyOperandParser,
-)
-from finbar_strategy_runtime.domain.entities.condition import Condition
-from finbar_strategy_runtime.domain.entities.condition_group import ConditionGroup
-from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
-    StrategyValidationError,
 )
 
 

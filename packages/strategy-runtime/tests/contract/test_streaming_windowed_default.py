@@ -9,7 +9,7 @@ import math
 
 import pytest
 
-from .test_streaming_sma_parity import _make_deterministic_bars, _bars_to_frame
+from .test_streaming_sma_parity import _bars_to_frame, _make_deterministic_bars
 
 # Windowed-default representatives — one per handler family
 _WINDOWED_DEFAULT_REPS = [

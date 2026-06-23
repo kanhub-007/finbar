@@ -6,14 +6,14 @@ registration of all ``@_register`` decorators at import time.
 
 import pandas as pd
 
-from finbar_strategy_runtime.domain.services.market_profile import (
-    compute_all_session_market_profiles,
+from finbar_strategy_runtime.domain.services.amt_signals import (
+    compute_amt_signals,
 )
 from finbar_strategy_runtime.domain.services.auction_state import (
     classify_auction_state,
 )
-from finbar_strategy_runtime.domain.services.amt_signals import (
-    compute_amt_signals,
+from finbar_strategy_runtime.domain.services.market_profile import (
+    compute_all_session_market_profiles,
 )
 from finbar_strategy_runtime.indicators._handler_registry import _register
 

@@ -6,7 +6,6 @@ runner before ``calculate()``).
 """
 
 import numpy as np
-import pandas as pd
 
 from finbar_strategy_runtime.indicators._handler_registry import _register
 from finbar_strategy_runtime.indicators.derivatives_constants import (

@@ -2,25 +2,22 @@
 
 from typing import Any
 
+from finbar_strategy_runtime.domain.entities.indicator_spec import IndicatorSpec
+from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
+    StrategyValidationError,
+)
+from finbar_strategy_runtime.domain.entities.timeframe_declaration import (
+    TimeframeDeclaration,
+)
+from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
+    IndicatorCapabilityProvider,
+)
+from finbar_strategy_runtime.parser._catalog_factory import default_catalog
 from finbar_strategy_runtime.parser.strategy_definition_parse_helpers import (
     OHLCV_FIELDS,
     make_error,
     resolve_expression,
 )
-from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
-    StrategyIndicatorCatalog,
-)
-from finbar_strategy_runtime.domain.entities.indicator_spec import IndicatorSpec
-from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
-    StrategyValidationError,
-)
-from finbar_strategy_runtime.domain.entities.timeframe_declaration import TimeframeDeclaration
-from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
-    IndicatorCapabilityProvider,
-)
-from finbar_strategy_runtime.parser._catalog_factory import default_catalog
-
-
 
 
 class StrategyIndicatorResolver:

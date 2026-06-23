@@ -1,6 +1,8 @@
 """Factory for compiling JSON definitions into executable strategies."""
 
-from finbar_strategy_runtime.domain.entities.strategy_definition import StrategyDefinition
+from finbar_strategy_runtime.domain.entities.strategy_definition import (
+    StrategyDefinition,
+)
 from finbar_strategy_runtime.domain.interfaces.strategy_definition_strategy_factory import (
     StrategyDefinitionStrategyFactory,
 )

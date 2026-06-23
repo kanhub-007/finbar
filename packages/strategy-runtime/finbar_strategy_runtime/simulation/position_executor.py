@@ -11,21 +11,25 @@ import logging
 from dataclasses import replace
 
 from finbar_strategy_runtime.simulation.execution_config import ExecutionConfig
-from finbar_strategy_runtime.simulation.pending_entry import PendingEntry
-from finbar_strategy_runtime.simulation.simulation_state import SimulationState
 from finbar_strategy_runtime.simulation.intrabar_exit_resolver import (
     IntrabarExitResolver,
 )
 from finbar_strategy_runtime.simulation.margin_account_manager import (
     MarginAccountManager,
 )
+from finbar_strategy_runtime.simulation.pending_entry import PendingEntry
 from finbar_strategy_runtime.simulation.position_closer import (
     PositionCloser,
+)
+from finbar_strategy_runtime.simulation.position_closer import (
     _apply_slippage as _apply_slippage_shared,
+)
+from finbar_strategy_runtime.simulation.position_closer import (
     _commission as _commission_shared,
 )
 from finbar_strategy_runtime.simulation.position_opener import PositionOpener
 from finbar_strategy_runtime.simulation.position_sizer import PositionSizer
+from finbar_strategy_runtime.simulation.simulation_state import SimulationState
 
 logger = logging.getLogger(__name__)
 

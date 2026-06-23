@@ -1,6 +1,6 @@
 """MarketMetricDefinition — describes one computable or unavailable metric."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from finbar_strategy_runtime.domain.entities.data_class import DataClass
 from finbar_strategy_runtime.domain.entities.data_requirement import DataRequirement

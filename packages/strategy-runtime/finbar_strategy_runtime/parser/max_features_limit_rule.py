@@ -1,9 +1,9 @@
 """MaxFeaturesLimitRule — limit the number of declared features."""
 
-from finbar_strategy_runtime.parser.strategy_limit_rule import StrategyLimitRule
 from finbar_strategy_runtime.domain.entities.strategy_validation_error import (
     StrategyValidationError,
 )
+from finbar_strategy_runtime.parser.strategy_limit_rule import StrategyLimitRule
 
 
 class MaxFeaturesLimitRule(StrategyLimitRule):

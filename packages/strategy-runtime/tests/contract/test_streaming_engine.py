@@ -7,8 +7,6 @@ Scenario 6: reset clears all per-indicator state.
 
 import math
 
-import pytest
-
 from .test_streaming_sma_parity import _make_deterministic_bars
 
 

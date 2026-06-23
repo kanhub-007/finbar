@@ -4,30 +4,29 @@ This module is imported by ``handlers/__init__.py`` which triggers
 registration of all ``@_register`` decorators at import time.
 """
 
-import pandas as pd
 
+from finbar_strategy_runtime.domain.services.coil_detector import (
+    detect_coil,
+)
 from finbar_strategy_runtime.domain.services.profile_shape import (
     classify_all_profile_shapes,
 )
-from finbar_strategy_runtime.domain.services.coil_detector import (
-    detect_coil,
+from finbar_strategy_runtime.domain.services.profile_shape_wrappers import (
+    compute_is_b_shape,
+    compute_is_d_shape,
+    compute_is_neutral_shape,
+    compute_is_normal_shape,
+    compute_is_p_shape,
 )
 from finbar_strategy_runtime.domain.services.wyckoff_phase import (
     classify_wyckoff_phase,
 )
 from finbar_strategy_runtime.domain.services.wyckoff_wrappers import (
     compute_is_accumulation,
-    compute_is_markup,
     compute_is_distribution,
     compute_is_markdown,
+    compute_is_markup,
     compute_is_wyckoff_neutral,
-)
-from finbar_strategy_runtime.domain.services.profile_shape_wrappers import (
-    compute_is_normal_shape,
-    compute_is_b_shape,
-    compute_is_p_shape,
-    compute_is_d_shape,
-    compute_is_neutral_shape,
 )
 from finbar_strategy_runtime.indicators._handler_registry import _register
 

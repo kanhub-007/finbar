@@ -16,30 +16,31 @@ from collections import deque
 import numpy as np
 import pandas as pd
 
-from finbar_strategy_runtime.domain.interfaces.indicator_calculator import IndicatorCalculator
-from finbar_strategy_runtime.indicators.handlers import (  # noqa: F401
-    core_ta,
-    derivatives,
-    intraday_realized,
-    market_profile_amt,
-    microstructure,
-    price_action,
-    profile_classifiers,
-    trend_breakout,
-    inside_bar,
-    vwap_bands,
-    volume_profile,
-)
-from finbar_strategy_runtime.indicators._handler_registry import (
-    HandlerRegistry,
-    _INDICATOR_HANDLERS,
-    default_handler_registry,
+from finbar_strategy_runtime.domain.interfaces.indicator_calculator import (
+    IndicatorCalculator,
 )
 from finbar_strategy_runtime.indicators._dynamic_dispatch import (
     _compute_dynamic,
     _compute_rolling_vp_dynamic,
     _is_dynamic,
     _is_rolling_vp,
+)
+from finbar_strategy_runtime.indicators._handler_registry import (
+    HandlerRegistry,
+    default_handler_registry,
+)
+from finbar_strategy_runtime.indicators.handlers import (  # noqa: F401
+    core_ta,
+    derivatives,
+    inside_bar,
+    intraday_realized,
+    market_profile_amt,
+    microstructure,
+    price_action,
+    profile_classifiers,
+    trend_breakout,
+    volume_profile,
+    vwap_bands,
 )
 
 logger = logging.getLogger(__name__)

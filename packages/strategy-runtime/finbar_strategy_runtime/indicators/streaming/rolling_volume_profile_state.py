@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
-    StreamingIndicatorState,
-)
-
 import math
 
 from finbar_strategy_runtime.domain.services.volume_profile import (
@@ -13,6 +9,9 @@ from finbar_strategy_runtime.domain.services.volume_profile import (
 )
 from finbar_strategy_runtime.indicators.pandas_bar_frame_converter import (
     PandasBarFrameConverter,
+)
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
 )
 
 _RVP_PREFIXES = ("rvp_poc_", "rvp_vah_", "rvp_val_")

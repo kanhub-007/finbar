@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass, field
 
-from finbar_strategy_runtime.domain.entities.informative_timeframe import InformativeTimeframe
+from finbar_strategy_runtime.domain.entities.informative_timeframe import (
+    InformativeTimeframe,
+)
 
 
 @dataclass(frozen=True)

@@ -9,6 +9,7 @@ Classical school: real ``PandasTaIndicatorCalculator``, real
 """
 
 import inspect
+
 import numpy as np
 import pandas as pd
 import pytest

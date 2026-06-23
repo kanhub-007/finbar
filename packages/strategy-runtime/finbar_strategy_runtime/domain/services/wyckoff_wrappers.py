@@ -16,7 +16,9 @@ _NEUTRAL = "NEUTRAL"
 def _get_phase_column(df: pd.DataFrame) -> pd.Series:
     """Get wyckoff_phase column or compute it lazily."""
     if "wyckoff_phase" not in df.columns:
-        from finbar_strategy_runtime.domain.services.wyckoff_phase import classify_wyckoff_phase
+        from finbar_strategy_runtime.domain.services.wyckoff_phase import (
+            classify_wyckoff_phase,
+        )
 
         return classify_wyckoff_phase(df)["wyckoff_phase"]
     return df["wyckoff_phase"]

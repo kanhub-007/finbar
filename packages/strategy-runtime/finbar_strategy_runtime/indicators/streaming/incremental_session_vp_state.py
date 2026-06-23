@@ -14,14 +14,9 @@ for the full windowed recompute, and identical to the existing
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
-    StreamingIndicatorState,
-)
-
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from finbar_strategy_runtime.domain.services.volume_profile import (
@@ -29,6 +24,9 @@ from finbar_strategy_runtime.domain.services.volume_profile import (
 )
 from finbar_strategy_runtime.indicators._bar_timestamp import (
     parse_bar_timestamps,
+)
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
 )
 
 

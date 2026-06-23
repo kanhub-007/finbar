@@ -6,13 +6,13 @@ registration of all ``@_register`` decorators at import time.
 
 import pandas as pd
 
+from finbar_strategy_runtime.domain.services.composite_vp import (
+    compute_composite_vp,
+)
 from finbar_strategy_runtime.domain.services.volume_profile import (
     compute_all_session_volume_profiles,
     compute_rolling_vp,
     compute_rolling_window_vp,
-)
-from finbar_strategy_runtime.domain.services.composite_vp import (
-    compute_composite_vp,
 )
 from finbar_strategy_runtime.indicators._handler_registry import _register
 
