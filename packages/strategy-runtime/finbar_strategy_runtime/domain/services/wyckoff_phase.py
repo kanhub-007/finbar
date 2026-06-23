@@ -14,6 +14,7 @@ All functions are pure — no state, no I/O.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from finbar_strategy_runtime.domain.services.metric_input_guard import (
@@ -35,7 +36,7 @@ def compute_poc_slope(df: pd.DataFrame, window: int = 5) -> pd.Series:
         Series: POC % change over ``window`` sessions.
     """
     if "vp_poc" not in df.columns:
-        return pd.Series(0.0, index=df.index)
+        return pd.Series(np.nan, index=df.index)
 
     date_series = pd.Series(df.index.date, index=df.index)
     ordered_dates = sorted(date_series.unique())
@@ -44,7 +45,10 @@ def compute_poc_slope(df: pd.DataFrame, window: int = 5) -> pd.Series:
     for date, idx in date_series.groupby(date_series).groups.items():
         session_pocs[date] = float(df["vp_poc"].loc[idx].iloc[-1])
 
-    slope = pd.Series(0.0, index=df.index)
+    # Warmup: NaN until ``window`` sessions of history exist. A fake 0.0
+    # would read as "flat POC" and wrongly drive Wyckoff accumulation /
+    # distribution classification during warmup.
+    slope = pd.Series(np.nan, index=df.index)
 
     for i, date in enumerate(ordered_dates):
         if i < window:
@@ -102,7 +106,10 @@ def classify_wyckoff_phase(
         ("vp_poc", "balance_status", "profile_shape", "rvol", "value_area_width_pct"),
     )
 
-    result["wyckoff_phase"] = "NEUTRAL"
+    # Warmup default is NaN, not a confident "NEUTRAL": until the slope is
+    # computable (enough session history) we cannot classify the phase, and a
+    # ``wyckoff_phase == NEUTRAL`` condition must not fire during warmup.
+    result["wyckoff_phase"] = pd.Series(np.nan, index=result.index, dtype=object)
 
     # Get column references
     slope = result[slope_col]
@@ -155,5 +162,11 @@ def classify_wyckoff_phase(
     result.loc[distribution, "wyckoff_phase"] = "DISTRIBUTION"
     result.loc[markup, "wyckoff_phase"] = "MARKUP"
     result.loc[markdown, "wyckoff_phase"] = "MARKDOWN"
+
+    # Where the slope is computable (past warmup) but no phase matched, the
+    # phase is genuinely NEUTRAL. Warmup rows (slope NaN) stay NaN/UNKNOWN.
+    slope_known = slope.notna()
+    still_unknown = result["wyckoff_phase"].isna() & slope_known
+    result.loc[still_unknown, "wyckoff_phase"] = "NEUTRAL"
 
     return result

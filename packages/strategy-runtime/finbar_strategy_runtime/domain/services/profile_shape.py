@@ -97,7 +97,12 @@ def classify_all_profile_shapes(
         DataFrame with added column: profile_shape.
     """
     result = df.copy()
-    result["profile_shape"] = "NEUTRAL"
+    # Warmup default is NaN, not a tradable "NEUTRAL" label: with fewer than
+    # the required sessions (or before a session can be classified) we do not
+    # know the shape, and a ``profile_shape == NEUTRAL`` strategy condition
+    # must not fire during warmup. Object dtype so string labels can be
+    # assigned for classified sessions.
+    result["profile_shape"] = pd.Series(np.nan, index=result.index, dtype=object)
 
     date_series = pd.Series(result.index.date, index=result.index)
     ordered_dates = sorted(date_series.unique())

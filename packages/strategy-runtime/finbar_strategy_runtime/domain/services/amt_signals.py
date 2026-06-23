@@ -217,7 +217,7 @@ def _value_area_migration(df: pd.DataFrame) -> pd.Series:
     Compares current session's POC to the previous session's POC.
     Migrating POC = market is renegotiating fair value.
 
-    Returns: 'HIGHER' | 'LOWER' | 'STABLE'
+    Returns: 'HIGHER' | 'LOWER' | 'STABLE' | 'UNKNOWN'
     """
     poc = df["vp_poc"]
 
@@ -227,16 +227,25 @@ def _value_area_migration(df: pd.DataFrame) -> pd.Series:
     )
     session_change = date_series != date_series.shift(1)
 
-    result = pd.Series("STABLE", index=df.index, dtype="object")
+    # The first session has no previous session to compare against: emit
+    # UNKNOWN there instead of a tradable 'STABLE' (which would read as
+    # "no value migration" and could wrongly satisfy a strategy condition).
+    has_previous_session = date_series.shift(1).notna()
+    comparable = session_change & has_previous_session
 
-    # On session changes, compare POC to previous session's POC
-    migration_up = session_change & (poc > poc.shift(1))
-    migration_down = session_change & (poc < poc.shift(1))
+    result = pd.Series("UNKNOWN", index=df.index, dtype="object")
+
+    # On comparable session changes, compare POC to previous session's POC
+    migration_up = comparable & (poc > poc.shift(1))
+    migration_down = comparable & (poc < poc.shift(1))
+    migration_stable = comparable & (poc == poc.shift(1))
 
     result[migration_up] = "HIGHER"
     result[migration_down] = "LOWER"
+    result[migration_stable] = "STABLE"
 
-    # Forward-fill the migration status within each session (vectorized)
-    result = result.where(session_change, pd.NA).ffill().fillna("STABLE")
+    # Forward-fill the migration status within each session (vectorized).
+    # The first session stays UNKNOWN (no previous session).
+    result = result.where(session_change, pd.NA).ffill()
 
     return result
