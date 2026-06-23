@@ -251,6 +251,10 @@ class BacktestResultBuilder:
             "funding_schedule": ("per_bar" if config.enable_funding else "disabled"),
             "annualization_factor": annualization_factor,
             "annualization_warning": annualization_warning,
+            # Strict metric input policy is the default for all backtests.
+            # Live-parity workflows must never silently fall back to
+            # fabricated dates, neutral defaults, or 1d annualization.
+            "metric_input_policy": "strict",
             "diagnostics": _diagnostics_to_dicts(state.diagnostics),
         }
 
