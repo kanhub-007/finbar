@@ -238,7 +238,13 @@ class TestCausalMultiTimeframeStreamingEnricher:
         assert not any(k.endswith("_1h") for k in latest)
 
     def test_streaming_reproduces_reference_first_signal(self):
-        """Full streaming run reproduces the row 17 short-entry signal."""
+        """Full streaming run reproduces a short-entry signal after warmup.
+
+        Under the strict warmup contract (spec 2026-06-23 Scenario 4)
+        ``poc_slope_5`` is NaN until 5 sessions exist, so the first signal
+        fires once the slope is genuinely computable (observed: row ~229)
+        rather than on a fabricated warmup ``0.0`` at row 17.
+        """
         from finbar_strategy_runtime.evaluation.json_rule_based_strategy import (
             JsonRuleBasedStrategy,
         )
@@ -253,7 +259,7 @@ class TestCausalMultiTimeframeStreamingEnricher:
 
         info_ptrs = {alias: 0 for alias in info}
         first = None
-        for i in range(min(40, len(primary))):
+        for i in range(len(primary)):
             p_open = pd.Timestamp(primary[i]["timestamp"], unit="s", tz="UTC")
             for alias, ibars in info.items():
                 while info_ptrs[alias] < len(ibars):
@@ -275,9 +281,13 @@ class TestCausalMultiTimeframeStreamingEnricher:
                 break
 
         assert first is not None, "No signal produced"
-        assert first[0] == 17, f"Expected row 17, got {first[0]}"
         assert first[1] == "sell"
         assert first[2] == "short"
+        # The signal must be past poc_slope_5 warmup (non-NaN), proving it is
+        # driven by real slope data, not a warmup artifact.
+        assert pd.notna(bar.values.get("poc_slope_5")), (
+            f"first signal at row {first[0]} fired while poc_slope_5 is NaN (warmup)"
+        )
 
     def test_reset_clears_state(self):
         """After reset, re-feeding reproduces identical values."""
