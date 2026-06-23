@@ -21,12 +21,11 @@ from collections import deque
 
 import pandas as pd
 
-from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
-    StreamingIndicatorState,
-)
-
 from finbar_strategy_runtime.indicators._bar_timestamp import (
     parse_bar_timestamps,
+)
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
 )
 
 # All windowed streaming indicators require real bar timestamps: a
@@ -194,7 +193,9 @@ class BatchedWindowedState(StreamingIndicatorState):
         for col in column_names:
             self._injected_columns[col] = deque(maxlen=self._maxlen)
 
-    def update(self, bar: dict, injected_values: dict[str, float] | None = None) -> dict[str, float]:
+    def update(
+        self, bar: dict, injected_values: dict[str, float] | None = None
+    ) -> dict[str, float]:
         """Ingest one bar; recompute all metrics and return latest values.
 
         Args:
@@ -260,12 +261,6 @@ class BatchedWindowedState(StreamingIndicatorState):
 
     def _compute_all(self, df: pd.DataFrame) -> dict[str, float]:
         """Batch-compute all windowed metrics on the shared frame."""
-        from finbar_strategy_runtime.indicators._dynamic_dispatch import (
-            _compute_dynamic,
-            _compute_rolling_vp_dynamic,
-            _is_dynamic,
-            _is_rolling_vp,
-        )
         from finbar_strategy_runtime.indicators._handler_registry import (
             default_handler_registry,
         )
