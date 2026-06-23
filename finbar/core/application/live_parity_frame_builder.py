@@ -24,6 +24,7 @@ def build_causal_frame(
     definition: StrategyDefinition,
     primary_required_indicators: list[str],
     informative_required_indicators: dict[str, list[str]],
+    market_calendar: str = "",
 ) -> pd.DataFrame:
     """Stream primary + informative bars through the causal enricher.
 
@@ -47,6 +48,7 @@ def build_causal_frame(
         definition=definition,
         primary_indicators=primary_required_indicators,
         informative_indicators=informative_required_indicators,
+        market_calendar=market_calendar,
     )
 
 

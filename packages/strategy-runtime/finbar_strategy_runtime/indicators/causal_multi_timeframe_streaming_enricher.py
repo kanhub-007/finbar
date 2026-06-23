@@ -43,6 +43,39 @@ from finbar_strategy_runtime.indicators.streaming.streaming_indicator_engine imp
 _OHLCV = {"open", "high", "low", "close", "volume", "timestamp"}
 
 
+def _build_window_resolver(
+    definition: StrategyDefinition, market_calendar: str
+) -> object | None:
+    """Build an IntervalAwareWindowResolver from the definition's primary interval."""
+    timeframes = definition.timeframes
+    if timeframes is None or not timeframes.primary:
+        return None
+    from finbar_strategy_runtime.domain.services.interval_aware_window_resolver import (  # noqa: E501
+        IntervalAwareWindowResolver,
+    )
+    try:
+        return IntervalAwareWindowResolver(
+            interval=timeframes.primary, market_calendar=market_calendar
+        )
+    except ValueError:
+        return None
+
+
+def _build_window_resolver_for_interval(
+    interval: str, market_calendar: str
+) -> object | None:
+    """Build an IntervalAwareWindowResolver for an informative timeframe."""
+    from finbar_strategy_runtime.domain.services.interval_aware_window_resolver import (  # noqa: E501
+        IntervalAwareWindowResolver,
+    )
+    try:
+        return IntervalAwareWindowResolver(
+            interval=interval, market_calendar=market_calendar
+        )
+    except ValueError:
+        return None
+
+
 class CausalMultiTimeframeStreamingEnricher(
     mtf_enricher_interface.MultiTimeframeStreamingEnricher
 ):
@@ -53,6 +86,7 @@ class CausalMultiTimeframeStreamingEnricher(
         definition: StrategyDefinition,
         primary_indicators: list[str],
         informative_indicators: dict[str, list[str]],
+        market_calendar: str = "",
     ) -> None:
         """Create the enricher from a parsed strategy definition.
 
@@ -63,8 +97,17 @@ class CausalMultiTimeframeStreamingEnricher(
                 timeframe.
             informative_indicators: Map from alias to indicator names to
                 compute on each informative timeframe.
+            market_calendar: ``"crypto_24_7"`` or ``"equity_regular_hours"``.
+                When provided, session-count streaming windows are sized
+                from the actual bar interval instead of a fixed 500 bars.
         """
-        self._primary_engine = StreamingIndicatorEngine(indicators=primary_indicators)
+        resolver = _build_window_resolver(
+            definition, market_calendar
+        ) if market_calendar else None
+        self._primary_engine = StreamingIndicatorEngine(
+            indicators=primary_indicators,
+            window_resolver=resolver,
+        )
         self._primary_indicators = list(primary_indicators)
         self._info_indicators = {
             alias: list(indicators)
@@ -81,8 +124,15 @@ class CausalMultiTimeframeStreamingEnricher(
         if timeframes is not None:
             for item in timeframes.informative:
                 alias = item.alias
+                # Each informative engine gets a resolver sized for its own
+                # bar interval (not the primary interval), so session-count
+                # metrics on informative timeframes also get correct windows.
+                info_resolver = _build_window_resolver_for_interval(
+                    item.interval, market_calendar
+                ) if market_calendar else None
                 self._info_engines[alias] = StreamingIndicatorEngine(
-                    indicators=informative_indicators.get(alias, [])
+                    indicators=informative_indicators.get(alias, []),
+                    window_resolver=info_resolver,
                 )
                 self._info_offsets[alias] = interval_offset(item.interval)
                 self._info_suffixes[alias] = f"_{item.interval}"
@@ -186,6 +236,7 @@ class CausalMultiTimeframeStreamingEnricher(
         primary_indicators: list[str],
         informative_indicators: dict[str, list[str]],
         parallel: bool = True,
+        market_calendar: str = "",
     ) -> pd.DataFrame:
         """Produce a causal enriched DataFrame from raw bars.
 
@@ -246,6 +297,7 @@ class CausalMultiTimeframeStreamingEnricher(
                 definition=definition,
                 primary_indicators=primary_indicators,
                 informative_indicators=informative_indicators,
+                market_calendar=market_calendar,
             )
             info_ptrs = {alias: 0 for alias in informative_bars}
             rows: list[dict] = []
@@ -267,6 +319,7 @@ class CausalMultiTimeframeStreamingEnricher(
             definition=definition,
             primary_indicators=primary_indicators,
             informative_indicators=informative_indicators,
+            market_calendar=market_calendar,
         )
         # Seed informative cursors from pre-computed results. Each entry is
         # (open_ts, row); the cursor applies its interval offset internally.

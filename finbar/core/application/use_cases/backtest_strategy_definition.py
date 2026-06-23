@@ -163,6 +163,7 @@ class BacktestStrategyDefinitionUseCase:
                     informative_required_indicators=(
                         validation.informative_required_indicators
                     ),
+                    market_calendar=request.execution.market_calendar,
                 )
                 frame = self._resolve_and_compute_signals(frame, validation.definition)
             elif use_enricher:

@@ -176,10 +176,11 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
                 alias, []
             )
             try:
+                from dataclasses import replace as dc_replace
+
                 from finbar_strategy_runtime.domain.entities.timeframe_declaration import (
                     TimeframeDeclaration,
                 )
-                from dataclasses import replace as dc_replace
 
                 single_tf_def = dc_replace(
                     definition,
@@ -193,6 +194,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
                     definition=single_tf_def,
                     primary_indicators=info_indicators,
                     informative_indicators={},
+                    market_calendar="crypto_24_7",
                 )
             except Exception as exc:
                 _fail(
@@ -253,6 +255,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
                 definition=definition,
                 primary_indicators=validation.primary_required_indicators,
                 informative_indicators=validation.informative_required_indicators,
+                market_calendar="crypto_24_7",
             )
         except Exception as exc:
             _fail(
