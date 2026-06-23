@@ -3,23 +3,26 @@ bar timestamps for session/date-sensitive indicators.
 
 The windowed streaming fallback previously built its DataFrame index from
 ``pd.date_range("2024-01-01", ...)``. That discards real candle
-timestamps, so any session/date-sensitive indicator (``vp_*``, AMT,
-market-profile families) computed through the fallback could not be
-trusted for live parity. These tests lock the fix: real timestamps are
-preserved, date boundaries survive, and missing timestamps fail clearly
-for session-sensitive indicators instead of silently fabricating dates.
+timestamps, so any indicator computed through the fallback could be
+silently wrong if it later began depending on calendar/session semantics.
+These tests lock the fix: real timestamps are preserved, date boundaries
+survive, and missing timestamps fail clearly instead of silently
+fabricating dates.
 """
 
 from __future__ import annotations
 
+import pathlib
 from datetime import UTC, datetime
 
 import pandas as pd
 import pytest
 
 from finbar_strategy_runtime.indicators.streaming.windowed_indicator_state import (
+    BatchedWindowedState,
     WindowedIndicatorState,
 )
+
 
 # ── Scenario 5: real timestamps are preserved ───────────────────────────────
 
@@ -166,11 +169,11 @@ class TestWindowedStatePreservesTimestamps:
         assert str(frame.index[0].date()) != "2024-01-01"
 
 
-# ── Scenario 5: missing timestamps fail clearly for session indicators ──────
+# ── Scenario 5: missing timestamps fail clearly for all indicators ──────────
 
 
 class TestWindowedStateMissingTimestamps:
-    """Session-sensitive indicators must not silently fabricate dates."""
+    """Windowed indicators must not silently fabricate dates."""
 
     @pytest.mark.parametrize(
         "name",
@@ -210,11 +213,11 @@ class TestWindowedStateMissingTimestamps:
             for bar in bars:
                 state.update(bar)
 
-    def test_non_session_indicator_tolerates_missing_timestamp(self):
-        """A non-session-sensitive indicator does not require timestamps.
+    def test_non_session_indicator_missing_timestamp_raises(self):
+        """A non-session-sensitive indicator still requires timestamps.
 
-        It falls back to a deterministic synthetic index (documented
-        behaviour) rather than raising.
+        Fabricating dates for any metric is banned because it can make
+        correctness depend on hidden fallback behaviour.
         """
         bars = [
             {
@@ -234,12 +237,9 @@ class TestWindowedStateMissingTimestamps:
         ]
         state = WindowedIndicatorState(name="bearish_fvg", maxlen=10)
 
-        # Must not raise
-        for bar in bars:
-            state.update(bar)
-
-        frame = state.to_frame()
-        assert len(frame) == 2
+        with pytest.raises(ValueError, match="timestamp"):
+            for bar in bars:
+                state.update(bar)
 
 
 # ── Scenario 5: numeric millisecond timestamps ──────────────────────────────
@@ -282,3 +282,59 @@ class TestWindowedStateMillisecondTimestamps:
 
         assert frame.index[0] == pd.Timestamp(sec, unit="s", tz="UTC")
         assert frame.index[1].date() != frame.index[0].date()
+
+
+# ── Scenario 1 (spec 2026-06-23): BatchedWindowedState + production guard ────
+
+
+class TestBatchedStateRejectsMissingTimestamps:
+    """The shared batched ring buffer must also reject missing timestamps."""
+
+    def test_batched_missing_timestamp_raises(self):
+        """BatchedWindowedState raises before any metric is computed."""
+        state = BatchedWindowedState(
+            names=["bearish_fvg", "demand_zone_score"], maxlen=10
+        )
+        bars = [
+            {"open": 1.0, "high": 2.0, "low": 1.0, "close": 2.0, "volume": 10.0},
+            {"open": 2.0, "high": 3.0, "low": 2.0, "close": 3.0, "volume": 11.0},
+        ]
+
+        with pytest.raises(ValueError, match="timestamp"):
+            for bar in bars:
+                state.update(bar)
+
+
+class TestNoSyntheticTimestampFallbackInProduction:
+    """Guard: no production source fabricates a date index for metrics.
+
+    A synthetic ``date_range(...)`` fallback for missing timestamps would
+    make session/date-sensitive metrics silently wrong, which is banned by
+    the spec's strictness contract.
+    """
+
+    def test_no_fallback_origin_constant_in_runtime_package(self):
+        runtime_root = pathlib.Path(__file__).resolve().parents[2]
+        offenders: list[str] = []
+        for path in runtime_root.rglob("*.py"):
+            if "tests" in path.parts:
+                continue
+            text = path.read_text(encoding="utf-8")
+            if "_FALLBACK_ORIGIN" in text:
+                offenders.append(str(path))
+        assert not offenders, (
+            "Synthetic timestamp fallback constant found: " + ", ".join(offenders)
+        )
+
+    def test_no_fabricated_2024_date_range_in_runtime_package(self):
+        runtime_root = pathlib.Path(__file__).resolve().parents[2]
+        offenders: list[str] = []
+        for path in runtime_root.rglob("*.py"):
+            if "tests" in path.parts:
+                continue
+            text = path.read_text(encoding="utf-8")
+            if 'pd.date_range("2024-01-01"' in text:
+                offenders.append(str(path))
+        assert not offenders, (
+            "Fabricated 2024-01-01 date_range found: " + ", ".join(offenders)
+        )

@@ -8,13 +8,11 @@ Used for two classes of indicators:
 Buffers bars in a ``deque(maxlen=window)`` and calls the registered
 batch handler on the deque slice each update. Per-bar cost is O(window).
 
-The buffer frame index is built from each bar's real ``timestamp`` when
-present (int seconds, ISO strings, datetimes, or large-numeric
-milliseconds). Session/date-sensitive indicators (``vp_*``, ``mp_*``,
-``cvp_*``, AMT auction-state/signals) require real timestamps and raise
+The buffer frame index is built from each bar's real ``timestamp``
+(int seconds, ISO strings, datetimes, or large-numeric milliseconds).
+All windowed streaming indicators require real timestamps and raise
 ``ValueError`` when they are missing, so live-parity cannot be silently
-broken by a fabricated ``2024-01-01`` index. Non-session indicators keep
-a deterministic synthetic-index fallback.
+broken by a fabricated date index.
 """
 
 from __future__ import annotations
@@ -31,51 +29,11 @@ from finbar_strategy_runtime.indicators._bar_timestamp import (
     parse_bar_timestamps,
 )
 
-# Synthetic fallback index origin for non-session indicators that lack
-# real timestamps. Documented as NOT live-parity safe for any indicator
-# whose value depends on date/session boundaries.
-_FALLBACK_ORIGIN = "2024-01-01"
-
-# Indicators whose value depends on per-session grouping or date
-# boundaries. These MUST receive real bar timestamps; a fabricated
-# index would silently corrupt session volume/market profiles and every
-# AMT signal derived from them.
-_SESSION_SENSITIVE_PREFIXES = ("vp_", "mp_", "cvp_")
-_SESSION_SENSITIVE_NAMES = frozenset(
-    {
-        # Auction state (derived from session VP)
-        "inside_value",
-        "above_value",
-        "below_value",
-        "at_poc",
-        "near_vah",
-        "near_val",
-        "distance_to_vah_pct",
-        "distance_to_val_pct",
-        "value_area_width_pct",
-        "balance_status",
-        # AMT rule signals
-        "acceptance_into_value",
-        "rejection_from_edge",
-        "acceptance_outside_value",
-        "poc_rejection",
-        "edge_volume_building",
-        "value_area_migration",
-    }
-)
-
-
-def _is_session_sensitive(name: str) -> bool:
-    """Return True if *name* is a session/date-sensitive indicator.
-
-    Session-sensitive indicators group bars by calendar date (session VP,
-    market profile, composite VP) or derive from columns that do (auction
-    state, AMT signals). Rolling bar-window indicators such as ``rvp_*``
-    are NOT session-sensitive.
-    """
-    if name in _SESSION_SENSITIVE_NAMES:
-        return True
-    return any(name.startswith(prefix) for prefix in _SESSION_SENSITIVE_PREFIXES)
+# All windowed streaming indicators require real bar timestamps: a
+# fabricated index would make session/date-sensitive metrics (session
+# VP, market profile, AMT signals, etc.) silently wrong. Missing
+# timestamps therefore raise ``ValueError`` rather than fall back to a
+# synthetic date index.
 
 
 class WindowedIndicatorState(StreamingIndicatorState):
@@ -108,8 +66,8 @@ class WindowedIndicatorState(StreamingIndicatorState):
             Latest indicator value, or NaN if window not full.
 
         Raises:
-            ValueError: If the indicator is session-sensitive and the
-                buffer contains bars without parseable timestamps.
+            ValueError: If the buffer contains bars without parseable
+                timestamps.
         """
         self._buffer.append(bar)
 
@@ -127,17 +85,15 @@ class WindowedIndicatorState(StreamingIndicatorState):
     def to_frame(self) -> pd.DataFrame:
         """Convert the deque buffer to a DataFrame with a real timestamp index.
 
-        The index is derived from each bar's ``timestamp`` field when
-        present. Session-sensitive indicators raise ``ValueError`` if any
-        bar lacks a timestamp; non-session indicators fall back to a
-        deterministic synthetic index.
+        The index is derived from each bar's ``timestamp`` field. Missing
+        timestamps raise ``ValueError`` for every windowed indicator; a
+        synthetic index would make some metric values silently wrong.
 
         Returns:
             DataFrame of the buffered bars with a DatetimeIndex.
 
         Raises:
-            ValueError: For session-sensitive indicators when the buffer
-                lacks parseable timestamps.
+            ValueError: When the buffer lacks parseable timestamps.
         """
         n = len(self._buffer)
         if n == 0:
@@ -147,16 +103,12 @@ class WindowedIndicatorState(StreamingIndicatorState):
         present = [t for t in timestamps if t is not None]
 
         if len(present) != n:
-            # Missing or partial timestamps.
-            if _is_session_sensitive(self._name):
-                raise ValueError(
-                    f"Indicator '{self._name}' is session/date-sensitive"
-                    f" and requires real bar timestamps, but one or more"
-                    f" buffered bars have no parseable 'timestamp' field."
-                    f" Provide int-second, ISO-8601, or datetime timestamps."
-                )
-            index = pd.date_range(_FALLBACK_ORIGIN, periods=n, freq="h")
-            return pd.DataFrame(list(self._buffer), index=index)
+            raise ValueError(
+                f"Indicator '{self._name}' requires real bar timestamps,"
+                f" but one or more buffered bars have no parseable"
+                f" 'timestamp' field. Provide int-second, ISO-8601,"
+                f" or datetime timestamps."
+            )
 
         index = parse_bar_timestamps(present)
         return pd.DataFrame(list(self._buffer), index=index)
@@ -227,9 +179,6 @@ class BatchedWindowedState(StreamingIndicatorState):
         self._maxlen = max(maxlen, 1)
         self._buffer: deque[dict] = deque(maxlen=self._maxlen)
         self._currents: dict[str, float] = {name: float("nan") for name in names}
-        self._session_sensitive = any(
-            _is_session_sensitive(name) for name in names
-        )
         # Columns provided externally (e.g. VP from incremental state).
         # These are injected into the frame before batch compute so
         # dependent handlers find them without recomputing.
@@ -257,8 +206,7 @@ class BatchedWindowedState(StreamingIndicatorState):
             Dict mapping metric name → latest value (NaN if not ready).
 
         Raises:
-            ValueError: If any metric is session-sensitive and the
-                buffer contains bars without parseable timestamps.
+            ValueError: If any buffered bar lacks a parseable timestamp.
         """
         self._buffer.append(bar)
         if injected_values:
@@ -288,15 +236,11 @@ class BatchedWindowedState(StreamingIndicatorState):
         timestamps = [bar.get("timestamp") for bar in self._buffer]
         present = [t for t in timestamps if t is not None]
         if len(present) != n:
-            if self._session_sensitive:
-                raise ValueError(
-                    "Batched windowed state contains session-sensitive"
-                    " indicators and requires real bar timestamps, but"
-                    " one or more buffered bars have no parseable"
-                    " 'timestamp' field."
-                )
-            index = pd.date_range(_FALLBACK_ORIGIN, periods=n, freq="h")
-            return pd.DataFrame(list(self._buffer), index=index)
+            raise ValueError(
+                "Batched windowed state requires real bar timestamps, but"
+                " one or more buffered bars have no parseable 'timestamp'"
+                " field."
+            )
         index = parse_bar_timestamps(present)
         return pd.DataFrame(list(self._buffer), index=index)
 
