@@ -103,22 +103,39 @@ class BacktestResultBuilder:
         ann_factor, ann_warning = _annualization_factor(
             interval, config.market_calendar
         )
+        interval_unknown = ann_warning != ""
 
         daily_returns = (
             calculate_daily_returns(equity_values) if len(equity_values) > 1 else []
         )
         total_return = calculate_total_return(initial_cash, final_value)
         max_dd = calculate_max_drawdown(equity_values) if equity_values else 0.0
-        sharpe = (
-            calculate_sharpe(daily_returns, annualization_factor=ann_factor)
-            if daily_returns
-            else 0.0
-        )
-        sortino = (
-            calculate_sortino(daily_returns, annualization_factor=ann_factor)
-            if daily_returns
-            else 0.0
-        )
+
+        if interval_unknown:
+            # Unknown interval → annualized metrics are not meaningful.
+            # Zero them out instead of silently computing on a 1d fallback.
+            sharpe = 0.0
+            sortino = 0.0
+            annualised_return = 0.0
+            calmar = 0.0
+        else:
+            sharpe = (
+                calculate_sharpe(daily_returns, annualization_factor=ann_factor)
+                if daily_returns
+                else 0.0
+            )
+            sortino = (
+                calculate_sortino(daily_returns, annualization_factor=ann_factor)
+                if daily_returns
+                else 0.0
+            )
+            trading_days = len(state.equity_curve)
+            annualised_return = calculate_annualised_return(
+                total_return,
+                trading_days,
+                annualization_factor=ann_factor,
+            )
+            calmar = calculate_calmar_ratio(annualised_return, max_dd)
 
         # Exclude non-finite PnL (should not happen; defensive guard)
         import math
@@ -131,14 +148,6 @@ class BacktestResultBuilder:
         gross_profit = sum(t["pnl"] for t in finite_trades if t["pnl"] > 0)
         gross_loss = abs(sum(t["pnl"] for t in finite_trades if t["pnl"] <= 0))
         profit_factor = calculate_profit_factor(gross_profit, gross_loss)
-
-        trading_days = len(state.equity_curve)
-        annualised_return = calculate_annualised_return(
-            total_return,
-            trading_days,
-            annualization_factor=ann_factor,
-        )
-        calmar = calculate_calmar_ratio(annualised_return, max_dd)
 
         winning = sum(1 for t in finite_trades if t["pnl"] > 0)
         losing = sum(1 for t in finite_trades if t["pnl"] <= 0)
