@@ -60,8 +60,16 @@ def _canonical_family(name: str) -> str:
 class StreamingIndicatorEngine(StreamingIndicatorCalculator):
     """Maps indicator names to per-indicator online state objects."""
 
-    def __init__(self, indicators: list[str]) -> None:
+    def __init__(
+        self,
+        indicators: list[str],
+        window_resolver: object | None = None,
+    ) -> None:
         self._indicators = list(indicators)
+        # Optional interval-aware window resolver for session-count metrics.
+        # When None, session-count metrics keep their existing (fixed) window
+        # resolution for backward compatibility.
+        self._window_resolver = window_resolver
         # name → state instance (for single-output states or shared family states)
         self._states: dict[str, object] = {}
         # family_key → state (the canonical state instance; multi-output
@@ -295,8 +303,7 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         window = self._resolve_window(name)
         return windowed_indicator_state.WindowedIndicatorState(name=name, maxlen=window)
 
-    @staticmethod
-    def _resolve_window(name: str) -> int:
+    def _resolve_window(self, name: str) -> int:
         """Resolve the window size for a windowed indicator."""
         from finbar_strategy_runtime.indicators._dynamic_dispatch import (
             _is_rolling_vp,
@@ -308,8 +315,13 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
 
         # Session-count-based indicators (poc_slope_N, wyckoff_phase,
         # value_area_migration) group by calendar session and look back N
-        # sessions. Use a large fixed window. Interval-aware sizing
-        # deferred (spec: 2026-06-22_streaming-performance).
+        # sessions. When an interval-aware resolver is provided, use it; it
+        # raises for unknown intervals instead of silently using a fixed
+        # window. Without a resolver, keep the existing fixed window.
+        if self._window_resolver is not None:
+            resolved = self._window_resolver.resolve(name)
+            if resolved is not None:
+                return resolved
         session_window = _session_count_window(name)
         if session_window is not None:
             return session_window
