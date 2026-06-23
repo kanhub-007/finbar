@@ -2,6 +2,24 @@
 
 from dataclasses import dataclass
 
+from finbar_strategy_runtime.simulation.enums import (
+    BorrowTimeBasis,
+    MarginMode,
+    MarketCalendar,
+    RiskMode,
+    RiskPriceBasis,
+)
+
+
+def _validate_enum_field(field_name: str, value: str, enum_cls) -> None:
+    """Raise ValueError if *value* is not a member of *enum_cls*."""
+    allowed = {member.value for member in enum_cls}
+    if value not in allowed:
+        raise ValueError(
+            f"ExecutionConfig.{field_name}={value!r} is not one of "
+            f"{sorted(allowed)} (typo?)"
+        )
+
 
 @dataclass(frozen=True)
 class ExecutionConfig:
@@ -54,6 +72,20 @@ class ExecutionConfig:
 
     def risk_budget_multiplier(self) -> float:
         """Return the multiplier applied to the equity risk budget."""
-        if self.risk_mode == "leverage_scaled_risk":
+        if self.risk_mode == RiskMode.LEVERAGE_SCALED_RISK.value:
             return max(self.leverage_multiplier, 1.0)
         return 1.0
+
+    def __post_init__(self) -> None:
+        """Validate enum-backed string fields so typos fail fast."""
+        _validate_enum_field("risk_mode", self.risk_mode, RiskMode)
+        _validate_enum_field("margin_mode", self.margin_mode, MarginMode)
+        _validate_enum_field(
+            "risk_price_basis", self.risk_price_basis, RiskPriceBasis
+        )
+        _validate_enum_field(
+            "borrow_time_basis", self.borrow_time_basis, BorrowTimeBasis
+        )
+        _validate_enum_field(
+            "market_calendar", self.market_calendar, MarketCalendar
+        )

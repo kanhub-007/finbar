@@ -25,11 +25,13 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "adx": "adx",
         "vwap": "vwap",
         # --- VWAP Standard Deviation Bands (Auction Market Theory) ---
-        "vwap_session": "vwap_session",
         "vwap_upper_1": "vwap_upper_1",
         "vwap_lower_1": "vwap_lower_1",
         "vwap_upper_2": "vwap_upper_2",
         "vwap_lower_2": "vwap_lower_2",
+        # NOTE: catalogued metrics (proxy_*, ib_*, vwap_session, etc.) are
+        # NOT listed here — UnifiedMetricCatalog._usable is the single source
+        # of truth for them. Only genuinely non-catalogued fixed names remain.
         # --- Proxy Volume Profile (Auction Market Theory) ---
         "vp_poc": "vp_poc",
         "vp_vah": "vp_vah",
@@ -115,22 +117,7 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "bb_middle": "bb_middle",
         "bb_lower": "bb_lower",
         # --- Proxy quantitative indicators ---
-        "proxy_atr": "proxy_atr",
-        "proxy_vwap": "proxy_vwap",
-        "proxy_ibs": "proxy_ibs",
-        "proxy_ib_high": "proxy_ib_high",
-        "proxy_ib_low": "proxy_ib_low",
-        "proxy_expected_move": "proxy_expected_move",
-        "proxy_iv": "proxy_iv",
-        "proxy_parkinson": "proxy_parkinson",
-        "proxy_garman_klass": "proxy_garman_klass",
-        "proxy_rogers_satchell": "proxy_rogers_satchell",
-        "proxy_typical_price": "proxy_typical_price",
-        "proxy_ohlc4": "proxy_ohlc4",
         # --- Intraday session metrics (real, not proxy) ---
-        "ib_high": "ib_high",
-        "ib_low": "ib_low",
-        "ib_range": "ib_range",
         # --- Volume buffer levels ---
         "vol_buffer_high": "vol_buffer_high",
         "vol_buffer_low": "vol_buffer_low",
@@ -147,7 +134,6 @@ class StrategyIndicatorCatalog(IndicatorCapabilityProvider):
         "trend_strength": "trend_strength",
         "trend_status": "trend_status",
         # --- Initial Balance ---
-        "ib_midpoint": "ib_midpoint",
     }
 
     # Rolling VP parameterized pattern: vp_poc_Nd, vp_vah_Nd, vp_val_Nd

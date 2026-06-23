@@ -204,7 +204,9 @@ class BacktestStrategyDefinitionUseCase:
             )
 
         if self._data_validator is not None and use_enricher:
-            warmup = self._data_validator.validate(frame, validation.required_columns)
+            warmup = self._data_validator.validate(
+                frame, validation.required_columns
+            ).to_dict()
         else:
             warmup = validate_required_data(frame, validation.required_columns)
         warmup_errors = _warmup_errors(warmup)

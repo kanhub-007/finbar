@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.simulation.backtest_diagnostic import BacktestDiagnostic
+from finbar_strategy_runtime.simulation.backtest_diagnostic import BacktestDiagnostic  # noqa: F401
 from finbar_strategy_runtime.simulation.execution_config import ExecutionConfig
 from finbar_strategy_runtime.simulation.leverage_config import LeverageConfig
 from finbar_strategy_runtime.simulation.pending_entry import PendingEntry
@@ -28,12 +28,13 @@ class PositionSizer:
         entry: PendingEntry,
         entry_price: float,
         portfolio_value: float,
+        date: str = "",
     ) -> float:
         """Compute size and apply affordability cap. Returns filled size."""
-        size = self._raw_size(entry, portfolio_value, entry_price, state)
+        size = self._raw_size(entry, portfolio_value, entry_price, state, date)
         if size <= 0:
             return 0.0
-        return self._apply_affordability_cap(state, entry, size, entry_price)
+        return self._apply_affordability_cap(state, entry, size, entry_price, date)
 
     # -- Raw sizing --------------------------------------------------------
 
@@ -43,6 +44,7 @@ class PositionSizer:
         portfolio_value: float,
         entry_price: float,
         state: SimulationState | None = None,
+        date: str = "",
     ) -> float:
         """Compute position size before the affordability cap."""
         if entry.explicit_size and entry.position_size > 0:
@@ -59,8 +61,7 @@ class PositionSizer:
             # Stop distance is too small for meaningful risk-based sizing;
             # emit a diagnostic so the operator knows we fell back.
             if state is not None:
-                self._add_diagnostic(
-                    state,
+                state.add_diagnostic(
                     "warning",
                     "stop_distance_too_small",
                     (
@@ -68,7 +69,8 @@ class PositionSizer:
                         f"minimum threshold (0.001). Falling back to default "
                         f"position size of {_DEFAULT_POSITION_SIZE}."
                     ),
-                    {"risk_per_share": risk_per_share},
+                    date=date,
+                    metadata={"risk_per_share": risk_per_share},
                 )
         return _DEFAULT_POSITION_SIZE  # no stop/explicit size
 
@@ -80,17 +82,18 @@ class PositionSizer:
         entry: PendingEntry,
         size: float,
         price: float,
+        date: str = "",
     ) -> float:
         """Cap position size to available margin / buying power."""
         if price <= 0 or self._config.allow_negative_cash:
             return size
         cap = self._max_affordable_size(state.cash, price)
         if cap <= 0:
-            self._add_diagnostic(
-                state,
+            state.add_diagnostic(
                 "order_rejected",
                 "insufficient_cash",
                 "Entry skipped because no buying power was available.",
+                date=date,
             )
             return 0.0
         capped = min(size, cap)
@@ -98,15 +101,15 @@ class PositionSizer:
             return capped
         if entry.explicit_size:
             if self._config.reject_oversized_explicit_orders:
-                self._add_diagnostic(
-                    state,
+                state.add_diagnostic(
                     "order_rejected",
                     "explicit_size_rejected",
                     (
                         f"Explicit size {size:.8f} exceeds max "
                         f"affordable {cap:.8f}."
                     ),
-                    {
+                    date=date,
+                    metadata={
                         "requested_size": size,
                         "max_affordable_size": cap,
                     },
@@ -115,12 +118,12 @@ class PositionSizer:
             if not self._config.cap_explicit_size:
                 # Allow full size through uncapped (documented behaviour).
                 return size
-        self._add_diagnostic(
-            state,
+        state.add_diagnostic(
             "order_resized",
             "affordability_cap",
             f"Requested size {size:.8f} capped to {capped:.8f}.",
-            {"requested_size": size, "filled_size": capped},
+            date=date,
+            metadata={"requested_size": size, "filled_size": capped},
         )
         return capped
 
@@ -139,20 +142,3 @@ class PositionSizer:
             return 0.0
         buying_power = cash * self._leverage.multiplier
         return max(0.0, buying_power / effective_price)
-
-    @staticmethod
-    def _add_diagnostic(
-        state: SimulationState,
-        severity: str,
-        code: str,
-        message: str,
-        extra: dict | None = None,
-    ) -> None:
-        state.diagnostics.append(
-            BacktestDiagnostic(
-                severity=severity,
-                code=code,
-                message=message,
-                metadata=extra or {},
-            )
-        )

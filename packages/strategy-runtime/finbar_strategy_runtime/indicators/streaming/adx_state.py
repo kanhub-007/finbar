@@ -6,11 +6,15 @@ Seeds smoothed values with SMA of first ``length`` values.
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from collections import deque
 from math import isnan
 
 
-class AdxState:
+class AdxState(StreamingIndicatorState):
     """Streaming state for the ``adx`` indicator (and associated DI lines)."""
 
     def __init__(self, period: int = 14) -> None:

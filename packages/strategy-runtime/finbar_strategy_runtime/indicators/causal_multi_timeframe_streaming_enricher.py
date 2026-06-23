@@ -178,7 +178,7 @@ class CausalMultiTimeframeStreamingEnricher(
         primary_indicators: list[str],
         informative_indicators: dict[str, list[str]],
         parallel: bool = True,
-    ) -> "pd.DataFrame":
+    ) -> pd.DataFrame:
         """Produce a causal enriched DataFrame from raw bars.
 
         Package-level equivalent of ``build_causal_frame`` suitable for
@@ -253,12 +253,7 @@ class CausalMultiTimeframeStreamingEnricher(
                         else:
                             break
                 rows.append(enricher.update_primary(bar).values)
-            if not rows:
-                return pd.DataFrame()
-            frame = pd.DataFrame(rows)
-            ts = frame["timestamp"].tolist()
-            index = parse_bar_timestamps(ts)
-            return frame.drop(columns=["timestamp"]).set_index(index)
+            return _frame_from_rows(rows)
 
         # Build primary enrichment (main thread) using pre-computed informative data.
         enricher = CausalMultiTimeframeStreamingEnricher(
@@ -277,12 +272,7 @@ class CausalMultiTimeframeStreamingEnricher(
         for bar in primary_bars:
             rows.append(enricher.update_primary(bar).values)
 
-        if not rows:
-            return pd.DataFrame()
-        frame = pd.DataFrame(rows)
-        ts = frame["timestamp"].tolist()
-        index = parse_bar_timestamps(ts)
-        return frame.drop(columns=["timestamp"]).set_index(index)
+        return _frame_from_rows(rows)
 
 
 # ── module-level helpers ────────────────────────────────────────────────────
@@ -312,6 +302,20 @@ def _bar_open_ts(bar: dict) -> pd.Timestamp:
             " parseable 'timestamp' field for no-lookahead MTF merge."
         )
     return parse_bar_timestamps([ts])[0]
+
+
+def _frame_from_rows(rows: list[dict]) -> pd.DataFrame:
+    """Build an indexed DataFrame from enriched primary rows.
+
+    Shared by both the parallel and sequential enrichment paths so the
+    timestamp-index construction is not duplicated.
+    """
+    if not rows:
+        return pd.DataFrame()
+    frame = pd.DataFrame(rows)
+    ts = frame["timestamp"].tolist()
+    index = parse_bar_timestamps(ts)
+    return frame.drop(columns=["timestamp"]).set_index(index)
 
 
 def _info_suffix_from_definition(

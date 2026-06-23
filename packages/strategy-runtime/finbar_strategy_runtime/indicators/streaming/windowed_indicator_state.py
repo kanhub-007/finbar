@@ -23,6 +23,10 @@ from collections import deque
 
 import pandas as pd
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from finbar_strategy_runtime.indicators._bar_timestamp import (
     parse_bar_timestamps,
 )
@@ -74,7 +78,7 @@ def _is_session_sensitive(name: str) -> bool:
     return any(name.startswith(prefix) for prefix in _SESSION_SENSITIVE_PREFIXES)
 
 
-class WindowedIndicatorState:
+class WindowedIndicatorState(StreamingIndicatorState):
     """Bounded ring buffer that recomputes an indicator over the window.
 
     Stores at most ``maxlen`` bars. Each ``update()`` appends a bar,
@@ -171,64 +175,37 @@ class WindowedIndicatorState:
 
     def _compute(self, df: pd.DataFrame) -> float:
         """Recompute the indicator over the window slice."""
-        from finbar_strategy_runtime.indicators._dynamic_dispatch import (
-            _compute_dynamic,
-            _compute_rolling_vp_dynamic,
-            _is_dynamic,
-            _is_rolling_vp,
+        from finbar_strategy_runtime.indicators._compute_decorators import (
+            resolve_last_value_compute,
+        )
+        from finbar_strategy_runtime.indicators._handler_registry import (
+            default_handler_registry,
         )
         from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-            _INDICATOR_HANDLERS,
             PandasTaIndicatorCalculator,
             _expand_transitive_deps,
         )
 
         name = self._name
+        handlers = default_handler_registry()
 
-        if name in _INDICATOR_HANDLERS:
-            handler, _requires = _INDICATOR_HANDLERS[name]
+        # Pre-compute transitive dependencies (e.g. poc_slope_5 needs vp_poc)
+        # so the resolved compute strategy finds them on the frame.
+        if name in handlers:
             deps = [
                 d
-                for d in _expand_transitive_deps([name], _INDICATOR_HANDLERS)
+                for d in _expand_transitive_deps([name], handlers)
                 if d != name
             ]
             if deps:
                 calc = PandasTaIndicatorCalculator()
                 df = calc.calculate(df, deps)
-            cache: dict = {}
-            try:
-                result = handler(df, name, cache)
-                col = result[name]
-                if hasattr(col, "iloc"):
-                    return float(col.iloc[-1])
-                return float(col)
-            except Exception:
-                return float("nan")
 
-        if _is_dynamic(name):
-            try:
-                result = _compute_dynamic(df.copy(), name)
-                col = result[name]
-                if hasattr(col, "iloc"):
-                    return float(col.iloc[-1])
-                return float(col)
-            except Exception:
-                return float("nan")
-
-        if _is_rolling_vp(name):
-            try:
-                result = _compute_rolling_vp_dynamic(df.copy(), name, {})
-                col = result[name]
-                if hasattr(col, "iloc"):
-                    return float(col.iloc[-1])
-                return float(col)
-            except Exception:
-                return float("nan")
-
-        return float("nan")
+        compute = resolve_last_value_compute(name, handlers)
+        return compute(df) if compute is not None else float("nan")
 
 
-class BatchedWindowedState:
+class BatchedWindowedState(StreamingIndicatorState):
     """Single ring buffer computing ALL windowed metrics in one batch call.
 
     Replaces N independent ``WindowedIndicatorState`` instances with one
@@ -345,21 +322,24 @@ class BatchedWindowedState:
             _is_dynamic,
             _is_rolling_vp,
         )
+        from finbar_strategy_runtime.indicators._handler_registry import (
+            default_handler_registry,
+        )
         from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-            _INDICATOR_HANDLERS,
             PandasTaIndicatorCalculator,
             _expand_transitive_deps,
         )
 
         # Collect all direct + transitive dependencies across all names,
         # EXCLUDING injected columns (they're already on the frame).
+        handlers = default_handler_registry()
         all_deps: set[str] = set()
         injected = set(self._injected_columns.keys())
         for name in self._names:
-            if name in _INDICATOR_HANDLERS:
+            if name in handlers:
                 all_deps.update(
                     d
-                    for d in _expand_transitive_deps([name], _INDICATOR_HANDLERS)
+                    for d in _expand_transitive_deps([name], handlers)
                     if d != name and d not in injected
                 )
 
@@ -380,46 +360,20 @@ class BatchedWindowedState:
         name: str,
         cache: dict,
     ) -> float:
-        """Compute a single metric from the pre-enriched frame."""
-        from finbar_strategy_runtime.indicators._dynamic_dispatch import (
-            _compute_dynamic,
-            _compute_rolling_vp_dynamic,
-            _is_dynamic,
-            _is_rolling_vp,
+        """Compute a single metric from the pre-enriched frame.
+
+        The frame already carries all transitive dependencies (pre-computed
+        by :meth:`_compute_all`), so this is a single strategy lookup + call.
+        The ``cache`` is accepted for backward compatibility with handler
+        signatures that take a cache dict; it is not used by the resolver
+        because each windowed compute is independent.
+        """
+        from finbar_strategy_runtime.indicators._compute_decorators import (
+            resolve_last_value_compute,
         )
-        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-            _INDICATOR_HANDLERS,
+        from finbar_strategy_runtime.indicators._handler_registry import (
+            default_handler_registry,
         )
 
-        if name in _INDICATOR_HANDLERS:
-            handler, _requires = _INDICATOR_HANDLERS[name]
-            try:
-                result = handler(df, name, cache)
-                col = result[name]
-                if hasattr(col, "iloc"):
-                    return float(col.iloc[-1])
-                return float(col)
-            except Exception:
-                return float("nan")
-
-        if _is_dynamic(name):
-            try:
-                result = _compute_dynamic(df.copy(), name)
-                col = result[name]
-                if hasattr(col, "iloc"):
-                    return float(col.iloc[-1])
-                return float(col)
-            except Exception:
-                return float("nan")
-
-        if _is_rolling_vp(name):
-            try:
-                result = _compute_rolling_vp_dynamic(df.copy(), name, {})
-                col = result[name]
-                if hasattr(col, "iloc"):
-                    return float(col.iloc[-1])
-                return float(col)
-            except Exception:
-                return float("nan")
-
-        return float("nan")
+        compute = resolve_last_value_compute(name, default_handler_registry())
+        return compute(df) if compute is not None else float("nan")

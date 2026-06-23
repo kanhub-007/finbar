@@ -214,11 +214,11 @@ def _info_prefix(info_bars: list[dict], close_ts: int) -> list[dict]:
     return [b for b in info_bars if b["timestamp"] <= close_ts]
 
 
-def _is_tradable(readiness: dict, row: int) -> bool:
+def _is_tradable(readiness, row: int) -> bool:
     """True when *row* is past warmup and the frame has tradable bars."""
-    if readiness.get("no_tradable_bars"):
+    if readiness.no_tradable_bars:
         return False
-    return row >= readiness.get("warmup_bars", 0)
+    return row >= readiness.warmup_bars
 
 
 def _run_streaming_reference(
@@ -276,7 +276,7 @@ def _run_batch_reference(
 
     full = enricher.enrich(primary, info, definition, primary_req, info_req)
     readiness = validator.validate(full, required_cols)
-    warmup = readiness.get("warmup_bars", 0)
+    warmup = readiness.warmup_bars
 
     for i in range(len(full)):
         latest = full.iloc[i].to_dict()

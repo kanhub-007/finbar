@@ -1,44 +1,34 @@
-"""StreamingCoverageMatrix — package-owned causal streaming coverage data."""
+"""StreamingCoverageMatrix — pure domain entity for streaming coverage data.
+
+A frozen dataclass holding coverage entries keyed by metric name. Contains no
+filesystem, network, or environment dependencies. Loading from the bundled
+JSON resource is performed by the loader in
+``finbar_strategy_runtime.parser.streaming_coverage_loader``.
+"""
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from importlib import resources
 
 from finbar_strategy_runtime.domain.entities.streaming_coverage_entry import (
     StreamingCoverageEntry,
 )
-from finbar_strategy_runtime.domain.services.unknown_metric_error import (
+from finbar_strategy_runtime.domain.entities.unknown_metric_error import (
     UnknownMetricError,
 )
-
-_RESOURCE_PACKAGE = "finbar_strategy_runtime.resources"
-_RESOURCE_NAME = "streaming_coverage_matrix.json"
 
 
 @dataclass(frozen=True)
 class StreamingCoverageMatrix:
-    """Exhaustive streaming-correctness matrix for accepted strategy metrics."""
+    """Exhaustive streaming-correctness matrix for accepted strategy metrics.
+
+    Pure data: entries keyed by lowercase concrete metric name. Construction
+    and loading happen outside this class (see
+    ``parser.streaming_coverage_loader``).
+    """
 
     entries: dict[str, StreamingCoverageEntry]
     """Coverage entries keyed by concrete metric name."""
-
-    @classmethod
-    def load_default(cls) -> StreamingCoverageMatrix:
-        """Load the package-bundled streaming coverage matrix.
-
-        Returns:
-            StreamingCoverageMatrix built from the package JSON resource.
-        """
-        path = resources.files(_RESOURCE_PACKAGE).joinpath(_RESOURCE_NAME)
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        raw_entries = payload.get("entries", {})
-        entries = {
-            name: StreamingCoverageEntry.from_mapping(name, entry_payload)
-            for name, entry_payload in raw_entries.items()
-        }
-        return cls(entries=entries)
 
     def names(self) -> list[str]:
         """Return sorted metric names present in the matrix."""

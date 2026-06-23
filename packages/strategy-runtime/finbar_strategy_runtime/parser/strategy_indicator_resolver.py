@@ -18,24 +18,17 @@ from finbar_strategy_runtime.domain.entities.timeframe_declaration import Timefr
 from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
+from finbar_strategy_runtime.parser._catalog_factory import default_catalog
 
 
 
-
-def _default_catalog() -> "IndicatorCapabilityProvider":
-    """Build the default UnifiedMetricCatalog (lazy import avoids cycle)."""
-    from finbar_strategy_runtime.parser.unified_metric_catalog import (
-        UnifiedMetricCatalog,
-    )
-
-    return UnifiedMetricCatalog()
 
 class StrategyIndicatorResolver:
     """Resolve strategy-local indicator aliases to concrete indicator columns."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create a resolver backed by an indicator capability catalog."""
-        self._catalog = catalog or _default_catalog()
+        self._catalog = catalog or default_catalog()
 
     def parse(
         self,

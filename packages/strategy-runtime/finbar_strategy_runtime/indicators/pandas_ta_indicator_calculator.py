@@ -4,7 +4,7 @@ This module is the public entry point. It contains only the calculator
 class (the Facade/Dispatcher) and the proxy-indicator batch helper.
 
 All indicator handler functions live in ``handlers/`` sub-modules and
-register themselves into ``_INDICATOR_HANDLERS`` at import time.
+register themselves into the handler registry at import time.
 Dynamic-period dispatch logic lives in ``_dynamic_dispatch``.
 """
 
@@ -31,7 +31,9 @@ from finbar_strategy_runtime.indicators.handlers import (  # noqa: F401
     volume_profile,
 )
 from finbar_strategy_runtime.indicators._handler_registry import (
+    HandlerRegistry,
     _INDICATOR_HANDLERS,
+    default_handler_registry,
 )
 from finbar_strategy_runtime.indicators._dynamic_dispatch import (
     _compute_dynamic,
@@ -53,11 +55,11 @@ _RAW_BAR_COLUMNS = frozenset({"open", "high", "low", "close", "volume"})
 
 def _expand_transitive_deps(
     names: list[str],
-    handlers: dict[str, tuple],
+    handlers: HandlerRegistry,
 ) -> list[str]:
     """Expand *names* to include all transitive handler dependencies.
 
-    Walks ``handlers[name].requires`` recursively so that computed
+    Walks the ``requires`` set of ``handlers[name]`` recursively so that computed
     indicators never silently fail because their undeclared dependencies
     are missing from the requested list. Raw OHLCV column names are
     **not** expanded — they are already present in every DataFrame.
@@ -78,7 +80,7 @@ def _expand_transitive_deps(
 
 def _topological_sort(
     names: list[str],
-    handlers: dict[str, tuple],
+    handlers: HandlerRegistry,
 ) -> list[str]:
     """Sort indicator names so dependencies precede dependents.
 
@@ -142,6 +144,23 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
     - Support/resistance: swing_high_20, breakout_signal, breakout_quality
     """
 
+    def __init__(self, handler_registry: HandlerRegistry | None = None) -> None:
+        """Create a calculator with an injectable handler registry.
+
+        Args:
+            handler_registry: Handler registry to dispatch against. Defaults
+                to :func:`default_handler_registry`, which is populated by the
+                ``@_register`` decorators in the ``handlers`` subpackage.
+        """
+        self._handlers: HandlerRegistry = (
+            handler_registry or default_handler_registry()
+        )
+
+    @property
+    def handlers(self) -> HandlerRegistry:
+        """Return the handler registry this calculator dispatches against."""
+        return self._handlers
+
     def calculate(self, df: pd.DataFrame, indicators: list[str]) -> pd.DataFrame:
         """Apply requested indicators and return enriched DataFrame.
 
@@ -156,7 +175,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         if df.empty or not indicators:
             return df.copy()
 
-        result = self._compute_all(df, indicators)
+        result = self._compute_all(df, indicators, self._handlers)
         return result
 
     def calculate_last(
@@ -177,7 +196,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         if df.empty or not indicators:
             return {}
 
-        result = self._compute_all(df, indicators)
+        result = self._compute_all(df, indicators, self._handlers)
         # Convert last row to plain dict of floats
         last = result.iloc[-1]
         out: dict[str, float] = {}
@@ -190,7 +209,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
 
     @staticmethod
     def _compute_all(
-        df: pd.DataFrame, indicators: list[str]
+        df: pd.DataFrame, indicators: list[str], handlers: HandlerRegistry | None = None
     ) -> pd.DataFrame:
 
         result = df.copy()
@@ -202,6 +221,7 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
             )
             return result
 
+        handlers = handlers or default_handler_registry()
         cache: dict[str, pd.DataFrame] = {}
         present_cols = set(result.columns)
         failed: list[tuple[str, str]] = []
@@ -209,11 +229,11 @@ class PandasTaIndicatorCalculator(IndicatorCalculator):
         # Expand transitive dependencies so indicators like poc_slope_5
         # auto-pull their undeclared deps (vp_poc) without the caller
         # needing to know the internal dependency graph.
-        all_indicators = _expand_transitive_deps(indicators, _INDICATOR_HANDLERS)
-        sorted_indicators = _topological_sort(all_indicators, _INDICATOR_HANDLERS)
+        all_indicators = _expand_transitive_deps(indicators, handlers)
+        sorted_indicators = _topological_sort(all_indicators, handlers)
         for name in sorted_indicators:
-            if name in _INDICATOR_HANDLERS:
-                handler, requires = _INDICATOR_HANDLERS[name]
+            if name in handlers:
+                handler, requires = handlers[name]
                 if requires and requires - present_cols:
                     result[name] = np.nan
                     missing = sorted(requires - present_cols)

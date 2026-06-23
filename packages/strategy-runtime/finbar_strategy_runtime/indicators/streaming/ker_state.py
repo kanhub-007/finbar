@@ -6,11 +6,15 @@ Matches ``pandas_ta.er`` (Efficiency Ratio).
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from collections import deque
 from math import isnan
 
 
-class KerState:
+class KerState(StreamingIndicatorState):
     """Streaming state for the ``ker`` (Kaufman Efficiency Ratio) indicator."""
 
     def __init__(self, period: int = 10) -> None:

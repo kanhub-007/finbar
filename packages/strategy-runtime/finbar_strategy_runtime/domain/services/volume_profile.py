@@ -35,6 +35,94 @@ def _parkinson_sigma(high: float, low: float) -> float:
     return math.log(high / low) / (2.0 * math.sqrt(math.log(2)))
 
 
+def _session_bucket_grid(
+    session_high: float,
+    session_low: float,
+    num_buckets: int,
+) -> tuple[np.ndarray, float]:
+    """Build the price-bucket grid for one session (with a 2% buffer).
+
+    Returns ``(price_buckets, bucket_size)``.
+    """
+    buffer = (session_high - session_low) * 0.02
+    price_min = session_low - buffer
+    price_max = session_high + buffer
+    bucket_size = (price_max - price_min) / num_buckets
+    price_buckets = np.linspace(
+        price_min + bucket_size / 2,
+        price_max - bucket_size / 2,
+        num_buckets,
+    )
+    return price_buckets, bucket_size
+
+
+def _aggregate_session_volume(
+    session_bars: pd.DataFrame,
+    price_buckets: np.ndarray,
+    bucket_size: float,
+) -> tuple[np.ndarray, float]:
+    """Distribute each bar's volume across the price buckets.
+
+    Columns are extracted to numpy arrays once and indexed by position to
+    avoid the per-bar pd.Series allocation overhead of iterrows().
+    Returns ``(volume_profile, total_volume)``.
+    """
+    highs = session_bars["high"].to_numpy()
+    lows = session_bars["low"].to_numpy()
+    closes = session_bars["close"].to_numpy()
+    volumes = session_bars["volume"].to_numpy()
+
+    volume_profile = np.zeros(len(price_buckets))
+    total_volume = 0.0
+    for j in range(len(highs)):
+        raw_volume = volumes[j]
+        bar_volume = float(raw_volume) if raw_volume > 0 else 0.0
+        if bar_volume <= 0:
+            continue
+        total_volume += bar_volume
+        volume_profile += _distribute_bar_volume(
+            float(highs[j]),
+            float(lows[j]),
+            float(closes[j]),
+            bar_volume,
+            price_buckets,
+            bucket_size,
+        )
+    return volume_profile, total_volume
+
+
+def _build_volume_profile_result(
+    volume_profile: np.ndarray,
+    price_buckets: np.ndarray,
+    bucket_size: float,
+    total_volume: float,
+    num_buckets: int,
+) -> VolumeProfileResult:
+    """Extract POC/VAH/VAL from an aggregated profile and build the result."""
+    poc_idx = int(np.argmax(volume_profile))
+    poc = float(price_buckets[poc_idx])
+    lower_idx, upper_idx, accumulated = expand_value_area(
+        volume_profile, poc_idx, total_volume
+    )
+    vah = float(price_buckets[upper_idx]) + bucket_size / 2
+    val = float(price_buckets[lower_idx]) - bucket_size / 2
+    profile_dict = {
+        float(price_buckets[i]): float(volume_profile[i])
+        for i in range(num_buckets)
+        if volume_profile[i] > 0
+    }
+    return VolumeProfileResult(
+        poc=poc,
+        vah=vah,
+        val=val,
+        total_volume=total_volume,
+        value_area_volume=float(accumulated),
+        bucket_size=bucket_size,
+        num_buckets=num_buckets,
+        profile=profile_dict,
+    )
+
+
 def _distribute_bar_volume(
     bar_high: float,
     bar_low: float,
@@ -138,42 +226,12 @@ def compute_session_volume_profile(
         )
 
     # Create price buckets spanning the session range with a small buffer
-    buffer = (session_high - session_low) * 0.02
-    price_min = session_low - buffer
-    price_max = session_high + buffer
-    bucket_size = (price_max - price_min) / num_buckets
-    price_buckets = np.linspace(
-        price_min + bucket_size / 2,
-        price_max - bucket_size / 2,
-        num_buckets,
+    price_buckets, bucket_size = _session_bucket_grid(
+        session_high, session_low, num_buckets
     )
-
-    # Aggregate volume across all bars. Columns are extracted to numpy
-    # arrays once and indexed by position to avoid the per-bar pd.Series
-    # allocation overhead of DataFrame.iterrows().
-    highs = session_bars["high"].to_numpy()
-    lows = session_bars["low"].to_numpy()
-    closes = session_bars["close"].to_numpy()
-    volumes = session_bars["volume"].to_numpy()
-
-    volume_profile = np.zeros(num_buckets)
-    total_volume = 0.0
-
-    for j in range(len(highs)):
-        raw_volume = volumes[j]
-        bar_volume = float(raw_volume) if raw_volume > 0 else 0.0
-        if bar_volume <= 0:
-            continue
-
-        total_volume += bar_volume
-        volume_profile += _distribute_bar_volume(
-            float(highs[j]),
-            float(lows[j]),
-            float(closes[j]),
-            bar_volume,
-            price_buckets,
-            bucket_size,
-        )
+    volume_profile, total_volume = _aggregate_session_volume(
+        session_bars, price_buckets, bucket_size
+    )
 
     if total_volume <= 0:
         return VolumeProfileResult(
@@ -186,35 +244,8 @@ def compute_session_volume_profile(
             num_buckets=num_buckets,
         )
 
-    # POC: price bucket with maximum volume
-    poc_idx = int(np.argmax(volume_profile))
-    poc = float(price_buckets[poc_idx])
-
-    # Value Area: expand outward from POC until 68% of volume captured
-    lower_idx, upper_idx, accumulated = expand_value_area(
-        volume_profile, poc_idx, total_volume
-    )
-
-    vah = float(price_buckets[upper_idx]) + bucket_size / 2
-    val = float(price_buckets[lower_idx]) - bucket_size / 2
-    value_area_volume = float(accumulated)
-
-    # Build profile dict for optional use
-    profile_dict = {
-        float(price_buckets[i]): float(volume_profile[i])
-        for i in range(num_buckets)
-        if volume_profile[i] > 0
-    }
-
-    return VolumeProfileResult(
-        poc=poc,
-        vah=vah,
-        val=val,
-        total_volume=total_volume,
-        value_area_volume=value_area_volume,
-        bucket_size=bucket_size,
-        num_buckets=num_buckets,
-        profile=profile_dict,
+    return _build_volume_profile_result(
+        volume_profile, price_buckets, bucket_size, total_volume, num_buckets
     )
 
 

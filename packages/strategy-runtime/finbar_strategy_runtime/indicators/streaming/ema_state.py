@@ -7,11 +7,15 @@ is seeded with the SMA of the first ``length`` closes, then
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from collections import deque
 from math import isnan
 
 
-class EmaState:
+class EmaState(StreamingIndicatorState):
     """Streaming state for ``ema_N`` indicators.
 
     Seeds with SMA over the first ``length`` bars (matching

@@ -16,7 +16,7 @@ dependencies = [
     "pyyaml>=6.0.0",
     "requests>=2.32.0",
     "pandas-ta>=0.3.14",
-    "finbar-strategy-runtime[pandas,yaml]>=0.1.0,<0.2.0",
+    "finbar-strategy-runtime[pandas,yaml]>=0.3.0,<0.4.0",
 ]
 
 [project.optional-dependencies]

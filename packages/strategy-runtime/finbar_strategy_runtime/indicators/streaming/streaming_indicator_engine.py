@@ -133,13 +133,32 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                 self._family_states[family] = self._build_state(name)
             self._states[name] = self._family_states[family]
 
+        # De-duplicated family states (the batched state appears under
+        # multiple family keys but is one shared object). Built once here
+        # so update()/reset() iterate without per-bar id() bookkeeping.
+        # The batched_windowed state is EXCLUDED: it is updated separately
+        # in update() with injected VP values, so it must not be updated
+        # again in the family-state loop (a double update would corrupt
+        # its ring buffer and break VP-injection deque alignment).
+        unique: list[object] = []
+        seen_ids: set[int] = set()
+        if self._batched_windowed is not None:
+            seen_ids.add(id(self._batched_windowed))
+        for state in self._family_states.values():
+            if id(state) in seen_ids:
+                continue
+            seen_ids.add(id(state))
+            unique.append(state)
+        self._unique_family_states: list[object] = unique
+
     # ── public API ──────────────────────────────────────────────────────
 
     def update(self, bar: dict) -> LatestBar:
         """Ingest one OHLCV bar; return the latest-row snapshot."""
         self._bars_seen += 1
 
-        # Update each unique family state once
+        # Update each unique family state once. ``_unique_states`` is the
+        # de-duplicated set built in __init__, so no per-bar id() dance.
         if self._session_vp is not None:
             self._session_vp.update(bar)
         if self._batched_windowed is not None:
@@ -151,16 +170,7 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                     "vp_val": self._session_vp.val,
                 }
             self._batched_windowed.update(bar, injected_values=injected)
-        # Update unique non-batched family states (skip the batched state
-        # since it was already updated above — it appears as multiple
-        # family keys but is one shared object).
-        seen: set[int] = set()
-        if self._batched_windowed is not None:
-            seen.add(id(self._batched_windowed))
-        for state in self._family_states.values():
-            if id(state) in seen:
-                continue
-            seen.add(id(state))
+        for state in self._unique_family_states:
             state.update(bar)
 
         # Read the output for each requested indicator name
@@ -187,13 +197,9 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
     def reset(self) -> None:
         if self._session_vp is not None:
             self._session_vp.reset()
-        seen: set[int] = set()
         if self._batched_windowed is not None:
-            seen.add(id(self._batched_windowed))
-        for state in self._family_states.values():
-            if id(state) in seen:
-                continue
-            seen.add(id(state))
+            self._batched_windowed.reset()
+        for state in self._unique_family_states:
             state.reset()
         self._bars_seen = 0
         self._latest = LatestBar()
@@ -237,68 +243,6 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         if hasattr(state, "values"):
             return state.values.get(name, float("nan"))
         return getattr(state, "value", float("nan"))
-
-    # ── internal state factory helpers ──────────────────────────────────
-
-    @staticmethod
-    def _make_sma(period: int) -> object:
-        from finbar_strategy_runtime.indicators.streaming.sma_state import SmaState
-        return SmaState(period)
-
-    @staticmethod
-    def _make_ema(period: int) -> object:
-        from finbar_strategy_runtime.indicators.streaming.ema_state import EmaState
-        return EmaState(period)
-
-    @staticmethod
-    def _make_rsi(period: int) -> object:
-        from finbar_strategy_runtime.indicators.streaming.rsi_state import RsiState
-        return RsiState(period)
-
-    @staticmethod
-    def _make_atr(period: int) -> object:
-        from finbar_strategy_runtime.indicators.streaming.atr_state import AtrState
-        return AtrState(period)
-
-    @staticmethod
-    def _make_adx(period: int) -> object:
-        from finbar_strategy_runtime.indicators.streaming.adx_state import AdxState
-        return AdxState(period)
-
-    @staticmethod
-    def _make_bb(period: int) -> object:
-        from finbar_strategy_runtime.indicators.streaming.bb_state import BbState
-        return BbState(period)
-
-    @staticmethod
-    def _make_macd() -> object:
-        from finbar_strategy_runtime.indicators.streaming.macd_state import MacdState
-        return MacdState()
-
-    @staticmethod
-    def _make_ibs() -> object:
-        from finbar_strategy_runtime.indicators.streaming.ibs_state import IbsState
-        return IbsState()
-
-    @staticmethod
-    def _make_vwap() -> object:
-        from finbar_strategy_runtime.indicators.streaming.vwap_state import VwapState
-        return VwapState()
-
-    @staticmethod
-    def _make_rvol() -> object:
-        from finbar_strategy_runtime.indicators.streaming.rvol_state import RvolState
-        return RvolState()
-
-    @staticmethod
-    def _make_ker() -> object:
-        from finbar_strategy_runtime.indicators.streaming.ker_state import KerState
-        return KerState()
-
-    @staticmethod
-    def _make_kama() -> object:
-        from finbar_strategy_runtime.indicators.streaming.kama_state import KamaState
-        return KamaState()
 
     # ── internal ────────────────────────────────────────────────────────
 
@@ -375,53 +319,30 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         return 50
 
     def _build_streaming_state(self, name: str) -> object:
-        # Multi-output families
-        if name in _MACD_NAMES:
-            return self._make_macd()
-        if name in _BB_NAMES:
-            return self._make_bb(20)
+        """Build a streaming state via the factory registry.
 
-        # Hand-listed names
-        if name.startswith("sma_"):
-            return self._make_sma(int(name[len("sma_"):]))
-        if name.startswith("ema_"):
-            return self._make_ema(int(name[len("ema_"):]))
-        if name.startswith("rsi_"):
-            return self._make_rsi(int(name[len("rsi_"):]))
-        if name == "atr":
-            return self._make_atr(14)
-        if name.startswith("atr_"):
-            return self._make_atr(int(name[len("atr_"):]))
-        if name == "adx":
-            return self._make_adx(14)
+        The factory resolves exact names (``macd``, ``vwap``, ...), the BB
+        family, and prefixed names (``sma_N``, ``rsi_N``, ...). Dynamic
+        period names (e.g. ``bb_upper_30``) that the factory does not
+        recognise directly are resolved via :func:`_resolve_dynamic` and
+        retried against the factory under their canonical prefixed form.
+        """
+        from finbar_strategy_runtime.indicators.streaming import (
+            _streaming_state_factory as factory_mod,
+        )
 
-        # Dynamic-period names
+        state = factory_mod.default_streaming_state_factory().build(name)
+        if state is not None:
+            return state
+
+        # Dynamic-period names the factory did not match directly.
         resolved = _resolve_dynamic(name)
         if resolved is not None:
             _func, _source_col, period, prefix = resolved
-            handlers = {
-                "sma": lambda p: self._make_sma(p),
-                "ema": lambda p: self._make_ema(p),
-                "rsi": lambda p: self._make_rsi(p),
-                "atr": lambda p: self._make_atr(p),
-                "adx": lambda p: self._make_adx(p),
-                "bb_upper": lambda p: self._make_bb(p),
-                "bb_middle": lambda p: self._make_bb(p),
-                "bb_lower": lambda p: self._make_bb(p),
-            }
-            if prefix in handlers:
-                return handlers[prefix](period)
-
-        # Hand-listed non-parametric streaming indicators
-        simple_states = {
-            "vwap": self._make_vwap,
-            "ibs": self._make_ibs,
-            "rvol": self._make_rvol,
-            "ker": self._make_ker,
-            "kama": self._make_kama,
-        }
-        if name in simple_states:
-            return simple_states[name]()
+            canonical = f"{prefix}_{period}"
+            state = factory_mod.default_streaming_state_factory().build(canonical)
+            if state is not None:
+                return state
 
         raise NotImplementedError(f"Streaming state not yet implemented for: '{name}'")
 

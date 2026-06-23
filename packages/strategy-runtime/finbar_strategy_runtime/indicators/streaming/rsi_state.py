@@ -6,10 +6,14 @@ first bar's change (like ``pandas.ewm``), then applies Wilder smoothing.
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from math import isnan
 
 
-class RsiState:
+class RsiState(StreamingIndicatorState):
     """Streaming state for ``rsi_N`` indicators.
 
     Uses Wilder smoothing of average gain and average loss. The first

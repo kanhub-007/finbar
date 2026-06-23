@@ -13,6 +13,9 @@ from finbar_strategy_runtime.simulation.simulated_position import SimulatedPosit
 from finbar_strategy_runtime.simulation.margin_account_manager import (
     MarginAccountManager,
 )
+from finbar_strategy_runtime.simulation.position_closer import (
+    _commission as _commission_shared,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -151,23 +154,24 @@ class PositionOpener:
         message: str,
         extra: dict | None = None,
     ) -> None:
-        """Append a structured diagnostic to loop state."""
-        state.diagnostics.append(
-            BacktestDiagnostic(
-                severity=severity,
-                code=code,
-                date=date,
-                message=message,
-                metadata=extra or {},
-            )
+        """Append a structured diagnostic to loop state.
+
+        Delegates to ``SimulationState.add_diagnostic`` so diagnostic shape
+        (including the ``date`` field) is constructed in exactly one place.
+        """
+        state.add_diagnostic(
+            severity=severity,
+            code=code,
+            message=message,
+            date=date,
+            metadata=extra,
         )
 
     # -- Cost helpers ---------------------------------------------------
 
     def _commission(self, gross: float) -> float:
-        if self._config.commission_pct <= 0:
-            return 0.0
-        return abs(gross) * self._config.commission_pct
+        """Per-side commission (delegates to the shared helper)."""
+        return _commission_shared(gross, self._config.commission_pct)
 
     @staticmethod
     def _log_skip(date: str, entry: PendingEntry, price: float, reason: str) -> None:

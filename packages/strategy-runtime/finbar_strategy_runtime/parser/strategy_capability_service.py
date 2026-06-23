@@ -6,6 +6,7 @@ from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
 from finbar_strategy_runtime.domain.interfaces.indicator_capability_provider import (
     IndicatorCapabilityProvider,
 )
+from finbar_strategy_runtime.parser._catalog_factory import default_catalog
 
 _FEATURE_TYPES = [
     "rolling_max",
@@ -39,20 +40,12 @@ _OPERATORS = [
 
 
 
-def _default_catalog() -> "IndicatorCapabilityProvider":
-    """Build the default UnifiedMetricCatalog (lazy import avoids cycle)."""
-    from finbar_strategy_runtime.parser.unified_metric_catalog import (
-        UnifiedMetricCatalog,
-    )
-
-    return UnifiedMetricCatalog()
-
 class StrategyCapabilityService:
     """Return machine-readable capabilities for strategy authoring."""
 
     def __init__(self, catalog: IndicatorCapabilityProvider | None = None):
         """Create the service with injectable indicator capabilities."""
-        self._catalog = catalog or _default_catalog()
+        self._catalog = catalog or default_catalog()
 
     def get_capabilities(self) -> dict:
         """Return the current strategy SDK capabilities."""

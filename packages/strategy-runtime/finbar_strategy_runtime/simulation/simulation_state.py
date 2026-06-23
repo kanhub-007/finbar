@@ -44,3 +44,29 @@ class SimulationState:
         self.diagnostics: list[BacktestDiagnostic] = []
         self.total_borrow_cost: float = 0.0
         self.total_funding: float = 0.0
+
+    def add_diagnostic(
+        self,
+        severity: str,
+        code: str,
+        message: str,
+        date: str = "",
+        metadata: dict | None = None,
+    ) -> None:
+        """Append a structured diagnostic to the loop state.
+
+        Single point of diagnostic construction so the shape (incl. the
+        ``date`` field) is consistent across PositionSizer, PositionOpener,
+        and PositionExecutor. Sizer-emitted diagnostics previously shipped
+        with ``date=""`` because they built the record directly; routing
+        them through here fixes that silent divergence.
+        """
+        self.diagnostics.append(
+            BacktestDiagnostic(
+                severity=severity,
+                code=code,
+                message=message,
+                date=date,
+                metadata=metadata or {},
+            )
+        )

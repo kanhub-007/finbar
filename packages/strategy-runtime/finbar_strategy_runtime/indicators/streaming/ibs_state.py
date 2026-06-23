@@ -6,10 +6,14 @@ calculation.
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from math import isnan
 
 
-class IbsState:
+class IbsState(StreamingIndicatorState):
     """Streaming state for the ``ibs`` indicator.
 
     Purely point-in-time: computed from the bar's own OHLC values.

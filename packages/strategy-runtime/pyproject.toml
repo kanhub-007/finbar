@@ -41,6 +41,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 "**/_metric_registry.py" = ["E402"]
 # Data file with long paper_reference strings and condition_notes.
 "**/_metric_data.py" = ["E501"]
+"**/_metric_data_*.py" = ["E501"]
 
 [tool.black]
 line-length = 88

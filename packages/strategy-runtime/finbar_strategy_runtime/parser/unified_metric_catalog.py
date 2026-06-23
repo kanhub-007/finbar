@@ -38,6 +38,9 @@ from finbar_strategy_runtime.parser._metric_registry import (
 from finbar_strategy_runtime.parser.strategy_indicator_catalog import (
     StrategyIndicatorCatalog,
 )
+from finbar_strategy_runtime.parser._metric_capability_validator import (
+    MetricCapabilityValidator,
+)
 from finbar_strategy_runtime.parser.usable_metric_set import UsableMetricSet
 
 # ---------------------------------------------------------------------------
@@ -58,11 +61,11 @@ def _non_ohlcv_requires(handled_names: set[str], name: str) -> list[str]:
     Returns an empty list for unknown names or handlers requiring only
     OHLCV columns.
     """
-    from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-        _INDICATOR_HANDLERS,
+    from finbar_strategy_runtime.indicators._handler_registry import (
+        default_handler_registry,
     )
 
-    entry = _INDICATOR_HANDLERS.get(name)
+    entry = default_handler_registry().get(name)
     if entry is None:
         return []
     _handler, requires = entry
@@ -79,17 +82,22 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
       ``get``, ``list``.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, handler_registry: "HandlerRegistry | None" = None) -> None:
         self._strategy_catalog = StrategyIndicatorCatalog()
         self._by_name: dict[str, MarketMetricDefinition] = {
             m.name: m for m in METRICS + CONCEPTUAL_METRICS
         }
-        # Importing the calculator triggers every @_register decorator,
-        # populating _INDICATOR_HANDLERS. We read it at construction time
-        # so the dependency is explicit (no hidden global mutable state).
-        import finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator  # noqa: F401
-        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-            _INDICATOR_HANDLERS,
+        # The handler registry is injected (tests may pass a stub). The
+        # default factory imports the handlers package so every
+        # ``@_register`` decorator has run, then returns the populated
+        # registry — no hidden global mutable state at the call site.
+        from finbar_strategy_runtime.indicators._handler_registry import (
+            HandlerRegistry,
+            default_handler_registry,
+        )
+
+        self._handlers: HandlerRegistry = (
+            handler_registry or default_handler_registry()
         )
 
         # The parser-side usable-set rule lives in ONE place: this value
@@ -101,12 +109,17 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         # capability-side methods (get / list / check, which answer
         # metadata) and the construction-time consistency check (ground
         # truth). They are NOT consulted by parser-side resolution.
-        self._handled_names: set[str] = set(_INDICATOR_HANDLERS.keys())
+        self._handled_names: set[str] = self._handlers.names()
         self._usable = UsableMetricSet(
             by_name=self._by_name,
             handled_names=self._handled_names,
         )
-        self._validate_consistency()
+        self._validator = MetricCapabilityValidator(
+            by_name=self._by_name,
+            handled_names=self._handled_names,
+            usable=self._usable,
+        )
+        self._validator.validate_consistency(self)
 
     # ====================================================================
     # Parser-side: IndicatorCapabilityProvider
@@ -213,12 +226,15 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         definition = self._by_name.get(name)
         if definition is not None:
             return self._add_dependency_warning(
-                self._check_definition(definition, available_data_class), name
+                self._validator.check_definition(definition, available_data_class), name
             )
 
         # Not a market-metric definition — check if it's a parser indicator
         return self._add_dependency_warning(
-            self._check_parser_indicator(name), name
+            self._validator.check_parser_indicator(
+                name, self._strategy_catalog.supports_concrete(name)
+            ),
+            name,
         )
 
     def _add_dependency_warning(
@@ -271,7 +287,7 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         except ValueError:
             dc = DataClass.DAILY_OHLCV
 
-        return self._select_best_path(definition, dc, interval, force_proxy)
+        return self._validator.select_best_path(definition, dc, interval, force_proxy)
 
     # ====================================================================
     # Helper for name-sync test (Scenario 1.3)
@@ -289,211 +305,11 @@ class UnifiedMetricCatalog(IndicatorCapabilityProvider, MarketMetricCatalog):
         names.update(self._strategy_catalog._FIXED.values())
         return names
 
-    # ====================================================================
-    # Construction-time consistency check (Design by Contract, INV-6)
-    # ====================================================================
-
     def _validate_consistency(self) -> None:
-        """Fail loud if any parser-side method diverges from ground truth.
+        """Re-run the construction-time consistency backstop.
 
-        Ground truth is recomputed independently from ``_by_name`` ∩
-        ``_handled_names`` (case-insensitively, matching the value object's
-        lowercasing). For every catalogued name, the validator asserts:
-          * ``_usable.contains(name)`` agrees with ground truth (catches a
-            stale/mis-built usable set), AND
-          * ``resolve(name, None)`` returns ``name`` iff usable (catches a
-            future edit that bypasses ``_usable``), AND
-          * ``supports_concrete(name)`` agrees with ground truth.
-
-        Raises ``RuntimeError`` (NOT ``assert``) so it survives
-        ``python -O``. This is the backstop that catches drift if a future
-        edit bypasses ``UsableMetricSet`` — the exact bug class this catalog
-        eradicates.
+        Thin delegator over :meth:`MetricCapabilityValidator.validate_consistency`.
+        Kept so tests and diagnostics can re-check consistency after
+        monkeypatching parser-side methods.
         """
-        handled_lower = {h.lower() for h in self._handled_names}
-        for name in self._by_name:
-            ground_truth = name.lower() in handled_lower
-            if self._usable.contains(name) != ground_truth:
-                raise RuntimeError(
-                    f"UnifiedMetricCatalog: UsableMetricSet.contains({name!r}) "
-                    f"disagrees with ground truth (handler presence); parser "
-                    f"gate is inconsistent."
-                )
-            resolved = self.resolve(name, None)
-            if (resolved is not None) != ground_truth:
-                raise RuntimeError(
-                    f"UnifiedMetricCatalog.resolve({name!r}) disagrees with "
-                    f"UsableMetricSet; parser gate is inconsistent."
-                )
-            if self.supports_concrete(name) != ground_truth:
-                raise RuntimeError(
-                    f"UnifiedMetricCatalog.supports_concrete({name!r}) "
-                    f"disagrees with UsableMetricSet; parser gate is "
-                    f"inconsistent."
-                )
-
-    # ====================================================================
-    # Private helpers
-    # ====================================================================
-
-    def _check_definition(
-        self,
-        definition: MarketMetricDefinition,
-        available_data_class: str,
-    ) -> MetricCapabilityResult:
-        """Check computability for a name with a MarketMetricDefinition."""
-        if not definition.implemented:
-            return MetricCapabilityResult(
-                metric=definition.name,
-                supported=True,
-                computable=False,
-                confidence=MetricConfidence.UNAVAILABLE,
-                warnings=("Metric catalogued but not yet implemented.",),
-            )
-
-        # Confidence honesty: no handler → not computable. The usable set
-        # is the authority for handler presence (INV-1).
-        if not self._usable.contains(definition.name):
-            return MetricCapabilityResult(
-                metric=definition.name,
-                supported=True,
-                computable=False,
-                confidence=MetricConfidence.UNAVAILABLE,
-                warnings=("No handler registered for this metric.",),
-            )
-
-        try:
-            dc = DataClass(available_data_class)
-        except ValueError:
-            dc = DataClass.DAILY_OHLCV
-
-        return self._check_data_class(definition, dc)
-
-    def _check_data_class(
-        self,
-        definition: MarketMetricDefinition,
-        available_class: DataClass,
-    ) -> MetricCapabilityResult:
-        """Check data-class requirements for a handled metric."""
-        if not _is_class_available(definition.required_data_classes, available_class):
-            return MetricCapabilityResult(
-                metric=definition.name,
-                supported=True,
-                computable=False,
-                confidence=MetricConfidence.UNAVAILABLE,
-                missing_data_classes=tuple(
-                    dc.value for dc in definition.required_data_classes
-                ),
-                missing_providers=definition.required_providers,
-                proxy_candidates=definition.proxy_candidates,
-            )
-
-        # Column availability (Scenario 2): a metric requiring columns the
-        # data class cannot provide (e.g. opening_volume/closing_volume) is
-        # not computable, even when the data class itself is available.
-        missing_cols = _missing_columns(definition.required_columns, available_class)
-        if missing_cols:
-            return MetricCapabilityResult(
-                metric=definition.name,
-                supported=True,
-                computable=False,
-                confidence=MetricConfidence.UNAVAILABLE,
-                warnings=(
-                    f"Requires column(s) {missing_cols} not provided by "
-                    f"{available_class.value} data.",
-                ),
-                missing_providers=definition.required_providers,
-                proxy_candidates=definition.proxy_candidates,
-            )
-
-        return MetricCapabilityResult(
-            metric=definition.name,
-            supported=True,
-            computable=True,
-            confidence=definition.confidence,
-            selected_metric=definition.name,
-        )
-
-    def _check_parser_indicator(self, name: str) -> MetricCapabilityResult:
-        """Check a name that has no MarketMetricDefinition (legacy indicator)."""
-        if not self._strategy_catalog.supports_concrete(name):
-            return MetricCapabilityResult(
-                metric=name,
-                supported=False,
-                computable=False,
-                confidence=MetricConfidence.UNAVAILABLE,
-                warnings=("Unknown metric name.",),
-            )
-
-        if name in self._handled_names:
-            # proxy_-prefixed indicators are approximations, not actual data.
-            # This is capability-side (check): legacy parser indicators are
-            # checked against the full handler set, not the registry usable
-            # set (which only tracks MarketMetricDefinition entries).
-            confidence = (
-                MetricConfidence.PROXY
-                if name.startswith("proxy_")
-                else MetricConfidence.ACTUAL
-            )
-            return MetricCapabilityResult(
-                metric=name,
-                supported=True,
-                computable=True,
-                confidence=confidence,
-                selected_metric=name,
-            )
-
-        return MetricCapabilityResult(
-            metric=name,
-            supported=True,
-            computable=False,
-            confidence=MetricConfidence.UNAVAILABLE,
-            warnings=("No handler registered for this indicator.",),
-        )
-
-    def _select_best_path(
-        self,
-        definition: MarketMetricDefinition,
-        dc: DataClass,
-        interval: str,
-        force_proxy: bool,
-    ) -> MetricCapabilityResult:
-        """Walk resolution paths by priority and select the first match."""
-        paths = sorted(definition.resolution_paths, key=lambda p: p.priority)
-        selected: MetricResolutionPath | None = None
-
-        for path in paths:
-            if force_proxy and path.confidence in (
-                MetricConfidence.ACTUAL,
-                MetricConfidence.APPROXIMATION,
-            ):
-                continue
-            if force_proxy:
-                selected = path
-                break
-            if path.required_data_class != dc:
-                continue
-            if path.interval_min and dc == DataClass.INTRADAY_OHLCV:
-                if not _interval_matches(interval, path.interval_min):
-                    continue
-            selected = path
-            break
-
-        if selected is not None:
-            return MetricCapabilityResult(
-                metric=definition.name,
-                supported=True,
-                computable=True,
-                confidence=selected.confidence,
-                selected_metric=selected.metric_name,
-                available_paths=definition.resolution_paths,
-            )
-
-        return MetricCapabilityResult(
-            metric=definition.name,
-            supported=True,
-            computable=False,
-            confidence=MetricConfidence.UNAVAILABLE,
-            available_paths=definition.resolution_paths,
-            missing_data_classes=tuple(p.required_data_class.value for p in paths),
-        )
+        self._validator.validate_consistency(self)

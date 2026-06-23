@@ -6,11 +6,15 @@ values, seeds with their SMA, then applies Wilder smoothing.
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from collections import deque
 from math import isnan
 
 
-class AtrState:
+class AtrState(StreamingIndicatorState):
     """Streaming state for the ``atr`` indicator.
 
     Matches ``pandas_ta.atr``: collects ``period`` TR values for an SMA

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 import math
 from typing import Any
 
@@ -62,7 +66,7 @@ _PREFIX_RECOMPUTE_NAMES = frozenset(
 )
 
 
-class PrefixRecomputeIndicatorState:
+class PrefixRecomputeIndicatorState(StreamingIndicatorState):
     """Causal prefix recompute state for dependency-heavy metrics.
 
     The state stores all bars seen so far and recomputes the requested metric on

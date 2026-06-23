@@ -7,12 +7,16 @@ state. Matches ``pandas_ta.macd`` with default parameters.
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from math import isnan
 
 from finbar_strategy_runtime.indicators.streaming.ema_state import EmaState
 
 
-class MacdState:
+class MacdState(StreamingIndicatorState):
     """Streaming state for ``macd``, ``macd_signal``, ``macd_hist``.
 
     Single source of truth: one ``EmaState(12)`` for the fast EMA, one

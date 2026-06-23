@@ -25,6 +25,107 @@ class PositionCloser:
 
     # -- Public API -----------------------------------------------------
 
+    def close(
+        self,
+        state: SimulationState,
+        exit_price: float,
+        bar_date: str,
+        exit_reason: str,
+        *,
+        slippage_pct: float,
+        commission_pct: float,
+        margin_manager=None,
+    ) -> None:
+        """Close the open position: settle cash, margin, borrow, record trade.
+
+        Owns the full exit settlement (Moved Method — previously inlined in
+        ``PositionExecutor.exit_position``, which was a Feature-Envy god
+        method reading 8 fields off ``state.position``). The executor now
+        delegates here and stays a thin Facade.
+
+        Args:
+            state: Mutable backtest state (position, cash, totals, trades).
+            exit_price: Raw exit price before slippage.
+            bar_date: Bar timestamp for the trade record / borrow calc.
+            exit_reason: Machine-readable reason ("signal", "stop_loss", …).
+            slippage_pct: Directional slippage fraction applied to the fill.
+            commission_pct: Per-side commission fraction of fill cost.
+            margin_manager: Optional full-margin account manager.
+        """
+        position = state.position
+        abs_size = abs(position.size)
+        cash_before = state.cash
+        entry_price = position.entry_price
+        entry_date = position.entry_date
+        direction = position.direction
+
+        fill_price = _apply_slippage(exit_price, direction, "exit", slippage_pct)
+        fill_cost = abs_size * fill_price
+        commission = _commission(fill_cost, commission_pct)
+        state.total_commission += commission
+        state.total_slippage += abs(fill_price - exit_price) * abs_size
+
+        gross_pnl = self.calc_pnl(position.size, entry_price, fill_price, abs_size)
+        entry_commission = position.entry_commission
+        borrow = self.borrow_cost(
+            abs_size, entry_price, direction, entry_date, bar_date
+        )
+        net_pnl = gross_pnl - entry_commission - commission - borrow
+        state.total_borrow_cost += borrow
+        state.cash += self.cash_settlement(
+            position.size, fill_cost, commission, borrow
+        )
+        self.release_margin(state, abs_size, entry_price)
+        if margin_manager is not None:
+            margin_manager.settle_exit(
+                state,
+                fill_cost,
+                commission,
+                abs_size,
+                entry_price,
+                direction,
+                borrow,
+            )
+
+        trade = self.build_trade(
+            state=state,
+            entry_date=entry_date,
+            exit_date=bar_date,
+            entry_price=entry_price,
+            exit_price=fill_price,
+            abs_size=abs_size,
+            gross_pnl=gross_pnl,
+            net_pnl=net_pnl,
+            entry_commission=entry_commission,
+            exit_commission=commission,
+            borrow_cost=borrow,
+            direction=direction,
+            exit_reason=exit_reason,
+        )
+        state.trades.append(trade.to_dict())
+        logger.info(
+            "[EXIT]  %s | %s | exit=%.2f entry=%.2f size=%s | "
+            "NetPnL=%.2f GrossPnL=%.2f (%.2f%%) | "
+            "cash: %.2f->%.2f (d=%.2f) | bars=%d reason=%s margin=%.2f "
+            "borrow=%.2f",
+            bar_date,
+            direction.upper(),
+            exit_price,
+            entry_price,
+            abs_size,
+            net_pnl,
+            gross_pnl,
+            (net_pnl / (entry_price * abs_size) * 100) if entry_price > 0 else 0,
+            cash_before,
+            state.cash,
+            state.cash - cash_before,
+            position.bars_held,
+            exit_reason,
+            state.used_margin,
+            borrow,
+        )
+        position.reset()
+
     def check_liquidation(
         self,
         state: SimulationState,
@@ -202,3 +303,36 @@ def _parse_timestamp(raw: str, time_basis: str):
             )
         raw = raw[:10]
     return datetime.fromisoformat(raw)
+
+
+# Multiplicative sign per (direction, side): entry longens and exit shortens
+# for longs; the reverse for shorts. Module-level so the table is built once.
+_SLIPPAGE_SIGN: dict[tuple[str, str], float] = {
+    ("long", "entry"): 1.0,
+    ("long", "exit"): -1.0,
+    ("short", "entry"): -1.0,
+    ("short", "exit"): 1.0,
+}
+
+
+def _apply_slippage(
+    price: float, direction: str, side: str, slippage_pct: float
+) -> float:
+    """Apply directional slippage to *price* for one fill.
+
+    Single source of truth for slippage (used by both the closer and the
+    executor), replacing the duplicated per-class logic.
+    """
+    if slippage_pct <= 0:
+        return price
+    sign = _SLIPPAGE_SIGN.get((direction, side), 0)
+    if sign == 0:
+        return price
+    return price * (1.0 + sign * slippage_pct)
+
+
+def _commission(gross: float, commission_pct: float) -> float:
+    """Compute per-side commission for a fill of given gross value."""
+    if commission_pct <= 0:
+        return 0.0
+    return abs(gross) * commission_pct

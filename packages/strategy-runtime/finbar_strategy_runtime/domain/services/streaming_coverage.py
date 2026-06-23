@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.domain.entities.streaming_coverage_matrix import (
-    StreamingCoverageMatrix,
-)
 from finbar_strategy_runtime.domain.entities.streaming_coverage_report import (
     StreamingCoverageReport,
 )
-from finbar_strategy_runtime.domain.services.unknown_metric_error import (
+from finbar_strategy_runtime.domain.entities.unknown_metric_error import (
     UnknownMetricError,
 )
 from finbar_strategy_runtime.indicators._streaming_classifier import (
     UnsupportedStreamingIndicatorError,
     classify_indicator,
+)
+from finbar_strategy_runtime.parser.streaming_coverage_loader import (
+    load_default_streaming_coverage_matrix,
 )
 
 
@@ -30,7 +30,7 @@ def classify_streaming_coverage(metric_names: list[str]) -> StreamingCoverageRep
         UnknownMetricError: If a metric is neither in the matrix nor accepted
             by the streaming classifier.
     """
-    matrix = StreamingCoverageMatrix.load_default()
+    matrix = load_default_streaming_coverage_matrix()
     correct: list[str] = []
     unsupported: list[str] = []
     silent_wrong: list[str] = []

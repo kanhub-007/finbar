@@ -13,6 +13,10 @@ from datetime import datetime
 
 import pandas as pd
 
+from finbar_strategy_runtime.domain.entities.warmup_validation_result import (
+    WarmupValidationResult,
+)
+
 
 class RequiredDataValidator:
     """Data-driven warmup/readiness for an enriched frame.
@@ -34,87 +38,112 @@ class RequiredDataValidator:
             required_columns: Column names the strategy needs to evaluate.
 
         Returns:
-            Dict with keys:
-                warmup_bars: int — index of first tradable row.
-                first_tradable: str — timestamp of first tradable row.
-                skipped_bars_due_to_warmup: int — same as warmup_bars.
-                skipped_bars_due_to_missing: int — bars skipped after warmup.
-                missing_after_warmup: list[str] — columns still missing.
-                no_tradable_bars: bool — True if no row is fully valid.
+            ``WarmupValidationResult`` (call ``.to_dict()`` for the legacy
+            dict shape).
         """
         bars = len(frame)
-        missing_after_warmup: list[str] = []
-        warmup_bars = 0
-        first_tradable = ""
 
         if not required_columns or bars == 0:
-            return {
-                "warmup_bars": 0,
-                "first_tradable": "",
-                "skipped_bars_due_to_warmup": 0,
-                "skipped_bars_due_to_missing": 0,
-                "missing_after_warmup": [],
-                "no_tradable_bars": False,
-            }
+            return WarmupValidationResult(
+                warmup_bars=0,
+                first_tradable="",
+                skipped_bars_due_to_warmup=0,
+                skipped_bars_due_to_missing=0,
+            )
 
-        unknown = [
-            col for col in required_columns if col not in frame.columns
-        ]
+        unknown = [c for c in required_columns if c not in frame.columns]
         if unknown:
-            return {
-                "warmup_bars": 0,
-                "first_tradable": "",
-                "skipped_bars_due_to_warmup": 0,
-                "skipped_bars_due_to_missing": bars,
-                "missing_after_warmup": unknown,
-                "no_tradable_bars": True,
-            }
+            return WarmupValidationResult(
+                warmup_bars=0,
+                first_tradable="",
+                skipped_bars_due_to_warmup=0,
+                skipped_bars_due_to_missing=bars,
+                missing_after_warmup=unknown,
+                no_tradable_bars=True,
+            )
 
+        return self._validate_present(frame, required_columns, bars)
+
+    def _validate_present(
+        self,
+        frame: pd.DataFrame,
+        required_columns: list[str],
+        bars: int,
+    ) -> WarmupValidationResult:
+        """Validate a frame where all required columns are present."""
         subset = self._to_numeric_subset(frame, required_columns)
         valid_mask = subset.notna().all(axis=1)
 
-        first_valid_idx = valid_mask.idxmax() if valid_mask.any() else None
-        if first_valid_idx is not None:
-            warmup_bars = frame.index.get_loc(first_valid_idx)
-            ts = frame.index[warmup_bars]
-            if isinstance(ts, datetime):
-                first_tradable = ts.strftime("%Y-%m-%dT%H:%M:%S")
-            else:
-                first_tradable = str(ts)
-
-            post_mask = valid_mask.iloc[warmup_bars:]
-            if not post_mask.all():
-                for column in required_columns:
-                    col_valid = (
-                        subset[column].iloc[warmup_bars:].notna()
-                    )
-                    if not col_valid.all():
-                        missing_after_warmup.append(column)
-        else:
-            warmup_bars = bars
+        if not valid_mask.any():
             never_valid = [
-                col
-                for col in required_columns
-                if subset[col].notna().sum() == 0
+                c for c in required_columns
+                if subset[c].notna().sum() == 0
             ]
-            missing_after_warmup = never_valid
-
-        no_tradable = warmup_bars >= bars
-        skipped_missing = 0
-        if missing_after_warmup:
-            col_subset = subset[missing_after_warmup]
-            skipped_missing = int(
-                col_subset.iloc[warmup_bars:].isna().any(axis=1).sum()
+            return WarmupValidationResult(
+                warmup_bars=bars,
+                first_tradable="",
+                skipped_bars_due_to_warmup=bars,
+                skipped_bars_due_to_missing=0,
+                missing_after_warmup=never_valid,
+                no_tradable_bars=True,
             )
 
-        return {
-            "warmup_bars": warmup_bars,
-            "first_tradable": first_tradable,
-            "skipped_bars_due_to_warmup": warmup_bars,
-            "skipped_bars_due_to_missing": skipped_missing,
-            "missing_after_warmup": missing_after_warmup,
-            "no_tradable_bars": no_tradable,
-        }
+        first_valid_idx = valid_mask.idxmax()
+        warmup_bars = frame.index.get_loc(first_valid_idx)
+        ts = frame.index[warmup_bars]
+        first_tradable = (
+            ts.strftime("%Y-%m-%dT%H:%M:%S")
+            if isinstance(ts, datetime)
+            else str(ts)
+        )
+
+        missing_after_warmup = self._columns_missing_after(
+            subset, required_columns, warmup_bars
+        )
+        skipped_missing = self._count_skipped(
+            subset, missing_after_warmup, warmup_bars
+        )
+        return WarmupValidationResult(
+            warmup_bars=warmup_bars,
+            first_tradable=first_tradable,
+            skipped_bars_due_to_warmup=warmup_bars,
+            skipped_bars_due_to_missing=skipped_missing,
+            missing_after_warmup=missing_after_warmup,
+            no_tradable_bars=warmup_bars >= bars,
+        )
+
+    @staticmethod
+    def _columns_missing_after(
+        subset: pd.DataFrame,
+        required_columns: list[str],
+        warmup_bars: int,
+    ) -> list[str]:
+        """Return required columns that still have NaN values after warmup."""
+        missing: list[str] = []
+        tail = subset.iloc[warmup_bars:]
+        if tail.notna().all(axis=1).all():
+            return missing
+        for column in required_columns:
+            if not tail[column].notna().all():
+                missing.append(column)
+        return missing
+
+    @staticmethod
+    def _count_skipped(
+        subset: pd.DataFrame,
+        missing_after_warmup: list[str],
+        warmup_bars: int,
+    ) -> int:
+        """Count bars after warmup that are non-tradable due to missing cols."""
+        if not missing_after_warmup:
+            return 0
+        return int(
+            subset[missing_after_warmup]
+            .iloc[warmup_bars:]
+            .isna()
+            .any(axis=1)
+            .sum()
+        )
 
     @staticmethod
     def _to_numeric_subset(

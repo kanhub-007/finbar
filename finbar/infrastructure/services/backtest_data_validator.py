@@ -114,7 +114,10 @@ def validate_required_data(
         RequiredDataValidator,
     )
 
-    return RequiredDataValidator().validate(frame, required_columns)
+    # The package validator now returns a typed WarmupValidationResult DTO;
+    # collapse to the legacy dict shape so finbar's dict-based callers are
+    # unchanged.
+    return RequiredDataValidator().validate(frame, required_columns).to_dict()
 
 
 def _to_numeric_subset(

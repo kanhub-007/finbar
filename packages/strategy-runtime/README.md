@@ -551,11 +551,16 @@ The package is deliberately limited to the runtime subset:
 | Data fetching (exchange APIs, web scrapers) | Build your own fetcher |
 | REST API / HTTP servers | Add FastAPI, Flask, or similar |
 | SQL repositories / ORM tables | Add SQLAlchemy or your preferred ORM |
-| Backtest engine (fills, slippage, position sizing, equity curves) | Implement in your backtester |
+| Backtest **bar loop / runner / venue** | Implement in your backtester |
 | Optimization (grid search, walk-forward) | Implement in your optimizer |
 | Job managers / async queues | Add Celery, RQ, or asyncio |
 | Live order execution / exchange gateways | Implement in your trading bot |
 | Portfolio construction / correlation / allocation | Add your allocation logic |
+
+**Note:** The package *does* include `simulation/` primitives — position
+sizing, fills + slippage, margin accounting, and performance metrics
+(Sharpe, Sortino, drawdown, rolling stats). What it does **not** include
+is the bar loop itself: feed the primitives from your own runner.
 
 **Forbidden dependencies:** FastAPI, FastMCP, SQLAlchemy, HTTP clients,
 exchange SDKs, or any application-specific packages.

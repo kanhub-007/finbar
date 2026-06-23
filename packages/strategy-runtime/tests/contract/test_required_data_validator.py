@@ -125,15 +125,15 @@ class TestRequiredDataValidator:
         validator = RequiredDataValidator()
         result = validator.validate(enriched_mtf_frame, required_columns)
 
-        assert result == golden
+        assert result.to_dict() == golden
 
     def test_s5_empty_required_columns(self, enriched_mtf_frame):
         validator = RequiredDataValidator()
         result = validator.validate(enriched_mtf_frame, [])
 
-        assert result["warmup_bars"] == 0
-        assert not result["no_tradable_bars"]
-        assert result["missing_after_warmup"] == []
+        assert result.warmup_bars == 0
+        assert not result.no_tradable_bars
+        assert result.missing_after_warmup == []
 
     def test_s5_empty_frame(self, strategy_context):
         _, _, _, required_columns = strategy_context
@@ -141,9 +141,9 @@ class TestRequiredDataValidator:
         validator = RequiredDataValidator()
         result = validator.validate(empty, required_columns)
 
-        assert result["warmup_bars"] == 0
-        assert not result["no_tradable_bars"]
-        assert result["missing_after_warmup"] == []
+        assert result.warmup_bars == 0
+        assert not result.no_tradable_bars
+        assert result.missing_after_warmup == []
 
     def test_s5_column_never_valid(self, enriched_mtf_frame, strategy_context):
         _, _, _, required_columns = strategy_context
@@ -154,5 +154,5 @@ class TestRequiredDataValidator:
         validator = RequiredDataValidator()
         result = validator.validate(frame, cols)
 
-        assert result["no_tradable_bars"]
-        assert len(result["missing_after_warmup"]) > 0
+        assert result.no_tradable_bars
+        assert len(result.missing_after_warmup) > 0

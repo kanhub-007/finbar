@@ -14,6 +14,10 @@ for the full windowed recompute, and identical to the existing
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from dataclasses import dataclass
 from typing import Any
 
@@ -35,7 +39,7 @@ class _VpLevels:
     val: float
 
 
-class IncrementalSessionVpState:
+class IncrementalSessionVpState(StreamingIndicatorState):
     """Expanding session VP using the identical batch handler algorithm.
 
     Maintains a growing buffer of the current session's bars. On each bar,

@@ -6,11 +6,15 @@ Serves ``bb_upper``, ``bb_middle``, ``bb_lower`` from a single state.
 
 from __future__ import annotations
 
+from finbar_strategy_runtime.indicators.streaming.streaming_indicator_state import (
+    StreamingIndicatorState,
+)
+
 from collections import deque
 from math import isnan, sqrt
 
 
-class BbState:
+class BbState(StreamingIndicatorState):
     """Streaming state for ``bb_upper``, ``bb_middle``, ``bb_lower``.
 
     Maintains a bounded deque of closes and online mean/variance via

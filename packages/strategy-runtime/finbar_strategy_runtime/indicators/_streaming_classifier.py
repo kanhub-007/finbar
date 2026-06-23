@@ -95,11 +95,11 @@ def classify_indicator(name: str) -> IndicatorKind:
         return IndicatorKind.WINDOWED
 
     # Tier 4: Windowed-default — any other registered handler
-    from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
-        _INDICATOR_HANDLERS,
+    from finbar_strategy_runtime.indicators._handler_registry import (
+        default_handler_registry,
     )
 
-    if name in _INDICATOR_HANDLERS:
+    if name in default_handler_registry():
         return IndicatorKind.WINDOWED
 
     # Tier 5: UNKNOWN — genuinely unknowable

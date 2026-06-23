@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from finbar_strategy_runtime.domain.entities.streaming_coverage_matrix import (
-    StreamingCoverageMatrix,
+from finbar_strategy_runtime.parser.streaming_coverage_loader import (
+    load_default_streaming_coverage_matrix,
 )
 from tests.support.causal_streaming_sweep_report import CausalStreamingSweepReport
 
@@ -17,7 +17,7 @@ def run_causal_streaming_sweep(metric_names: list[str]) -> CausalStreamingSweepR
     Returns:
         CausalStreamingSweepReport summarising any non-green classifications.
     """
-    matrix = StreamingCoverageMatrix.load_default()
+    matrix = load_default_streaming_coverage_matrix()
     unsupported: list[str] = []
     silent_wrong: list[str] = []
     loud_nan_mismatch: list[str] = []

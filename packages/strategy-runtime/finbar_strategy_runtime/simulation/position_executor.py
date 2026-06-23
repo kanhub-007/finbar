@@ -19,15 +19,19 @@ from finbar_strategy_runtime.simulation.intrabar_exit_resolver import (
 from finbar_strategy_runtime.simulation.margin_account_manager import (
     MarginAccountManager,
 )
-from finbar_strategy_runtime.simulation.position_closer import PositionCloser
+from finbar_strategy_runtime.simulation.position_closer import (
+    PositionCloser,
+    _apply_slippage as _apply_slippage_shared,
+    _commission as _commission_shared,
+)
 from finbar_strategy_runtime.simulation.position_opener import PositionOpener
 from finbar_strategy_runtime.simulation.position_sizer import PositionSizer
 
 logger = logging.getLogger(__name__)
 
 # Multiplicative sign per (direction, side): entry longens and exit shortens
-# for longs; the reverse for shorts. Module-level constant so the lookup
-# table is built once instead of per fill.
+# for longs; the reverse for shorts. Kept for backward compatibility; the
+# canonical sign table now lives in ``position_closer`` (single source).
 _SLIPPAGE_SIGN: dict[tuple[str, str], float] = {
     ("long", "entry"): 1.0,
     ("long", "exit"): -1.0,
@@ -116,7 +120,7 @@ class PositionExecutor:
         if not self._opener.stop_valid(entry, fill_price, date):
             return
         portfolio = self._portfolio_value(state, fill_price)
-        size = self._sizer.resolve(state, entry, fill_price, portfolio)
+        size = self._sizer.resolve(state, entry, fill_price, portfolio, date)
         if size <= 0:
             self._opener.add_diagnostic(
                 state,
@@ -135,81 +139,20 @@ class PositionExecutor:
         bar_date: str,
         exit_reason: str = "signal",
     ) -> None:
-        """Close the current position and record the trade."""
-        abs_size = abs(state.position.size)
-        cash_before = state.cash
-        entry_price = state.position.entry_price
-        entry_date = state.position.entry_date
-        direction = state.position.direction
+        """Close the current position and record the trade.
 
-        fill_price = self._apply_slippage(exit_price, direction, "exit")
-        fill_cost = abs_size * fill_price
-        commission = self._commission(fill_cost)
-        state.total_commission += commission
-        state.total_slippage += abs(fill_price - exit_price) * abs_size
-
-        gross_pnl = self._closer.calc_pnl(
-            state.position.size, entry_price, fill_price, abs_size
-        )
-        entry_commission = state.position.entry_commission
-        borrow = self._closer.borrow_cost(
-            abs_size, entry_price, direction, entry_date, bar_date
-        )
-        net_pnl = gross_pnl - entry_commission - commission - borrow
-        state.total_borrow_cost += borrow
-        state.cash += self._closer.cash_settlement(
-            state.position.size, fill_cost, commission, borrow
-        )
-        self._closer.release_margin(state, abs_size, entry_price)
-        if self._margin is not None:
-            self._margin.settle_exit(
-                state,
-                fill_cost,
-                commission,
-                abs_size,
-                entry_price,
-                direction,
-                borrow,
-            )
-
-        trade = self._closer.build_trade(
-            state=state,
-            entry_date=entry_date,
-            exit_date=bar_date,
-            entry_price=entry_price,
-            exit_price=fill_price,
-            abs_size=abs_size,
-            gross_pnl=gross_pnl,
-            net_pnl=net_pnl,
-            entry_commission=entry_commission,
-            exit_commission=commission,
-            borrow_cost=borrow,
-            direction=direction,
-            exit_reason=exit_reason,
-        )
-        state.trades.append(trade.to_dict())
-        logger.info(
-            "[EXIT]  %s | %s | exit=%.2f entry=%.2f size=%s | "
-            "NetPnL=%.2f GrossPnL=%.2f (%.2f%%) | "
-            "cash: %.2f->%.2f (d=%.2f) | bars=%d reason=%s margin=%.2f "
-            "borrow=%.2f",
-            bar_date,
-            direction.upper(),
+        Thin Facade over :meth:`PositionCloser.close`, which owns the full
+        exit settlement (slippage, PnL, margin, borrow, trade recording).
+        """
+        self._closer.close(
+            state,
             exit_price,
-            entry_price,
-            abs_size,
-            net_pnl,
-            gross_pnl,
-            (net_pnl / (entry_price * abs_size) * 100) if entry_price > 0 else 0,
-            cash_before,
-            state.cash,
-            state.cash - cash_before,
-            state.position.bars_held,
+            bar_date,
             exit_reason,
-            state.used_margin,
-            borrow,
+            slippage_pct=self._slippage_pct,
+            commission_pct=self._commission_pct,
+            margin_manager=self._margin,
         )
-        state.position.reset()
 
     def check_exit_conditions(
         self,
@@ -318,19 +261,14 @@ class PositionExecutor:
         )
 
     def _apply_slippage(self, price: float, direction: str, side: str) -> float:
-        if self._slippage_pct <= 0:
-            return price
-        # Look up the precomputed multiplicative factor in a module-level
-        # constant instead of allocating a fresh dict literal on every fill.
-        sign = _SLIPPAGE_SIGN.get((direction, side), 0)
-        if sign == 0:
-            return price
-        return price * (1.0 + sign * self._slippage_pct)
+        """Apply directional slippage (delegates to the shared helper)."""
+        return _apply_slippage_shared(
+            price, direction, side, self._slippage_pct
+        )
 
     def _commission(self, gross: float) -> float:
-        if self._commission_pct <= 0:
-            return 0.0
-        return abs(gross) * self._commission_pct
+        """Per-side commission (delegates to the shared helper)."""
+        return _commission_shared(gross, self._commission_pct)
 
 
 def _scale_price(
