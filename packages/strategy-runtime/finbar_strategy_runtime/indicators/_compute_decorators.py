@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+import numpy as np
 import pandas as pd
 
 from finbar_strategy_runtime.indicators._handler_registry import HandlerRegistry
@@ -33,13 +34,21 @@ def _last_value(value: object) -> float:
     """Return the scalar value at the end of *value*.
 
     Accepts a pandas Series (``.iloc[-1]``) or any scalar coercible to
-    float. Returns NaN for None.
+    float. Returns NaN for None. Boolean values are returned as-is so
+    streaming boolean metrics match the batch prefix oracle type.
     """
     if value is None:
         return float("nan")
     if hasattr(value, "iloc"):
-        return float(value.iloc[-1])
-    return float(value)
+        raw = value.iloc[-1]
+    else:
+        raw = value
+    # Preserve boolean type for streaming parity with batch oracle.
+    # ``float(True)`` would return ``1.0`` while the oracle returns a numpy
+    # ``True`` — those are NOT equivalent under strict assertion helpers.
+    if isinstance(raw, (bool, np.bool_)):
+        return raw
+    return float(raw)
 
 
 def log_failures_as_nan(name: str, compute: ComputeCallable) -> ComputeCallable:

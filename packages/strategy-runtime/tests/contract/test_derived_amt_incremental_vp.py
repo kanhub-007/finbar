@@ -30,6 +30,7 @@ from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
 from finbar_strategy_runtime.indicators.streaming.streaming_indicator_engine import (
     StreamingIndicatorEngine,
 )
+from tests.support.metric_value_assertions import assert_equivalent_metric_value
 
 
 def _long_session_bars(bars: int = 90) -> list[dict]:
@@ -67,30 +68,6 @@ def _prefix_oracle_value(metric: str, bars: list[dict], index: int):
     return enriched.iloc[-1][metric]
 
 
-def _assert_streaming_matches_oracle(metric: str, got, expected) -> None:
-    """Compare a streaming value to the prefix oracle, type-tolerant for bools.
-
-    The streaming windowed read path coerces booleans to float (0.0/1.0), a
-    pre-existing representation detail. For boolean metrics we compare the
-    truthiness; for numeric metrics we use a tight tolerance.
-    """
-    if isinstance(expected, (bool,)) or str(expected).lower() in ("true", "false"):
-        assert bool(got) == bool(expected), (
-            f"{metric}: got {got!r}, expected {expected!r}"
-        )
-        return
-    try:
-        g, e = float(got), float(expected)
-    except (TypeError, ValueError):
-        assert got == expected, f"{metric}: got {got!r}, expected {expected!r}"
-        return
-    if math.isnan(g) and math.isnan(e):
-        return
-    assert math.isclose(g, e, rel_tol=1e-9, abs_tol=1e-12), (
-        f"{metric}: got {g}, expected {e}"
-    )
-
-
 class TestDerivedAmtGetsIncrementalVp:
     """Derived AMT metrics match the prefix oracle without explicit vp_*."""
 
@@ -110,7 +87,7 @@ class TestDerivedAmtGetsIncrementalVp:
                 continue
             got = latest.values.get("near_vah")
             expected = _prefix_oracle_value("near_vah", bars, index)
-            _assert_streaming_matches_oracle("near_vah", got, expected)
+            assert_equivalent_metric_value(got, expected, "near_vah")
 
     def test_value_area_width_pct_matches_prefix_oracle_deep_in_session(self):
         """value_area_width_pct (float, derived from vp_vah/vp_val) matches.
@@ -128,8 +105,8 @@ class TestDerivedAmtGetsIncrementalVp:
                 continue
             got = latest.values.get("value_area_width_pct")
             expected = _prefix_oracle_value("value_area_width_pct", bars, index)
-            _assert_streaming_matches_oracle(
-                "value_area_width_pct", got, expected
+            assert_equivalent_metric_value(
+                got, expected, "value_area_width_pct"
             )
 
     def test_rejection_from_edge_matches_prefix_oracle_deep_in_session(self):
@@ -144,8 +121,8 @@ class TestDerivedAmtGetsIncrementalVp:
                 continue
             got = latest.values.get("rejection_from_edge")
             expected = _prefix_oracle_value("rejection_from_edge", bars, index)
-            _assert_streaming_matches_oracle(
-                "rejection_from_edge", got, expected
+            assert_equivalent_metric_value(
+                got, expected, "rejection_from_edge"
             )
 
     def test_engine_creates_session_vp_for_transitive_dep(self):
