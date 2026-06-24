@@ -30,6 +30,22 @@ from finbar_strategy_runtime.indicators._streaming_classifier import (
 
 MIN_BARS = 10
 
+# ── VP-derived metric names that can be computed directly (O(1)) ──────────
+# These metrics only depend on incremental VP values (vp_poc/vp_vah/vp_val)
+# plus the current bar's OHLCV.  They do NOT need the full windowed buffer.
+_VP_DERIVED_NAMES: frozenset[str] = frozenset({
+    "near_val", "near_vah",
+    "above_value", "below_value", "inside_value", "at_poc",
+    "balance_status",
+    "rejection_from_edge", "acceptance_into_value",
+    "acceptance_outside_value", "poc_rejection",
+    "value_area_width_pct", "distance_to_vah_pct", "distance_to_val_pct",
+    "value_area_migration", "edge_volume_building",
+    "poc_slope_5", "poc_slope_20",
+    "profile_shape", "day_type_classification",
+    "stopping_volume", "climax_volume",
+})
+
 # ── multi-output family mappings ────────────────────────────────────────────
 # Each family key maps to a set of indicator names served by one state class.
 
@@ -78,6 +94,9 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         # Batched windowed state — all scalar-windowed metrics on this
         # timeframe share ONE ring buffer + ONE batch compute pass per bar.
         self._batched_windowed: object | None = None
+        # Direct VP-derived state — AMT metrics computed O(1) from
+        # incremental VP + current bar (replaces batched state when applicable).
+        self._vp_derived: object | None = None
         # Incremental session VP state — shared by vp_poc / vp_vah / vp_val.
         self._session_vp: object | None = None
         self._bars_seen: int = 0
@@ -124,18 +143,39 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         # go through the batched state so the injected vp_* columns reach its
         # batch compute pass (a standalone WindowedIndicatorState has no
         # injection hook and would recompute VP on a truncated window).
-        if len(windowed_names) >= 2 or (
-            len(windowed_names) == 1 and self._session_vp is not None
+        #
+        # VP-derived metrics that only need incremental VP + current bar are
+        # routed to DirectVpDerivedState (O(1)) instead of the batched windowed
+        # state (O(window)). This eliminates the 500-bar recompute for ~20 AMT
+        # metrics and gives a ~50× speedup on intraday data.
+        vp_derived_names = [n for n in windowed_names if n in _VP_DERIVED_NAMES]
+        truly_windowed_names = [n for n in windowed_names if n not in _VP_DERIVED_NAMES]
+
+        if vp_derived_names and self._session_vp is not None:
+            from finbar_strategy_runtime.indicators.streaming.direct_vp_derived_state import (  # noqa: E501
+                DirectVpDerivedState,
+            )
+            self._vp_derived = DirectVpDerivedState(
+                names=vp_derived_names,
+                session_vp=self._session_vp,
+            )
+        else:
+            self._vp_derived = None
+
+        if len(truly_windowed_names) >= 2 or (
+            len(truly_windowed_names) == 1
+            and self._session_vp is not None
+            and self._vp_derived is None  # no direct state → need injection
         ):
             from finbar_strategy_runtime.indicators.streaming.windowed_indicator_state import (  # noqa: E501
                 BatchedWindowedState,
             )
 
             batched_window = max(
-                self._resolve_window(name) for name in windowed_names
+                self._resolve_window(name) for name in truly_windowed_names
             )
             self._batched_windowed = BatchedWindowedState(
-                names=windowed_names,
+                names=truly_windowed_names,
                 maxlen=batched_window,
             )
             if self._session_vp is not None:
@@ -148,9 +188,14 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
                 self._states[name] = self._session_vp
                 continue
             family = _canonical_family(name)
-            if self._batched_windowed is not None and name in windowed_names:
+            if self._vp_derived is not None and name in vp_derived_names:
+                self._states[name] = self._vp_derived
+                continue
+            if self._batched_windowed is not None and name in truly_windowed_names:
                 self._family_states[family] = self._batched_windowed
-            elif family not in self._family_states:
+                self._states[name] = self._batched_windowed
+                continue
+            if family not in self._family_states:
                 self._family_states[family] = self._build_state(name)
             self._states[name] = self._family_states[family]
 
@@ -161,10 +206,13 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         # in update() with injected VP values, so it must not be updated
         # again in the family-state loop (a double update would corrupt
         # its ring buffer and break VP-injection deque alignment).
+        # The vp_derived state is also EXCLUDED for the same reason.
         unique: list[object] = []
         seen_ids: set[int] = set()
         if self._batched_windowed is not None:
             seen_ids.add(id(self._batched_windowed))
+        if self._vp_derived is not None:
+            seen_ids.add(id(self._vp_derived))
         for state in self._family_states.values():
             if id(state) in seen_ids:
                 continue
@@ -182,6 +230,8 @@ class StreamingIndicatorEngine(StreamingIndicatorCalculator):
         # de-duplicated set built in __init__, so no per-bar id() dance.
         if self._session_vp is not None:
             self._session_vp.update(bar)
+        if self._vp_derived is not None:
+            self._vp_derived.update(bar)  # O(1) — direct computation
         if self._batched_windowed is not None:
             injected = {}
             if self._session_vp is not None:

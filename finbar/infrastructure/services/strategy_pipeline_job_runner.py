@@ -22,6 +22,7 @@ class StrategyPipelineJobRunner:
         self,
         manager: StrategyPipelineJobManager,
         pipeline_factory: Any,
+        indicator_job_manager: Any | None = None,
     ):
         """Create the runner.
 
@@ -29,9 +30,13 @@ class StrategyPipelineJobRunner:
             manager: The job manager for status updates.
             pipeline_factory: Callable that returns a fresh
                 RunStrategyPipelineUseCase instance.
+            indicator_job_manager: Optional indicator job manager for
+                cancelling child indicator jobs when the pipeline is
+                cancelled.
         """
         self._manager = manager
         self._pipeline_factory = pipeline_factory
+        self._indicator_job_manager = indicator_job_manager
 
     async def run(
         self,
@@ -103,6 +108,10 @@ class StrategyPipelineJobRunner:
                     error=error_msg,
                 )
         except asyncio.CancelledError:
+            # Cancel orphaned child indicator jobs so they don't
+            # block the indicator job queue for subsequent pipelines.
+            if self._indicator_job_manager is not None:
+                self._indicator_job_manager.cancel_all_non_terminal()
             manager.update(
                 job,
                 status="cancelled",

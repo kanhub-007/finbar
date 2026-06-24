@@ -227,7 +227,7 @@ class CachedPriceIndicatorJobRunner(IndicatorJobRunner):
                     f"Loading informative bars: {alias} ({interval})",
                 )
                 info_bars[alias] = _load_cached_bars_for_interval(
-                    job.symbol,
+                    getattr(info, "symbol", "") or job.symbol,
                     job.source,
                     interval,
                     job.start_date,

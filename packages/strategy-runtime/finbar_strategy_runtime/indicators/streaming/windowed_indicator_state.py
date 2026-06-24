@@ -42,6 +42,9 @@ class WindowedIndicatorState(StreamingIndicatorState):
     converts the deque to a DataFrame (preserving real bar timestamps),
     calls the registered batch handler, and returns the latest-row value
     for the indicator.
+
+    Maintains an incremental DataFrame to avoid full deque→DataFrame
+    conversion on every bar — only the new row is allocated.
     """
 
     def __init__(self, name: str, maxlen: int) -> None:
@@ -52,8 +55,12 @@ class WindowedIndicatorState(StreamingIndicatorState):
             maxlen: Maximum number of bars to retain (window size).
         """
         self._name = name
-        self._buffer: deque[dict] = deque(maxlen=max(maxlen, 1))
+        self._maxlen = max(maxlen, 1)
+        self._buffer: deque[dict] = deque(maxlen=self._maxlen)
         self._current: float = float("nan")
+        # Incremental frame: built once from the deque, then maintained
+        # row-by-row to avoid O(window) list→DataFrame per bar.
+        self._frame: pd.DataFrame | None = None
 
     def update(self, bar: dict) -> float:
         """Ingest one bar; recompute indicator and return latest value.
@@ -82,11 +89,10 @@ class WindowedIndicatorState(StreamingIndicatorState):
         return val
 
     def to_frame(self) -> pd.DataFrame:
-        """Convert the deque buffer to a DataFrame with a real timestamp index.
+        """Return the maintained DataFrame, building it incrementally.
 
-        The index is derived from each bar's ``timestamp`` field. Missing
-        timestamps raise ``ValueError`` for every windowed indicator; a
-        synthetic index would make some metric values silently wrong.
+        On first call, builds from the full deque. Thereafter, only
+        appends the single new row (or pops the oldest if at capacity).
 
         Returns:
             DataFrame of the buffered bars with a DatetimeIndex.
@@ -98,9 +104,9 @@ class WindowedIndicatorState(StreamingIndicatorState):
         if n == 0:
             return pd.DataFrame()
 
+        # Check that all bars have timestamps (validation only).
         timestamps = [bar.get("timestamp") for bar in self._buffer]
         present = [t for t in timestamps if t is not None]
-
         if len(present) != n:
             raise ValueError(
                 f"Indicator '{self._name}' requires real bar timestamps,"
@@ -109,13 +115,30 @@ class WindowedIndicatorState(StreamingIndicatorState):
                 f" or datetime timestamps."
             )
 
-        index = parse_bar_timestamps(present)
-        return pd.DataFrame(list(self._buffer), index=index)
+        if self._frame is not None:
+            # Incremental: append the single new bar (last in deque).
+            new_bar = self._buffer[-1]
+            new_ts = parse_bar_timestamps([new_bar["timestamp"]])[0]
+            new_row = pd.DataFrame([new_bar], index=[new_ts])
+            self._frame = pd.concat(
+                [self._frame, new_row]
+            )
+        else:
+            # First call: build from the full deque.
+            index = parse_bar_timestamps(present)
+            self._frame = pd.DataFrame(list(self._buffer), index=index)
+
+        # Trim to window size: drop oldest row(s) if over capacity.
+        if len(self._frame) > self._maxlen:
+            self._frame = self._frame.iloc[-self._maxlen:]
+
+        return self._frame
 
     def reset(self) -> None:
         """Clear accumulated state."""
         self._buffer.clear()
         self._current = float("nan")
+        self._frame = None
 
     @property
     def value(self) -> float:
@@ -165,6 +188,9 @@ class BatchedWindowedState(StreamingIndicatorState):
     ``{name: latest_value}``. On the AMT strategy this turns 10 batch
     calls per bar into 1 — an immediate ~10× speedup for both Finbar
     backtests and Finbot live/replay.
+
+    Maintains an incremental DataFrame to avoid full deque→DataFrame
+    conversion on every bar.
     """
 
     def __init__(self, names: list[str], maxlen: int) -> None:
@@ -178,6 +204,8 @@ class BatchedWindowedState(StreamingIndicatorState):
         self._maxlen = max(maxlen, 1)
         self._buffer: deque[dict] = deque(maxlen=self._maxlen)
         self._currents: dict[str, float] = {name: float("nan") for name in names}
+        # Incremental frame: built once, then maintained row-by-row.
+        self._frame: pd.DataFrame | None = None
         # Columns provided externally (e.g. VP from incremental state).
         # These are injected into the frame before batch compute so
         # dependent handlers find them without recomputing.
@@ -230,7 +258,12 @@ class BatchedWindowedState(StreamingIndicatorState):
         return dict(self._currents)
 
     def _to_frame(self) -> pd.DataFrame:
-        """Convert the shared deque buffer to a timestamp-indexed DataFrame."""
+        """Return the maintained DataFrame, building it incrementally.
+
+        On first call, builds from the full deque. Thereafter only
+        appends the single new row. Avoids O(window) list→DataFrame
+        conversion on every bar.
+        """
         n = len(self._buffer)
         if n == 0:
             return pd.DataFrame()
@@ -242,8 +275,25 @@ class BatchedWindowedState(StreamingIndicatorState):
                 " one or more buffered bars have no parseable 'timestamp'"
                 " field."
             )
-        index = parse_bar_timestamps(present)
-        return pd.DataFrame(list(self._buffer), index=index)
+
+        if self._frame is not None:
+            # Incremental: append the single new bar.
+            new_bar = self._buffer[-1]
+            new_ts = parse_bar_timestamps([new_bar["timestamp"]])[0]
+            new_row = pd.DataFrame([new_bar], index=[new_ts])
+            self._frame = pd.concat(
+                [self._frame, new_row]
+            )
+        else:
+            # First call: build from the full deque.
+            index = parse_bar_timestamps(present)
+            self._frame = pd.DataFrame(list(self._buffer), index=index)
+
+        # Trim to window size.
+        if len(self._frame) > self._maxlen:
+            self._frame = self._frame.iloc[-self._maxlen:]
+
+        return self._frame
 
     def reset(self) -> None:
         """Clear accumulated state."""
@@ -251,6 +301,7 @@ class BatchedWindowedState(StreamingIndicatorState):
         for dq in self._injected_columns.values():
             dq.clear()
         self._currents = {name: float("nan") for name in self._names}
+        self._frame = None
 
     @property
     def values(self) -> dict[str, float]:

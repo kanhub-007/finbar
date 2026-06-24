@@ -377,7 +377,7 @@ def _frame_from_rows(rows: list[dict]) -> pd.DataFrame:
     frame = pd.DataFrame(rows)
     ts = frame["timestamp"].tolist()
     index = parse_bar_timestamps(ts)
-    return frame.drop(columns=["timestamp"]).set_index(index)
+    return frame.drop(columns=["timestamp"]).set_index(index.rename("timestamp"))
 
 
 def _merge_informative(merged: dict, info_row: dict, suffix: str) -> None:

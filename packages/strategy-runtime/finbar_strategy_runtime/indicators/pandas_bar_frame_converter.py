@@ -32,6 +32,11 @@ class PandasBarFrameConverter(BarFrameConverter):
     def frame_to_bars(self, frame: pd.DataFrame) -> list[dict]:
         """Convert a DataFrame back to JSON-serializable bar dictionaries."""
         df = frame.reset_index()
+        # The causal enricher may produce an unnamed index, which pandas
+        # surfaces as "index".  Rename it back to "timestamp" so the
+        # backtest validator can find the field.
+        if "index" in df.columns and "timestamp" not in df.columns:
+            df.rename(columns={"index": "timestamp"}, inplace=True)
         datetime_cols = df.select_dtypes(
             include=["datetime64[ns]", "datetime64[ns, UTC]"]
         ).columns

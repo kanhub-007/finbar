@@ -91,11 +91,13 @@ class ComputeStrategyIndicatorsUseCase:
         # informative job on its declared timeframe rather than a fallback.
         _informative_map: dict[str, str] = {}
         _alias_to_interval: dict[str, str] = {}
+        _alias_to_symbol: dict[str, str] = {}
         if timeframes and timeframes.informative:
             for info in timeframes.informative:
                 suffix = f"_{info.interval}"
                 _informative_map[suffix] = info.alias
                 _alias_to_interval[info.alias] = info.interval
+                _alias_to_symbol[info.alias] = getattr(info, "symbol", "") or ""
 
         primary_indicators = list(validation.primary_required_indicators)
         # Collect condition-referenced columns per timeframe.
@@ -130,7 +132,7 @@ class ComputeStrategyIndicatorsUseCase:
         ).items():
             inputs.append(
                 _IndicatorInput(
-                    symbol=symbol.upper(),
+                    symbol=_alias_to_symbol.get(alias) or symbol.upper(),
                     source=source,
                     interval=_alias_to_interval.get(alias, "1d"),
                     timeframe_alias=alias,

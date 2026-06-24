@@ -163,4 +163,5 @@ def make_strategy_pipeline_job_runner() -> StrategyPipelineJobRunner:
     return StrategyPipelineJobRunner(
         manager=get_strategy_pipeline_job_manager(),
         pipeline_factory=make_run_strategy_pipeline_use_case,
+        indicator_job_manager=get_indicator_job_manager(),
     )

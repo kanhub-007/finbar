@@ -31,7 +31,7 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
     provides the fast path during a live session and is safe to evict.
     """
 
-    _MAX_CONCURRENT_JOBS = 3
+    _MAX_CONCURRENT_JOBS = 6
 
     def __init__(
         self,
@@ -251,6 +251,18 @@ class InMemoryIndicatorJobManager(IndicatorJobManager, IndicatorArtifactProvider
             page_size,
         )
         return page_bars, page, page_size, total_pages
+
+    def cancel_all_non_terminal(self) -> int:
+        """Cancel all queued or running indicator jobs.
+
+        Returns the count of jobs that were cancelled."""
+        cancelled = 0
+        with self._lock:
+            job_ids = list(self._jobs.keys())
+        for job_id in job_ids:
+            if self.cancel(job_id):
+                cancelled += 1
+        return cancelled
 
     def cancel(self, job_id: str) -> IndicatorJob | None:
         """Cancel a queued or running job."""

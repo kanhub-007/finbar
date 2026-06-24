@@ -144,6 +144,21 @@ class StrategyRiskResolver:
             return name
         if name in aliases:
             return aliases[name]
+        # Auto-resolve: when the default "atr" doesn't match any user
+        # alias (common when users name their indicator "atr_14"), scan
+        # the indicator list for any ATR-type indicator and use its
+        # concrete column name so the risk model always finds a value.
+        if name == "atr":
+            for alias_name in aliases:
+                if alias_name.startswith("atr") and (
+                    alias_name == "atr"
+                    or alias_name.startswith("atr_")
+                ):
+                    # Verify it really is an ATR-type indicator
+                    if self._catalog.supports_concrete(alias_name):
+                        resolved = self._catalog.resolve("atr", None)
+                        if resolved and alias_name.startswith(resolved):
+                            return aliases[alias_name]
         if self._catalog.supports_concrete(name):
             return name
         errors.append(

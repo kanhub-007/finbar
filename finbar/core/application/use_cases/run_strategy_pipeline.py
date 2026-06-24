@@ -169,40 +169,43 @@ class RunStrategyPipelineUseCase:
             enrichment_mode,
         )
 
-    def _required_intervals(self, validation) -> list[tuple[str, str]]:
-        result: list[tuple[str, str]] = []
+    def _required_intervals(self, validation) -> list[tuple[str, str, str]]:
+        result: list[tuple[str, str, str]] = []
         timeframes = validation.definition.timeframes
         primary_interval = timeframes.primary if timeframes else "1d"
-        result.append((primary_interval, "primary"))
+        result.append((primary_interval, "primary", ""))
         for alias, _ in validation.informative_required_indicators.items():
             interval = "1h"
+            info_symbol = ""
             if timeframes and timeframes.informative:
                 for item in timeframes.informative:
                     if getattr(item, "alias", "") == alias:
                         interval = str(getattr(item, "interval", "1h"))
+                        info_symbol = getattr(item, "symbol", "") or ""
                         break
-            result.append((interval, alias))
+            result.append((interval, alias, info_symbol))
         return result
 
     def _check_price_cache(
         self,
         symbol: str,
         source: str,
-        intervals: list[tuple[str, str]],
+        intervals: list[tuple[str, str, str]],
     ) -> dict[str, str]:
         if self._price_cache_factory is None:
             return {}
         cache = self._price_cache_factory()
         missing: dict[str, str] = {}
-        for interval, _alias in intervals:
+        for interval, _alias, info_symbol in intervals:
+            check_symbol = info_symbol or symbol
             bars = cache.query_bars(
-                symbol=symbol,
+                symbol=check_symbol,
                 source=source,
                 interval=interval,
             )
             if not bars:
                 missing[interval] = (
-                    f"fetch_price_history('{symbol}', interval='{interval}', "
+                    f"fetch_price_history('{check_symbol}', interval='{interval}', "
                     f"source='{source}')"
                 )
         return missing

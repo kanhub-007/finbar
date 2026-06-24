@@ -68,7 +68,7 @@ class StrategyTimeframeResolver:
     ) -> list[InformativeTimeframe]:
         items: list[InformativeTimeframe] = []
         aliases: set[str] = set()
-        intervals: set[str] = set()
+        intervals: set[tuple[str, str]] = set()
         for index, item in enumerate(raw):
             path = f"$.timeframes.informative[{index}]"
             parsed = self._parse_one_informative(item, path, aliases, intervals, errors)
@@ -81,7 +81,7 @@ class StrategyTimeframeResolver:
         raw: Any,
         path: str,
         aliases: set[str],
-        intervals: set[str],
+        intervals: set[tuple[str, str]],
         errors: list[StrategyValidationError],
     ) -> InformativeTimeframe | None:
         if not isinstance(raw, dict):
@@ -89,14 +89,15 @@ class StrategyTimeframeResolver:
             return None
         alias = str(raw.get("alias", "")).strip()
         interval = str(raw.get("interval", "")).strip()
+        symbol = str(raw.get("symbol", "")).strip()
         if self._alias_invalid(alias, aliases, f"{path}.alias", errors):
             return None
-        if self._interval_invalid(interval, intervals, f"{path}.interval", errors):
+        if self._interval_invalid(interval, symbol, intervals, f"{path}.interval", errors):
             return None
         if self._validate_interval(interval, f"{path}.interval", errors):
             aliases.add(alias)
-            intervals.add(interval)
-            return InformativeTimeframe(alias=alias, interval=interval)
+            intervals.add((interval, symbol or ""))
+            return InformativeTimeframe(alias=alias, interval=interval, symbol=symbol)
         return None
 
     def _alias_invalid(
@@ -123,15 +124,17 @@ class StrategyTimeframeResolver:
     def _interval_invalid(
         self,
         interval: str,
-        intervals: set[str],
+        symbol: str,
+        intervals: set[tuple[str, str]],
         path: str,
         errors: list[StrategyValidationError],
     ) -> bool:
-        if interval in intervals:
+        key = (interval, symbol or "")
+        if key in intervals:
             errors.append(
                 make_error(
                     path,
-                    "informative intervals must be unique to avoid column collisions",
+                    "informative intervals must be unique per symbol to avoid column collisions",
                     "duplicate_timeframe_interval",
                 )
             )
