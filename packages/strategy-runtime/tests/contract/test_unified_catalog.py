@@ -151,7 +151,7 @@ class TestNameSyncInvariant:
         the parser must accept that name. Otherwise the handler computes
         a column the parser would reject as unknown_operand.
         """
-        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+        from finbar_strategy_runtime.indicators._handler_registry import (
             _INDICATOR_HANDLERS,
         )
 
@@ -163,7 +163,7 @@ class TestNameSyncInvariant:
 
     def test_catalogued_without_handler_not_computable(self, catalog):
         """Catalogued names that lack a handler report computable=False."""
-        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+        from finbar_strategy_runtime.indicators._handler_registry import (
             _INDICATOR_HANDLERS,
         )
 
@@ -184,7 +184,7 @@ class TestNameSyncInvariant:
         entries). Dynamic/parameterized names like sma_5, atr_2 are accepted
         via pattern matching in the legacy strategy catalog.
         """
-        from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+        from finbar_strategy_runtime.indicators._handler_registry import (
             _INDICATOR_HANDLERS,
         )
         from finbar_strategy_runtime.parser._metric_registry import (
@@ -434,8 +434,15 @@ class TestResolveHandlerGate:
         # The validator must flag the inconsistency and name some divergent
         # metric (which one fires first is insertion-order dependent).
         assert "inconsistent" in msg, exc.value
-        known_handled = [n for n in ("bag_holding", "fong_holden_tran_spread", "bos")]
-        assert any(n in str(exc.value) for n in known_handled), exc.value
+        # The validator must name SOME divergent metric. Which one fires
+        # first is insertion-order dependent, so assert the message
+        # interpolates a metric name (format: resolve('<name>') disagrees)
+        # rather than a hardcoded sample that drifts when handler
+        # registration order changes.
+        err = str(exc.value)
+        assert "resolve('" in err and "')" in err, (
+            f"validator did not name a divergent metric: {err}"
+        )
 
     def test_validate_consistency_raises_when_supports_concrete_drifts(
         self, catalog, monkeypatch

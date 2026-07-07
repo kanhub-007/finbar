@@ -153,13 +153,36 @@ class StrategyDefinitionParser(ParserInterface):
         if errors:
             return StrategyValidationResult(valid=False, errors=errors)
 
+        required_columns = RequiredColumnCollector().collect(definition)
+        feature_names = {f.name for f in features}
+        informative_intervals = _informative_intervals(definition)
+        primary_required = _primary_required_indicators(
+            indicators, required_columns, feature_names, self._catalog,
+            informative_intervals,
+        )
+        # Surface condition-referenced columns nothing recognizes (likely
+        # typos). Auto-resolution below must not mask them.
+        unknown = _unknown_required_columns(
+            required_columns, primary_required, feature_names, informative_intervals
+        )
+        if unknown:
+            errors.append(
+                _err(
+                    "$.sides",
+                    f"conditions reference unknown column(s) {unknown}: not OHLCV, "
+                    f"not a declared indicator, not a feature, and not in the "
+                    f"indicator catalog",
+                )
+            )
+            return StrategyValidationResult(valid=False, errors=errors)
+
         return StrategyValidationResult(
             valid=True,
             definition=definition,
             normalized=self._serializer.serialize(definition),
             required_indicators=[item.column_name() for item in indicators],
-            required_columns=RequiredColumnCollector().collect(definition),
-            primary_required_indicators=_primary_required_indicators(indicators),
+            required_columns=required_columns,
+            primary_required_indicators=primary_required,
             informative_required_indicators=_informative_required_indicators(
                 indicators
             ),
@@ -210,12 +233,79 @@ def _metadata(data: dict) -> dict:
     return raw if isinstance(raw, dict) else {}
 
 
-def _primary_required_indicators(indicators: list) -> list[str]:
+def _primary_required_indicators(
+    indicators: list,
+    required_columns: list[str],
+    feature_names: set[str],
+    catalog: IndicatorCapabilityProvider,
+    informative_intervals: set[str],
+) -> list[str]:
+    """Concrete primary-timeframe indicators that must be computed.
+
+    Unions explicitly declared indicators with condition-referenced columns
+    the catalog recognizes as concrete indicators. Without the union, omitting
+    the ``indicators[]`` array silently produced a bare-OHLCV backtest,
+    because the indicator job runner trusts this field (not ``required_columns``)
+    to decide what to compute. Feature-output columns are excluded -- they are
+    produced by the feature calculator, not the indicator calculator.
+    MTF-routed columns (e.g. ``sma_20_1h``) are excluded -- they belong to an
+    informative timeframe and are resolved by its own job.
+    """
     required: list[str] = []
     for item in indicators:
         if item.timeframe == "primary" and item.concrete_name not in required:
             required.append(item.concrete_name)
+    for col in required_columns:
+        if (
+            col in _BASE_COLUMN_NAMES
+            or col in required
+            or col in feature_names
+        ):
+            continue
+        if any(col.endswith(f"_{iv}") for iv in informative_intervals):
+            continue
+        if catalog.supports_concrete(col):
+            required.append(col)
     return required
+
+
+def _informative_intervals(definition: StrategyDefinition) -> set[str]:
+    """Return declared informative interval strings (for MTF suffix detection)."""
+    intervals: set[str] = set()
+    if definition.timeframes and definition.timeframes.informative:
+        for info in definition.timeframes.informative:
+            intervals.add(str(info.interval))
+    return intervals
+
+
+def _unknown_required_columns(
+    required_columns: list[str],
+    primary_required: list[str],
+    feature_names: set[str],
+    informative_intervals: set[str],
+) -> list[str]:
+    """Return condition-referenced columns nothing recognizes (likely typos).
+
+    A column is unknown if it is not OHLCV, not a declared or auto-resolved
+    primary indicator, not a feature output, and not MTF-routed (i.e. does not
+    end with a declared informative interval suffix like ``_1h``).
+    """
+    primary_set = set(primary_required)
+    unknown: list[str] = []
+    for col in required_columns:
+        if (
+            col in _BASE_COLUMN_NAMES
+            or col in primary_set
+            or col in feature_names
+        ):
+            continue
+        if any(col.endswith(f"_{iv}") for iv in informative_intervals):
+            continue
+        unknown.append(col)
+    return unknown
+
+
+_BASE_COLUMN_NAMES = {"open", "high", "low", "close", "volume", "timestamp"}
 
 
 def _informative_required_indicators(indicators: list) -> dict[str, list[str]]:

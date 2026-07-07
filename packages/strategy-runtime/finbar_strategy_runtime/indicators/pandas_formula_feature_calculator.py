@@ -85,6 +85,13 @@ def _parse_operand(raw: Any) -> FormulaNode:
     if isinstance(raw, str):
         return FormulaNode(kind="indicator", value=raw, label=raw)
     if isinstance(raw, dict):
+        # A nested expression tree (dict carrying a recognized ``op``) must
+        # recurse through _parse_node. Without this, an inner arithmetic
+        # node like {op: '-', left: close, right: sma_20} was treated as a
+        # leaf and resolved to literal 0, silently NaN-ing the whole feature.
+        op = raw.get("op", "")
+        if op in _COMPARISON_OPS | _ARITHMETIC_OPS | _LOGICAL_OPS | _UNARY_OPS:
+            return _parse_node(raw)
         kind = raw.get("kind", "indicator")
         value = raw.get("value", raw.get("indicator", raw.get("field", 0)))
         label = raw.get("label", str(value))
@@ -92,21 +99,34 @@ def _parse_operand(raw: Any) -> FormulaNode:
     return FormulaNode(kind="literal", value=0.0, label="0")
 
 
+def _value(node: FormulaNode, df: pd.DataFrame) -> pd.Series:
+    """Resolve a node that may be either a leaf or a nested expression.
+
+    Op-bearing nodes (produced when ``_parse_operand`` recurses into a nested
+    expression tree) are evaluated; leaf nodes are resolved directly. This is
+    the single dispatch point that lets arithmetic/comparison operands be
+    themselves arbitrary expressions instead of leaves only.
+    """
+    if node.op:
+        return _evaluate(node, df)
+    return _resolve(node, df)
+
+
 def _evaluate(node: FormulaNode, df: pd.DataFrame) -> pd.Series:
     """Evaluate a formula tree against a DataFrame and return a Series."""
     if node.op in _COMPARISON_OPS:
-        return _compare(node.op, _resolve(node.left, df), _resolve(node.right, df))
+        return _compare(node.op, _value(node.left, df), _value(node.right, df))
     if node.op in _ARITHMETIC_OPS:
-        return _arithmetic(node.op, _resolve(node.left, df), _resolve(node.right, df))
+        return _arithmetic(node.op, _value(node.left, df), _value(node.right, df))
     if node.op in _LOGICAL_OPS:
         results = [_evaluate(c, df) for c in node.children]
         return _logical(node.op, results)
     if node.op == "not":
-        return ~_evaluate(node.left, df).astype(bool)
+        return ~_value(node.left, df).astype(bool)
     if node.op == "abs":
-        return _resolve(node.left, df).abs()
+        return _value(node.left, df).abs()
     if node.op == "neg":
-        return -_resolve(node.left, df)
+        return -_value(node.left, df)
     return _resolve(node, df)
 
 

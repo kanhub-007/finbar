@@ -78,13 +78,27 @@ class StrategyFeatureResolver:
             return
         if feature_type == "formula":
             raw_expr = item.get("expression") or item.get("expr")
-            if raw_expr is not None:
-                raw_expr = _resolve_expr_params(
-                    raw_expr,
-                    resolved_params,
-                    f"{path}.expr",
-                    errors,
+            if raw_expr is None:
+                # Guard against the common typo of using ``formula:`` (the
+                # feature TYPE) as the expression key. Without this the feature
+                # was silently accepted with raw_expr=None and the calculator
+                # produced a null/absent column -- a silent wrong backtest.
+                errors.append(
+                    make_error(
+                        path,
+                        "formula feature must declare 'expression' or 'expr' "
+                        "with an expression tree (note: 'formula' is the "
+                        "feature TYPE, not the key for the expression). "
+                        "Example: expr: {op: '/', left: atr, right: close}",
+                    )
                 )
+                return
+            raw_expr = _resolve_expr_params(
+                raw_expr,
+                resolved_params,
+                f"{path}.expr",
+                errors,
+            )
             features.append(
                 FeatureSpec(
                     name=name,

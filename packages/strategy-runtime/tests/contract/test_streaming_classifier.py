@@ -11,7 +11,7 @@ import pytest
 
 def _collect_all_handler_names():
     """Return the set of all registered handler names (static + dynamic-checked)."""
-    from finbar_strategy_runtime.indicators.pandas_ta_indicator_calculator import (
+    from finbar_strategy_runtime.indicators._handler_registry import (
         _INDICATOR_HANDLERS,
     )
 
